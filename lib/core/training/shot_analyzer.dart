@@ -18,6 +18,7 @@ library;
 
 import 'dart:math' as math;
 
+import '../analysis/ball_speed.dart' show kTableLengthMeters;
 import '../analysis/ball_tracker.dart';
 import '../vision/detection.dart';
 
@@ -32,6 +33,7 @@ class Shot {
     required this.depth,
     required this.score,
     this.lateral = 0.5,
+    this.speedKmh = 0,
   });
 
   /// Time of the target-side bounce that completed the stroke.
@@ -39,6 +41,14 @@ class Shot {
 
   /// Peak horizontal approach speed of the flight, in normalized units/second.
   final double speed;
+
+  /// Peak horizontal approach speed scaled to real-world **km/h** via the
+  /// calibrated table ruler (the ITTF 2.74 m length spans the frame x-axis from
+  /// a side camera), the physical companion to the normalized [speed]. Unlike
+  /// [speed] — which saturates against an arbitrary reference — this is a
+  /// meaningful radar-gun-style pace a player can read. Defaults to `0` (no
+  /// scale known).
+  final double speedKmh;
 
   /// Where the ball landed on the target half: `0` at the net, `1` at the far
   /// baseline. Clamped to `[0, 1]`.
@@ -76,10 +86,12 @@ class TrainingConfig {
     this.depthTolerance = 0.35,
     this.referenceSpeed = 1.5,
     this.placementWeight = 0.6,
+    this.tableLengthMeters = kTableLengthMeters,
   })  : assert(targetDepth >= 0 && targetDepth <= 1),
         assert(depthTolerance > 0),
         assert(referenceSpeed > 0),
-        assert(placementWeight >= 0 && placementWeight <= 1);
+        assert(placementWeight >= 0 && placementWeight <= 1),
+        assert(tableLengthMeters > 0);
 
   /// The table layout (where the net sits) within the normalized frame.
   final TableGeometry geometry;
@@ -99,8 +111,16 @@ class TrainingConfig {
   /// Blend of placement vs pace in the final score (`1` = placement only).
   final double placementWeight;
 
+  /// Physical table length (metres) the frame x-span maps to, the ruler for
+  /// scaling a shot's along-table pace to real-world km/h (default ITTF 2.74 m).
+  final double tableLengthMeters;
+
   /// The half the ball should land on (opposite the player).
   TableSide get targetSide => playerSide.other;
+
+  /// Metres each normalized x-unit represents, given the table's frame x-span —
+  /// the along-table ruler for [Shot.speedKmh].
+  double get metersPerUnitX => tableLengthMeters / (geometry.right - geometry.left);
 }
 
 /// Aggregated feedback over a training session's [Shot]s.
@@ -112,6 +132,13 @@ class TrainingSummary {
   int get shotCount => shots.length;
 
   double get averageSpeed => _mean(shots.map((s) => s.speed));
+
+  /// Mean real-world peak pace across the session, in km/h (0 when empty).
+  double get averageSpeedKmh => _mean(shots.map((s) => s.speedKmh));
+
+  /// The fastest single shot in the session, in km/h (0 when empty).
+  double get maxSpeedKmh =>
+      shots.isEmpty ? 0 : shots.map((s) => s.speedKmh).reduce(math.max);
 
   double get averageDepth => _mean(shots.map((s) => s.depth));
 
@@ -223,6 +250,9 @@ class TrainingSummary {
       '$shotCount shots — grade $overallGrade ($pct%).',
       'Avg depth: ${(averageDepth * 100).round()}% of the far half.',
       'Avg pace: ${averageSpeed.toStringAsFixed(2)} units/s.',
+      if (maxSpeedKmh > 0)
+        'Ball speed: ${maxSpeedKmh.toStringAsFixed(0)} km/h top, '
+            '${averageSpeedKmh.toStringAsFixed(0)} km/h avg.',
       'Depth consistency: ${(consistency * 100).round()}%.',
       'Lateral consistency: ${(lateralConsistency * 100).round()}%.',
       if (shots.length >= 2) ...[
@@ -321,6 +351,7 @@ class ShotAnalyzer {
     final shot = Shot(
       timestampMs: bounce.timestampMs,
       speed: _peakSpeed,
+      speedKmh: _peakSpeed * config.metersPerUnitX * 3.6,
       depth: depth,
       lateral: lateral,
       score: score,

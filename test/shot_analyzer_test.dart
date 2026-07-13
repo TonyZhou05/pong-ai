@@ -101,6 +101,36 @@ void main() {
     });
   });
 
+  group('ShotAnalyzer — real-world speed', () {
+    test('a shot carries a physical km/h pace scaled by the table ruler', () {
+      final analyzer = ShotAnalyzer();
+      final shots = _run(analyzer, _arc([0.30, 0.60, 0.875, 0.95, 0.98]));
+
+      final shot = shots.single;
+      // Default full-frame geometry → 2.74 m per x-unit; km/h = units/s · m · 3.6.
+      expect(shot.speedKmh, closeTo(shot.speed * 2.74 * 3.6, 1e-9));
+      // Unlike the saturated normalized pace, the km/h is a legible, non-zero
+      // radar-gun number (a hard drive is tens of km/h).
+      expect(shot.speedKmh, greaterThan(20));
+    });
+
+    test('a narrower calibrated table span reads a slower km/h', () {
+      // Same motion, but the table only spans half the frame → half the metres
+      // per x-unit → half the km/h.
+      final analyzer = ShotAnalyzer(
+        config: const TrainingConfig(
+          geometry: TableGeometry(left: 0.25, right: 0.75, netX: 0.5),
+        ),
+      );
+      // Player-left target-right against a net at 0.5; land deep on the right.
+      final shots = _run(analyzer, _arc([0.30, 0.60, 0.70, 0.72, 0.74]));
+
+      final shot = shots.single;
+      // right-left = 0.5 → metresPerUnit = 2.74 / 0.5 = 5.48.
+      expect(shot.speedKmh, closeTo(shot.speed * 5.48 * 3.6, 1e-9));
+    });
+  });
+
   group('ShotAnalyzer — mirrored player side', () {
     test('player on the right grades a bounce on the left half', () {
       final analyzer = ShotAnalyzer(
@@ -215,6 +245,16 @@ void main() {
       expect(report, contains('Training summary'));
       expect(report, contains('2 shots'));
       expect(report, contains('grade A'));
+      expect(report, contains('km/h'));
+    });
+
+    test('the km/h line is omitted when no shot carries a real-world pace', () {
+      // Directly-built shots default speedKmh to 0 (no calibrated scale).
+      const summary = TrainingSummary([
+        Shot(timestampMs: 0, speed: 1, depth: 0.5, score: 0.8),
+      ]);
+      expect(summary.maxSpeedKmh, 0);
+      expect(summary.report(), isNot(contains('km/h')));
     });
   });
 

@@ -362,6 +362,19 @@ behind a `VisionService` interface. This lets us:
      (`Clipboard.setData`, no new dependency) with a confirmation snackbar.
 
 7. Training mode: shot segmentation + quality grading.
+   - **[done — iteration 33]** Training real-world shot-speed (km/h)
+     (`core/training/shot_analyzer.dart`). Each `Shot` recorded only a
+     *normalized* `speed` (units/s) which — as iterations 6/7 noted — saturates
+     against an arbitrary `referenceSpeed`, so a training drill had no legible
+     pace metric, the practice-mode gap left by iteration 32's match ball-speed
+     radar. `Shot` now also carries `speedKmh`: its peak along-table (frame-x)
+     approach speed scaled to real-world km/h via the same table ruler as
+     `BallSpeedEstimator` (`TrainingConfig.metersPerUnitX = tableLengthMeters /
+     (right - left)`, the ITTF 2.74 m length spanning the frame x-axis from a
+     side camera). `TrainingSummary` exposes `maxSpeedKmh` / `averageSpeedKmh`,
+     and `report()` gains a "Ball speed: N km/h top, M km/h avg" line (omitted
+     when no shot carries a scale), so the physical pace flows into both training
+     screens' on-screen summary and Copy-report export with zero widget changes.
    - **[done — iteration 30]** Training tempo / rhythm analytics
      (`core/training/shot_analyzer.dart`). Each `Shot` has carried a
      `timestampMs` since iteration 6, but `TrainingSummary` only ever reduced it
