@@ -77,6 +77,30 @@ class PlayerInsights {
     return best;
   }
 
+  /// The player's overall match rating in `[0, 1]` — the mean of every assessed
+  /// coachable dimension. Null when there is no data to assess.
+  double? get overallScore {
+    if (dimensions.isEmpty) return null;
+    var sum = 0.0;
+    for (final d in dimensions) {
+      sum += d.score;
+    }
+    return sum / dimensions.length;
+  }
+
+  /// An A–F letter grade for the player's match, from [overallScore]. Mirrors
+  /// the training-mode session grade so both modes surface one headline rating.
+  /// Returns `'–'` when there is no data to assess.
+  String get grade {
+    final s = overallScore;
+    if (s == null) return '–';
+    if (s >= 0.85) return 'A';
+    if (s >= 0.7) return 'B';
+    if (s >= 0.55) return 'C';
+    if (s >= 0.4) return 'D';
+    return 'F';
+  }
+
   /// The single most useful thing this player should work on next — the weakest
   /// dimension's cue, or encouragement when everything already clears
   /// [_goodEnough]. Null only when there is no data to assess.
@@ -178,7 +202,9 @@ class MatchInsights {
         lines.add('$name — not enough data');
         continue;
       }
-      lines.add('$name — Focus: ${insights.focusTip!}');
+      lines.add(
+        '$name — Grade ${insights.grade}, Focus: ${insights.focusTip!}',
+      );
       for (final d in insights.dimensions) {
         lines.add('  • ${d.name}: ${(d.score * 100).round()}%');
       }

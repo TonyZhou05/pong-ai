@@ -951,10 +951,10 @@ class _MatchOverPanel extends StatelessWidget {
                 style: theme.textTheme.labelLarge?.copyWith(color: Colors.white),
               ),
               for (final player in Player.values)
-                if (MatchInsights(summary).insightsFor(player).focusTip
-                    case final tip?)
+                if (MatchInsights(summary).insightsFor(player) case final pi
+                    when pi.focusTip != null)
                   Text(
-                    '${_name(player)}: $tip',
+                    '${_name(player)} (Grade ${pi.grade}): ${pi.focusTip}',
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: Colors.white70),
                   ),

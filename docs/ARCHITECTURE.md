@@ -563,10 +563,16 @@ behind a `VisionService` interface. This lets us:
      derived from `MatchSummary` with the denominator-guard
      so a dimension only appears when there is data for it. `insightsFor(player)`
      names the weakest as that player's focus (or encouragement when even the
-     weakest clears a 0.6 bar) and the strongest as a confirmed strength; a
-     `report()` "Coaching insights" section (flowing into `buildMatchReport`) and
-     a "Coaching" block in the Match summary panel surface each player's focus
-     cue. Pure Dart, unit-tested from a synthetic `MatchSummary`.
+     weakest clears a 0.6 bar) and the strongest as a confirmed strength.
+     Since iteration 97 `PlayerInsights` also exposes an `overallScore` (mean of
+     the assessed dimensions) and an A–F `grade` — the match analog of the
+     training-mode session grade — so each player gets one headline "how did I
+     play" rating; the grade prefixes the `report()` focus line ("Player A —
+     Grade C, Focus: …"), the Match/live-camera Coaching panels, and the
+     persisted `coaching.<seat>` JSON block. A `report()` "Coaching insights"
+     section (flowing into `buildMatchReport`) and a "Coaching" block in the
+     Match summary panel surface each player's focus cue. Pure Dart, unit-tested
+     from a synthetic `MatchSummary`.
    - **[done — iteration 37]** Match-tension analytics
      (`core/analysis/match_summary.dart`). Iteration 23's `MomentumChartView`
      *plotted* the running point differential (A−B after each rally) but no

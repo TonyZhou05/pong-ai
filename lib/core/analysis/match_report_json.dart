@@ -111,6 +111,8 @@ Map<String, Object?>? _movementJson(PlayerMovementStats m) {
 Map<String, Object?>? _coachingJson(PlayerInsights pi) {
   if (!pi.hasData) return null;
   return {
+    'grade': pi.grade,
+    'overallScore': _round(pi.overallScore!),
     'focus': pi.weakest!.name,
     'focusTip': pi.focusTip!,
     'strength': pi.strongest!.name,

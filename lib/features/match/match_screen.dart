@@ -651,10 +651,10 @@ class _SummaryPanel extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Coaching', style: theme.textTheme.labelLarge),
             for (final player in Player.values)
-              if (MatchInsights(summary).insightsFor(player).focusTip
-                  case final tip?)
+              if (MatchInsights(summary).insightsFor(player) case final pi
+                  when pi.focusTip != null)
                 Text(
-                  '${_name(player)}: $tip',
+                  '${_name(player)} (Grade ${pi.grade}): ${pi.focusTip}',
                   style: theme.textTheme.bodyMedium,
                 ),
           ],

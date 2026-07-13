@@ -160,5 +160,54 @@ void main() {
       expect(b.weakest!.name, 'Saving game points');
       expect(b.focusTip, contains('Dig in when down game point'));
     });
+
+    test('overall score is the mean of the assessed dimensions and grades it',
+        () {
+      // A holds 1 of 4 serves (0.25) and breaks 3 of 4 receives (0.75) ->
+      // mean 0.5 -> grade D (0.5 < the 0.55 C cutoff).
+      final summary = MatchSummary(
+        points: [
+          _ptS(Player.a, Player.a, 0),
+          _ptS(Player.b, Player.a, 1),
+          _ptS(Player.b, Player.a, 2),
+          _ptS(Player.b, Player.a, 3),
+          _ptS(Player.a, Player.b, 4),
+          _ptS(Player.a, Player.b, 5),
+          _ptS(Player.a, Player.b, 6),
+          _ptS(Player.b, Player.b, 7),
+        ],
+        finalState: _state(pointsA: 4, pointsB: 4),
+      );
+      final a = MatchInsights(summary).insightsFor(Player.a);
+
+      expect(a.overallScore, closeTo(0.5, 1e-9));
+      expect(a.grade, 'D');
+    });
+
+    test('no data yields a null overall score and a dash grade', () {
+      final a = MatchInsights(
+        MatchSummary(points: const [], finalState: _state()),
+      ).insightsFor(Player.a);
+      expect(a.overallScore, isNull);
+      expect(a.grade, '–');
+    });
+
+    test('report includes each player grade alongside the focus line', () {
+      final summary = MatchSummary(
+        points: [
+          _ptS(Player.a, Player.a, 0),
+          _ptS(Player.b, Player.a, 1),
+          _ptS(Player.b, Player.a, 2),
+          _ptS(Player.b, Player.a, 3),
+          _ptS(Player.a, Player.b, 4),
+          _ptS(Player.a, Player.b, 5),
+          _ptS(Player.a, Player.b, 6),
+          _ptS(Player.b, Player.b, 7),
+        ],
+        finalState: _state(pointsA: 4, pointsB: 4),
+      );
+      final report = MatchInsights(summary).report();
+      expect(report, contains('Player A — Grade D, Focus:'));
+    });
   });
 }

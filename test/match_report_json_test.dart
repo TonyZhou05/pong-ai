@@ -113,6 +113,8 @@ void main() {
         as Map<String, dynamic>;
     // Serve data was captured per point, so at least one player has a focus.
     final playerA = coaching['A'] as Map<String, dynamic>;
+    expect(playerA['grade'], isA<String>());
+    expect(playerA['overallScore'], isA<num>());
     expect(playerA['focus'], isA<String>());
     expect(playerA['focusTip'], isA<String>());
     expect(playerA['strength'], isA<String>());
