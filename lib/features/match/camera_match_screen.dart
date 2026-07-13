@@ -152,6 +152,10 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     if (_controller.undo()) setState(() {});
   }
 
+  void _setFirstServer(Player p) {
+    if (_controller.setFirstServer(p)) setState(() {});
+  }
+
   Widget _buildCameraPreview(BuildContext context) {
     final builder = widget.cameraPreviewBuilder;
     if (builder != null) return builder(context, _vision);
@@ -211,6 +215,11 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
               child: _LiveScoreboard(
                 state: state,
                 calibrating: _controller.isCalibrating,
+                // Let the user record who actually serves first while the match
+                // hasn't started, so the serve indicator and serve analytics
+                // aren't stuck assuming Player A.
+                onPickServer:
+                    _controller.matchNotStarted ? _setFirstServer : null,
               ),
             ),
             if (pending.isNotEmpty)
@@ -252,10 +261,18 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
 
 /// Translucent scoreboard overlaid on the camera preview.
 class _LiveScoreboard extends StatelessWidget {
-  const _LiveScoreboard({required this.state, required this.calibrating});
+  const _LiveScoreboard({
+    required this.state,
+    required this.calibrating,
+    this.onPickServer,
+  });
 
   final MatchState state;
   final bool calibrating;
+
+  /// Called when the user taps a player to set who serves first. Null once the
+  /// match has started (the first server can no longer change).
+  final void Function(Player)? onPickServer;
 
   @override
   Widget build(BuildContext context) {
@@ -293,6 +310,44 @@ class _LiveScoreboard extends StatelessWidget {
               ),
             ],
           ),
+          if (onPickServer != null)
+            _ServerPicker(server: state.server, onPick: onPickServer!),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lets the user record who serves the first point before the match starts, so
+/// the serve indicator and serve/receive analytics aren't stuck assuming A.
+class _ServerPicker extends StatelessWidget {
+  const _ServerPicker({required this.server, required this.onPick});
+
+  final Player server;
+  final void Function(Player) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'First server:',
+            style: theme.textTheme.labelMedium?.copyWith(color: Colors.white70),
+          ),
+          const SizedBox(width: 8),
+          for (final p in Player.values)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: ChoiceChip(
+                label: Text(p == Player.a ? 'A' : 'B'),
+                selected: server == p,
+                onSelected: (_) => onPick(p),
+              ),
+            ),
         ],
       ),
     );

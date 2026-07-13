@@ -339,6 +339,14 @@ behind a `VisionService` interface. This lets us:
      change (and their `undo` reversals). Footwork/coverage samples now stay
      attributed to the correct player after the players change ends, closing the
      iteration-61/62 follow-up.
+   - **[done — iteration 70]** First-server selection. `ScoringEngine` defaulted
+     to `Player.a` serving with no way to record who actually serves first, so
+     the "who's serving" indicator and the iteration-26 serve/receive analytics
+     were systematically wrong whenever B served first. `ScoringEngine.setFirstServer()`
+     (valid only before the first point) sets `server`/`initialServer`,
+     `MatchController.setFirstServer()`/`matchNotStarted` expose it, and
+     `CameraMatchScreen`'s scoreboard shows a "First server: A/B" chip picker
+     while the match hasn't started (throughout calibration too).
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
    clips, ready for SPIN/OpenTTGames conversion.

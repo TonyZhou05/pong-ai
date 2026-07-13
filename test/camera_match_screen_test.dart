@@ -180,4 +180,43 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets(
+    'first-server picker sets who serves before the match starts',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            matchControllerBuilder: MatchController.new,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // The picker is shown before any point is scored.
+      expect(find.text('First server:'), findsOneWidget);
+
+      // Default: Player A serves (serve icon shown on A's side).
+      await tester.tap(find.widgetWithText(ChoiceChip, 'B'));
+      await tester.pump();
+
+      // Feed the first scripted rally; Player B should now be recorded as the
+      // first server of the match.
+      for (final frame in demoMatchFrames().take(13)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      // A point was scored, so the picker disappears (first server locked in).
+      expect(find.text('First server:'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

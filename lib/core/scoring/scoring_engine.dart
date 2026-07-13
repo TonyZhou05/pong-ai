@@ -130,6 +130,25 @@ class ScoringEngine {
     return _state;
   }
 
+  /// Records who serves the very first point of the match.
+  ///
+  /// Valid only before the match has begun (no point awarded yet); returns
+  /// `false` and changes nothing once play has started. The app defaults to
+  /// [Player.a] serving, but the user (or a fine-tuned serve detector) can set
+  /// the real first server so the serve rotation, the "who's serving" indicator
+  /// and the serve/receive analytics are correct instead of always assuming A.
+  bool setFirstServer(Player p) {
+    if (_history.isNotEmpty ||
+        _state.pointsA != 0 ||
+        _state.pointsB != 0 ||
+        _state.gamesA != 0 ||
+        _state.gamesB != 0) {
+      return false;
+    }
+    _state = _state.copyWith(server: p, initialServer: p);
+    return true;
+  }
+
   /// Undo the last [awardPoint]. Returns true if something was undone.
   bool undo() {
     if (_history.isEmpty) return false;

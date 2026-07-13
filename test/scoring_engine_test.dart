@@ -110,4 +110,28 @@ void main() {
       expect(engine.undo(), isFalse); // nothing left
     });
   });
+
+  group('ScoringEngine — setFirstServer', () {
+    test('sets the first server before play and drives the rotation', () {
+      final engine = ScoringEngine();
+      expect(engine.state.server, Player.a); // default
+
+      expect(engine.setFirstServer(Player.b), isTrue);
+      expect(engine.state.server, Player.b);
+      expect(engine.state.initialServer, Player.b);
+
+      // Serve still switches every 2 points, now starting from B.
+      engine.awardPoint(Player.a);
+      expect(engine.state.server, Player.b);
+      engine.awardPoint(Player.a);
+      expect(engine.state.server, Player.a);
+    });
+
+    test('is rejected once a point has been scored', () {
+      final engine = ScoringEngine();
+      engine.awardPoint(Player.a);
+      expect(engine.setFirstServer(Player.b), isFalse);
+      expect(engine.state.initialServer, Player.a);
+    });
+  });
 }

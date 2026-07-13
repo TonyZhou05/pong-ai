@@ -344,6 +344,20 @@ class MatchController {
     return hi >= mid;
   }
 
+  /// Whether the match has not yet started (no point scored, no game won), so
+  /// the first server can still be chosen. The UI shows the server picker while
+  /// this is true, including throughout the calibration warm-up.
+  bool get matchNotStarted =>
+      !engine.state.isMatchOver &&
+      engine.state.pointsA == 0 &&
+      engine.state.pointsB == 0 &&
+      engine.state.gamesA == 0 &&
+      engine.state.gamesB == 0;
+
+  /// Records who serves the first point (see [ScoringEngine.setFirstServer]).
+  /// Only takes effect before play starts; returns true if applied.
+  bool setFirstServer(Player p) => engine.setFirstServer(p);
+
   /// Undo the most recent scored point. Returns true if something was undone.
   bool undo() {
     final gamesBefore = engine.state.gamesA + engine.state.gamesB;

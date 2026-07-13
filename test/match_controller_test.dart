@@ -423,4 +423,19 @@ void main() {
       expect(mc.movementFor(Player.b).averageX, closeTo(0.50, 1e-9));
     });
   });
+
+  group('MatchController — first server', () {
+    test('matchNotStarted allows setting the first server, then locks', () {
+      final mc = MatchController();
+      expect(mc.matchNotStarted, isTrue);
+      expect(mc.setFirstServer(Player.b), isTrue);
+      expect(mc.score.server, Player.b);
+      expect(mc.score.initialServer, Player.b);
+
+      mc.engine.awardPoint(Player.a);
+      expect(mc.matchNotStarted, isFalse);
+      expect(mc.setFirstServer(Player.a), isFalse);
+      expect(mc.score.initialServer, Player.b);
+    });
+  });
 }
