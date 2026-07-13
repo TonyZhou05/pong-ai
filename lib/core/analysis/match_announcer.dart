@@ -19,7 +19,10 @@
 /// one point from the game or match, the point call is suffixed with a spoken
 /// pressure cue ("Player A, 10–8. Game point Player A.") — the audible parity of
 /// the visual game-point/match-point banner, so a player who can't read the
-/// scoreboard still hears the climax coming.
+/// scoreboard still hears the climax coming. When the serve rotates on a point,
+/// the call also names the new server ("Player A, 5–3. Player B to serve.") —
+/// the audible parity of the visual serve indicator — so the across-table
+/// player knows to pick up the ball.
 ///
 /// It is deliberately Flutter- and audio-free: the actual speaking/haptic cue
 /// lives behind an injectable sink in the UI layer, so a text-to-speech engine
@@ -66,7 +69,7 @@ class MatchAnnouncer {
 
     // A point was scored within the current game (points total went up).
     if (state.pointsA + state.pointsB > prev.pointsA + prev.pointsB) {
-      return _pointCall(state);
+      return _pointCall(prev, state);
     }
 
     // No forward change (unchanged frame, or an undo stepped the score back).
@@ -85,7 +88,14 @@ class MatchAnnouncer {
   /// A." / "Match point Player B.") — the audible parity of the visual
   /// game-point/match-point banner, which is exactly what a player standing
   /// across the table (who can't read the scoreboard) needs to hear.
-  String _pointCall(MatchState s) {
+  ///
+  /// When the serve rotated to the other player on this point (the audible
+  /// parity of the visual serve indicator), the call names the new server
+  /// ("Player A, 5–3. Player B to serve.") so the across-table player knows to
+  /// pick up the ball. Any pressure cue stays the final word (the climax), so a
+  /// game-point serve change reads "Player A, 10–8. Player B to serve. Game
+  /// point Player A."
+  String _pointCall(MatchState prev, MatchState s) {
     final String base;
     if (s.pointsA == s.pointsB) {
       base = '${s.pointsA} all.';
@@ -95,8 +105,9 @@ class MatchAnnouncer {
       final lo = s.pointsFor(leader.other);
       base = '${_name(leader)}, $hi–$lo.';
     }
+    final serve = s.server != prev.server ? '${_name(s.server)} to serve.' : null;
     final pressure = _pressureCue(s);
-    return pressure == null ? base : '$base $pressure';
+    return [base, serve, pressure].whereType<String>().join(' ');
   }
 
   /// The spoken game-point / match-point cue for [s], or `null` when neither

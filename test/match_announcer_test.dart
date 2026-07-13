@@ -131,6 +131,46 @@ void main() {
       );
     });
 
+    test('point call names the new server when serve rotates', () {
+      final announcer = MatchAnnouncer()
+        ..onState(_state(pointsA: 1, pointsB: 1, server: Player.a));
+      expect(
+        announcer.onState(_state(pointsA: 2, pointsB: 1, server: Player.b)),
+        'Player A, 2–1. Player B to serve.',
+      );
+    });
+
+    test('no serve cue when the server is unchanged', () {
+      final announcer = MatchAnnouncer()
+        ..onState(_state(pointsA: 1, server: Player.a));
+      expect(
+        announcer.onState(_state(pointsA: 1, pointsB: 1, server: Player.a)),
+        '1 all.',
+      );
+    });
+
+    test('serve cue precedes the pressure cue, which stays the final word', () {
+      final announcer = MatchAnnouncer()
+        ..onState(_state(pointsA: 9, pointsB: 8, server: Player.b));
+      expect(
+        announcer.onState(_state(pointsA: 10, pointsB: 8, server: Player.a)),
+        'Player A, 10–8. Player A to serve. Double game point Player A.',
+      );
+    });
+
+    test('serve cue surfaces on a real ScoringEngine serve rotation', () {
+      final engine = ScoringEngine();
+      final announcer = MatchAnnouncer()..onState(engine.state);
+      final calls = <String>[];
+      for (var i = 0; i < 4; i++) {
+        engine.awardPoint(i.isEven ? Player.a : Player.b);
+        final call = announcer.onState(engine.state);
+        if (call != null) calls.add(call);
+      }
+      // Serve switches every 2 points before deuce, so a "to serve" cue lands.
+      expect(calls.any((c) => c.contains('to serve')), isTrue);
+    });
+
     test('drives through a real ScoringEngine game to the game call', () {
       final engine = ScoringEngine();
       final announcer = MatchAnnouncer()..onState(engine.state);

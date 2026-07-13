@@ -378,6 +378,16 @@ behind a `VisionService` interface. This lets us:
          through the existing `onAnnounce` sink and scoreboard caption with no
          UI change, so a player across the table who can't read the scoreboard
          now *hears* the climax coming.
+       - **[done — iteration 111]** Spoken serve-change cue. The announcer called
+         the score but never voiced *whose serve it is* — the audible parity of
+         the visual serve indicator was still missing, so an across-table player
+         had no cue to pick up the ball when serve rotated. A point on which the
+         serve rotates now names the new server in the call ("Player A, 5–3.
+         Player B to serve."), read straight from `MatchState.server` (so it can
+         never disagree with the `ScoringEngine` serve rotation). When a serve
+         change and a game/match-point coincide, the serve cue precedes the
+         pressure cue so the climax stays the final word ("Player A, 10–8. Player
+         B to serve. Double game point Player A.").
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking
