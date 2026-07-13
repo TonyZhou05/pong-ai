@@ -93,6 +93,8 @@ void main() {
     expect(report, contains('no bounces recorded'));
     expect(report, contains('Ball speed'));
     expect(report, contains('not estimated'));
+    expect(report, contains('Coaching insights'));
+    expect(report, contains('not enough data yet'));
   });
 
   test('controller estimates ball speed from a moving-ball rally', () {

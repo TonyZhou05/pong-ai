@@ -395,6 +395,19 @@ behind a `VisionService` interface. This lets us:
      indexing). `report()` gains a per-player "game points: converted X/Y, saved
      Z/W" line (flowing into the exported `buildMatchReport`), and the Match
      screen surfaces the same conversion/save split.
+   - **[done — iteration 52]** Match coaching insights
+     (`core/analysis/match_insights.dart`). The match path measured serve holds,
+     return breaks, and game-point conversion but — exactly like the training
+     side before iteration 51's `TrainingFeedback` — never *prioritized* one into
+     "what to work on". `MatchInsights(summary)` folds the per-player metrics into
+     scored coachable `InsightDimension`s (serve effectiveness, return of serve,
+     closing games), each derived from `MatchSummary` with the denominator-guard
+     so a dimension only appears when there is data for it. `insightsFor(player)`
+     names the weakest as that player's focus (or encouragement when even the
+     weakest clears a 0.6 bar) and the strongest as a confirmed strength; a
+     `report()` "Coaching insights" section (flowing into `buildMatchReport`) and
+     a "Coaching" block in the Match summary panel surface each player's focus
+     cue. Pure Dart, unit-tested from a synthetic `MatchSummary`.
    - **[done — iteration 37]** Match-tension analytics
      (`core/analysis/match_summary.dart`). Iteration 23's `MomentumChartView`
      *plotted* the running point differential (A−B after each rally) but no

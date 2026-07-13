@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/bounce_placement.dart';
 import '../../core/analysis/match_controller.dart';
+import '../../core/analysis/match_insights.dart';
 import '../../core/analysis/match_report.dart';
 import '../../core/analysis/match_report_json.dart';
 import '../../core/analysis/match_summary.dart';
@@ -599,6 +600,17 @@ class _SummaryPanel extends StatelessWidget {
                 ),
             ],
           ),
+          if (MatchInsights(summary).hasData) ...[
+            const SizedBox(height: 8),
+            Text('Coaching', style: theme.textTheme.labelLarge),
+            for (final player in Player.values)
+              if (MatchInsights(summary).insightsFor(player).focusTip
+                  case final tip?)
+                Text(
+                  '${_name(player)}: $tip',
+                  style: theme.textTheme.bodyMedium,
+                ),
+          ],
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,

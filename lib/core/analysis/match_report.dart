@@ -19,6 +19,7 @@ import '../scoring/scoring_engine.dart';
 import 'ball_tracker.dart';
 import 'bounce_placement.dart';
 import 'match_controller.dart';
+import 'match_insights.dart';
 import 'player_movement.dart';
 import 'rally_analyzer.dart';
 
@@ -86,6 +87,7 @@ String buildMatchReport(MatchController controller) {
     controller.rallyStats.report(),
     _ballSpeedSection(controller),
     controller.trackingQuality.report(),
+    MatchInsights(controller.summary).report(),
   ];
 
   for (final player in Player.values) {
