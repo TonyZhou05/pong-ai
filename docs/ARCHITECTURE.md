@@ -599,6 +599,16 @@ behind a `VisionService` interface. This lets us:
      per-player "biggest lead" and "overcame an N-point deficit" lines (flowing
      into `buildMatchReport`), and the Match screen surfaces lead changes under
      the momentum chart and the biggest-lead/comeback split per player.
+   - **[done — iteration 99]** Decisive-rally / point-of-no-return
+     (`core/analysis/match_summary.dart`). The tension trio quantified *how*
+     close the match was but never named *when* it was decided. `decisiveRally`
+     mines the same cumulative `_leadSeries` for the 1-based rally at which the
+     `matchWinner` took a point lead they never surrendered (`1` = wire-to-wire),
+     returning `null` while the match is in progress and in the rare case where
+     the winner won on games while trailing on total points (no point of no
+     return). `report()` gains a "Player X took the lead for good at rally N of
+     M" line (flowing into `buildMatchReport`) and the Match screen surfaces it
+     under the lead-changes line beneath the momentum chart.
    - **[done — iteration 32]** Real-world ball-speed analytics
      (`core/analysis/ball_speed.dart`). Every prior analytics layer worked in the
      vision pipeline's *normalized* `[0,1]` coordinates, which carry no physical

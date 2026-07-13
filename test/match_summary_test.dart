@@ -377,6 +377,63 @@ void main() {
       expect(summary.largestLeadBy(Player.a), 0);
       expect(summary.largestDeficitOvercomeBy(Player.a), 0);
     });
+
+    test('decisiveRally marks the point of no return after a comeback', () {
+      // swingGame: A trails to −2 then wins 5–3; the permanent lead is only
+      // taken on the last point (differential goes 0 → +1 at rally 7, then +2).
+      // Series: 0,+1,0,−1,−2,−1,0,+1,+2 → winner A is level-or-behind through
+      // index 6 (rally 6, score 3–3), so rally 7 takes the lead for good.
+      final summary = MatchSummary(
+        points: swingGame(),
+        finalState: _state(gamesA: 3, pointsA: 5, pointsB: 3, over: true),
+      );
+      expect(summary.matchWinner, Player.a);
+      expect(summary.decisiveRally, 7);
+    });
+
+    test('decisiveRally is 1 for a wire-to-wire winner', () {
+      final summary = MatchSummary(
+        points: [
+          _pt(Player.a, PointReason.notReturned, 0),
+          _pt(Player.a, PointReason.notReturned, 1000),
+          _pt(Player.a, PointReason.notReturned, 2000),
+        ],
+        finalState: _state(gamesA: 3, pointsA: 3, over: true),
+      );
+      expect(summary.decisiveRally, 1);
+    });
+
+    test('decisiveRally is null while the match is in progress', () {
+      final summary = MatchSummary(
+        points: swingGame(),
+        finalState: _state(pointsA: 5, pointsB: 3),
+      );
+      expect(summary.matchWinner, isNull);
+      expect(summary.decisiveRally, isNull);
+    });
+
+    test('decisiveRally is null when the winner trails on total points', () {
+      // B wins the match (over) but A leads on cumulative points 2–1, so B
+      // never held the point lead — there is no point of no return.
+      final summary = MatchSummary(
+        points: [
+          _pt(Player.a, PointReason.notReturned, 0),
+          _pt(Player.b, PointReason.notReturned, 1000),
+          _pt(Player.a, PointReason.notReturned, 2000),
+        ],
+        finalState: _state(gamesB: 3, over: true),
+      );
+      expect(summary.matchWinner, Player.b);
+      expect(summary.decisiveRally, isNull);
+    });
+
+    test('report surfaces the decisive rally line for a completed match', () {
+      final report = MatchSummary(
+        points: swingGame(),
+        finalState: _state(gamesA: 3, pointsA: 5, pointsB: 3, over: true),
+      ).report();
+      expect(report, contains('Player A took the lead for good at rally 7'));
+    });
   });
 
   group('MatchController point log', () {

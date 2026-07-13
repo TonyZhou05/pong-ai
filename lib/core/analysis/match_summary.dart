@@ -296,6 +296,29 @@ class MatchSummary {
     return changes;
   }
 
+  /// The 1-based rally at which the [matchWinner] took a cumulative point lead
+  /// they never surrendered for the rest of the match — the moment the momentum
+  /// turned decisively their way. Uses the same cumulative [_leadSeries] the
+  /// momentum chart plots, so `1` means the winner led from the very first
+  /// point (wire-to-wire). Null when the match is not over, and also null in the
+  /// (rare) case where the winner never held the cumulative point lead at the
+  /// end — a player can win on games while trailing on total points, and then
+  /// there is no "point of no return".
+  int? get decisiveRally {
+    final winner = matchWinner;
+    if (winner == null) return null;
+    final series = _leadSeries; // length totalPoints+1; index 0 = 0–0 start.
+    final sign = winner == Player.a ? 1 : -1;
+    if (series.last * sign <= 0) return null; // winner not ahead at the end.
+    var lastNonLead = 0; // last index where the winner was level-or-behind.
+    for (var i = 0; i < series.length; i++) {
+      if (series[i] * sign <= 0) lastNonLead = i;
+    }
+    // series[i] is the state after rally i (i>=1), so the rally that first
+    // established the permanent lead is lastNonLead + 1 (1-based).
+    return lastNonLead + 1;
+  }
+
   /// The biggest point lead [p] held at any moment during the match (0 if [p]
   /// was never ahead).
   int largestLeadBy(Player p) {
@@ -388,6 +411,13 @@ class MatchSummary {
         'Lead changes: $leadChanges'
         '${leadChanges == 0 ? ' (wire-to-wire)' : ''}.',
       );
+      final decisive = decisiveRally;
+      if (decisive != null && winner != null) {
+        lines.add(
+          '${_name(winner)} took the lead for good at rally '
+          '$decisive of $totalPoints.',
+        );
+      }
     }
 
     for (final player in Player.values) {

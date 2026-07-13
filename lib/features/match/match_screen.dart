@@ -581,6 +581,11 @@ class _SummaryPanel extends StatelessWidget {
               'Lead changes: ${summary.leadChanges}',
               style: theme.textTheme.bodyMedium,
             ),
+            if (summary.decisiveRally case final r?)
+              Text(
+                'Lead taken for good at rally $r/${summary.totalPoints}',
+                style: theme.textTheme.bodyMedium,
+              ),
             const SizedBox(height: 8),
           ],
           if (rallies.rallyCount > 0)
