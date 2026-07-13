@@ -259,6 +259,19 @@ behind a `VisionService` interface. This lets us:
        is offered until the first shot is graded and rebuilds the `ShotAnalyzer`
        on a `TrainingConfig.copyWith(playerSide:)`, flipping both the target band
        and the shot-segmentation target half; it locks away once scoring begins.
+     - **[done — iteration 91]** Live game-point / match-point cue.
+       `core/scoring/match_situation.dart` (`MatchSituation`) derives, from a
+       `MatchState` snapshot alone, whether a side is one point from winning the
+       current game (`isGamePoint`) or the whole match (`isMatchPoint`), who
+       (`candidate`), and how many consecutive chances they hold
+       (`pointCount` → "triple game point"), mirroring the `ScoringEngine` win
+       rule (reach `pointsPerGame` with a two-point lead) so the cue can never
+       disagree with the score. Both the live `CameraMatchScreen` scoreboard and
+       the demo `MatchScreen` scoreboard now flash a `_PointPressureBanner`
+       ("MATCH POINT A" / "DOUBLE GAME POINT B") whenever a side reaches it — the
+       headline "you're one away" scoreboard cue apps like Ball AI show during
+       play, previously only reconstructable post-match from the game-point
+       analytics in `MatchSummary`.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking

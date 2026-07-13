@@ -13,6 +13,7 @@ import '../../core/analysis/rally_referee.dart';
 import '../../core/analysis/table_calibrator.dart';
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
+import '../../core/scoring/match_situation.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/vision_model_profile.dart';
@@ -350,11 +351,49 @@ class _LiveScoreboard extends StatelessWidget {
               ),
             ],
           ),
+          if (MatchSituation(state).label case final banner?)
+            _PointPressureBanner(
+              label: banner,
+              matchPoint: MatchSituation(state).isMatchPoint,
+            ),
           if (onPickServer != null)
             _ServerPicker(server: state.server, onPick: onPickServer!),
           if (onPickBestOf != null)
             _FormatPicker(bestOf: state.bestOf, onPick: onPickBestOf!),
         ],
+      ),
+    );
+  }
+}
+
+/// A flashing "you're one away" cue shown on the live scoreboard whenever a
+/// side reaches game point or match point.
+class _PointPressureBanner extends StatelessWidget {
+  const _PointPressureBanner({required this.label, required this.matchPoint});
+
+  final String label;
+  final bool matchPoint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = matchPoint ? Colors.redAccent : Colors.amber;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label.toUpperCase(),
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
       ),
     );
   }

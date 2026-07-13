@@ -16,6 +16,7 @@ import '../../core/analysis/rally_referee.dart';
 import '../../core/analysis/tracking_quality.dart';
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
+import '../../core/scoring/match_situation.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/replay_vision_service.dart';
@@ -189,24 +190,69 @@ class _Scoreboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final situation = MatchSituation(state);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+      child: Column(
         children: [
-          _PlayerScore(
-            label: 'A',
-            points: state.pointsA,
-            games: state.gamesA,
-            serving: state.server == Player.a && !state.isMatchOver,
+          Row(
+            children: [
+              _PlayerScore(
+                label: 'A',
+                points: state.pointsA,
+                games: state.gamesA,
+                serving: state.server == Player.a && !state.isMatchOver,
+              ),
+              const _ScoreSeparator(),
+              _PlayerScore(
+                label: 'B',
+                points: state.pointsB,
+                games: state.gamesB,
+                serving: state.server == Player.b && !state.isMatchOver,
+              ),
+            ],
           ),
-          const _ScoreSeparator(),
-          _PlayerScore(
-            label: 'B',
-            points: state.pointsB,
-            games: state.gamesB,
-            serving: state.server == Player.b && !state.isMatchOver,
-          ),
+          if (situation.label case final banner?)
+            _PointPressureBanner(
+              label: banner,
+              matchPoint: situation.isMatchPoint,
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// A "you're one away" cue shown below the scoreboard whenever a side reaches
+/// game point or match point.
+class _PointPressureBanner extends StatelessWidget {
+  const _PointPressureBanner({required this.label, required this.matchPoint});
+
+  final String label;
+  final bool matchPoint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = matchPoint
+        ? theme.colorScheme.error
+        : theme.colorScheme.tertiary;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label.toUpperCase(),
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: color,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
       ),
     );
   }
