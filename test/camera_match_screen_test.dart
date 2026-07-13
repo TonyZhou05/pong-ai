@@ -562,6 +562,65 @@ void main() {
   );
 
   testWidgets(
+    'a completed game speaks a change-ends cue exactly once, then re-arms',
+    (tester) async {
+      final vision = YoloVisionService();
+      final spoken = <String>[];
+      // A 3-point best-of-3 with end switching on: game 1 completing flips the
+      // internal mapping, so the players must physically swap sides — and a
+      // table-side player who can't read the banner should hear it.
+      final controller = MatchController(
+        engine: ScoringEngine(pointsPerGame: 3, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            matchControllerBuilder: () => controller,
+            onAnnounce: spoken.add,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Feed the demo rallies until game 1 completes (A reaches 3 points).
+      final frames = demoMatchFrames().iterator;
+      while (controller.score.gamesA == 0 && frames.moveNext()) {
+        vision.onFrame(frames.current);
+        await tester.pump();
+      }
+      expect(controller.score.gamesA, 1);
+      await tester.pump();
+
+      // The change-ends cue fired through the injected sink and is captioned.
+      expect(spoken, contains('Change ends.'));
+      expect(spoken.where((c) => c == 'Change ends.'), hasLength(1));
+      expect(find.text('Change ends.'), findsOneWidget);
+
+      // Playing on: the flag clears on the next scored point, and later points
+      // don't re-speak the (now stale) cue.
+      final spokenBefore = spoken.length;
+      while (controller.score.pointsA + controller.score.pointsB == 0 &&
+          frames.moveNext()) {
+        vision.onFrame(frames.current);
+        await tester.pump();
+      }
+      expect(
+        controller.score.pointsA + controller.score.pointsB,
+        greaterThan(0),
+      );
+      expect(spoken.skip(spokenBefore), isNot(contains('Change ends.')));
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'a stalled calibration prompts the user to reposition the phone',
     (tester) async {
       final vision = YoloVisionService();

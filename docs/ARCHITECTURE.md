@@ -388,6 +388,19 @@ behind a `VisionService` interface. This lets us:
          change and a game/match-point coincide, the serve cue precedes the
          pressure cue so the climax stays the final word ("Player A, 10–8. Player
          B to serve. Double game point Player A.").
+       - **[done — iteration 112]** Spoken change-ends cue. The iteration-103
+         visual `_ChangeEndsBanner` told players to swap sides when the app flips
+         its side→player mapping (completed game or deciding-game midpoint), but a
+         table-side player who can't read the banner still had no audible signal —
+         the audible parity gap of the change-ends prompt. `CameraMatchScreen`
+         now speaks a "Change ends." cue through the same injectable
+         `onAnnounce` sink (and captions it) exactly once when
+         `MatchController.changeEndsPending` rises, re-arming when the next point
+         clears the flag (or an undo reverses it), so it never re-announces frame
+         after frame. Driven off the controller's `changeEndsPending` signal
+         rather than duplicated in `MatchAnnouncer`, so it stays in lock-step with
+         the visual banner and covers both the between-games and mid-decider
+         end-change paths.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking

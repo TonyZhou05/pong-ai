@@ -104,6 +104,12 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   /// The most recent spoken call, shown as a caption under the scoreboard.
   String? _lastCall;
 
+  /// Whether the current pending end-change has already been spoken, so a
+  /// player is told to swap sides exactly once when the app flips its
+  /// side→player mapping (rather than re-announcing on every subsequent frame
+  /// while the flag stays raised). Cleared once the change is no longer pending.
+  bool _changeEndsSpoken = false;
+
   /// The most recent frame's detections, drawn as a live tracking overlay on the
   /// camera preview so the user can see what the pipeline is following.
   FrameResult? _lastFrame;
@@ -165,6 +171,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       if (_controller.score.isMatchOver) _vision.stop();
     });
     _maybeAnnounce();
+    _maybeAnnounceChangeEnds();
   }
 
   /// Feed the current score to the announcer; on a forward change, speak the
@@ -174,6 +181,25 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   void _maybeAnnounce() {
     final call = _announcer.onState(_controller.score);
     if (call == null) return;
+    (widget.onAnnounce ?? _defaultAnnounce)(call);
+    if (mounted) setState(() => _lastCall = call);
+  }
+
+  /// Speak the "change ends" cue once when the app flips its side→player
+  /// mapping between games (or at the deciding-game midpoint), the audible
+  /// parity of the visual CHANGE ENDS banner: a table-side player who can't
+  /// read the scoreboard still hears that they need to physically swap sides so
+  /// their play stays attributed to the right seat. Fires exactly once per
+  /// pending change and re-arms when the next point clears it (or an undo
+  /// reverses it), so it never re-announces frame after frame.
+  void _maybeAnnounceChangeEnds() {
+    if (!_controller.changeEndsPending) {
+      _changeEndsSpoken = false;
+      return;
+    }
+    if (_changeEndsSpoken) return;
+    _changeEndsSpoken = true;
+    const call = 'Change ends.';
     (widget.onAnnounce ?? _defaultAnnounce)(call);
     if (mounted) setState(() => _lastCall = call);
   }
@@ -188,12 +214,14 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   void _resolve(PointDecision decision, Player winner) {
     setState(() => _controller.resolveUndetermined(decision, winner));
     _maybeAnnounce();
+    _maybeAnnounceChangeEnds();
   }
 
   void _undo() {
     if (_controller.undo()) {
       setState(() {});
       _maybeAnnounce();
+      _maybeAnnounceChangeEnds();
     }
   }
 
@@ -201,6 +229,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     setState(() => _controller.awardManualPoint(winner));
     if (_controller.score.isMatchOver) _vision.stop();
     _maybeAnnounce();
+    _maybeAnnounceChangeEnds();
   }
 
   /// Start a fresh match on the same (already-calibrated) table without leaving
@@ -215,6 +244,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       _predictedBall = null;
       // Re-seed the announcer so the reset to 0–0 isn't spoken as a change.
       _announcer.reset();
+      _changeEndsSpoken = false;
       _lastCall = null;
     });
     _vision.start();
