@@ -551,5 +551,55 @@ void main() {
       expect(analyzer.isCalibrating, isFalse);
       expect(analyzer.config.geometry.left, calibratedLeft);
     });
+
+    test('calibration progress accumulates then completes at 1.0', () {
+      final analyzer =
+          ShotAnalyzer(calibrator: TableCalibrator(minBallSamples: 6));
+      expect(analyzer.calibrationProgress, 0.0);
+
+      analyzer.onFrame(_frame(0, warmXs[0], warmYs[0]));
+      analyzer.onFrame(_frame(33, warmXs[1], warmYs[1]));
+      analyzer.onFrame(_frame(66, warmXs[2], warmYs[2]));
+      // 3 of 6 samples collected.
+      expect(analyzer.calibrationProgress, closeTo(0.5, 1e-9));
+      expect(analyzer.calibrationFramesObserved, 3);
+
+      _run(analyzer, warmUp().sublist(3));
+      expect(analyzer.isCalibrating, isFalse);
+      expect(analyzer.calibrationProgress, 1.0);
+    });
+
+    test('stalls after the frame budget on ball-less frames', () {
+      final analyzer = ShotAnalyzer(
+        calibrator: TableCalibrator(minBallSamples: 6),
+        calibrationStallFrames: 5,
+      );
+      // Ball-less warm-up frames never let the calibrator reach its threshold.
+      for (var i = 0; i < 4; i++) {
+        analyzer.onFrame(FrameResult(timestampMs: i * 33));
+        expect(analyzer.isCalibrationStalled, isFalse);
+      }
+      // The fifth frame reaches the budget.
+      analyzer.onFrame(const FrameResult(timestampMs: 132));
+      expect(analyzer.isCalibrationStalled, isTrue);
+      expect(analyzer.isCalibrating, isTrue);
+    });
+
+    test('successful calibration never reports a stall', () {
+      final analyzer = ShotAnalyzer(
+        calibrator: TableCalibrator(minBallSamples: 6),
+        calibrationStallFrames: 6,
+      );
+      _run(analyzer, warmUp());
+      expect(analyzer.isCalibrating, isFalse);
+      expect(analyzer.isCalibrationStalled, isFalse);
+    });
+
+    test('a no-calibrator analyzer is never stalled and always full progress',
+        () {
+      final analyzer = ShotAnalyzer();
+      expect(analyzer.calibrationProgress, 1.0);
+      expect(analyzer.isCalibrationStalled, isFalse);
+    });
   });
 }

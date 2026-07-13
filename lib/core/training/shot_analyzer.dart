@@ -412,9 +412,16 @@ class ShotAnalyzer {
   ShotAnalyzer({
     TrainingConfig config = const TrainingConfig(),
     this.calibrator,
-  })  : _config = config,
+    this.calibrationStallFrames = 150,
+  })  : assert(calibrationStallFrames > 0),
+        _config = config,
         _tracker = BallTracker(geometry: config.geometry),
         _calibrated = calibrator == null;
+
+  /// How many warm-up frames may pass before calibration is deemed *stalled*
+  /// (the phone is likely mis-placed so the ball is rarely seen). ~5s at 30fps.
+  /// Only meaningful when a [calibrator] is supplied. See [isCalibrationStalled].
+  final int calibrationStallFrames;
 
   /// Optional auto-calibrator. When supplied, the analyzer spends a short
   /// warm-up phase observing frames (grading nothing) until it infers a
@@ -447,6 +454,34 @@ class ShotAnalyzer {
   /// Whether the analyzer is still in the calibration warm-up (no strokes are
   /// graded yet). Always false when no [calibrator] was supplied.
   bool get isCalibrating => calibrator != null && !_calibrated;
+
+  int _warmupFrames = 0;
+
+  /// How many warm-up frames have been processed while calibrating. Frozen once
+  /// calibration completes. Mirrors [MatchController.calibrationFramesObserved].
+  int get calibrationFramesObserved => _warmupFrames;
+
+  /// Fraction `[0, 1]` of the way to a usable calibration, measured by the ball
+  /// samples the calibrator has collected against its requirement — for a
+  /// progress read-out while the drill warms up. `1.0` when not calibrating (or
+  /// no calibrator). The calibrator can still withhold a geometry at full
+  /// progress if the observed ball motion is degenerate; [isCalibrationStalled]
+  /// covers that case via the frame budget.
+  double get calibrationProgress {
+    final cal = calibrator;
+    if (cal == null || _calibrated) return 1;
+    return (cal.ballSampleCount / cal.minBallSamples).clamp(0.0, 1.0);
+  }
+
+  /// Whether calibration is taking too long — more than [calibrationStallFrames]
+  /// warm-up frames have passed without a trusted geometry. When true the ball
+  /// is rarely being seen (or never travels across the table), which almost
+  /// always means the phone is mis-placed, so the UI should prompt the user to
+  /// reposition it rather than silently wait forever. Always false once grading
+  /// has begun or when no [calibrator] was supplied. The training-mode analog of
+  /// [MatchController.isCalibrationStalled].
+  bool get isCalibrationStalled =>
+      isCalibrating && _warmupFrames >= calibrationStallFrames;
 
   /// The internal ball tracker, exposed so a live overlay can draw the
   /// Kalman-predicted "ghost" ball ([BallTracker.estimateBallAt]) through
@@ -490,6 +525,7 @@ class ShotAnalyzer {
     // graded normally (the same pass-through the match controller uses).
     final cal = calibrator;
     if (cal != null && !_calibrated) {
+      _warmupFrames++;
       cal.observe(frame);
       final geometry = cal.calibrate();
       if (geometry == null) return null;

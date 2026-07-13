@@ -389,6 +389,40 @@ void main() {
   );
 
   testWidgets(
+    'auto-calibration prompts a reposition once warm-up stalls',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            // Default autoCalibrate: true, with a tiny stall budget.
+            calibrationStallFrames: 3,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.textContaining('Calibrating…'), findsOneWidget);
+      expect(find.textContaining('reposition'), findsNothing);
+
+      // Ball-less frames never let the calibrator reach its threshold, so after
+      // the budget the banner switches to the actionable reposition prompt.
+      for (var i = 0; i < 3; i++) {
+        vision.onFrame(FrameResult(timestampMs: (i + 1) * 33));
+        await tester.pump();
+      }
+      expect(find.textContaining('Calibrating…'), findsNothing);
+      expect(find.textContaining('reposition'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'live training overlay flashes a km/h readout on the moving ball',
     (tester) async {
       final vision = YoloVisionService();

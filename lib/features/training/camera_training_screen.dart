@@ -45,6 +45,7 @@ class CameraTrainingScreen extends StatefulWidget {
     this.model = defaultVisionModel,
     this.historyStoreLoader = defaultSessionHistoryStore,
     this.autoCalibrate = true,
+    this.calibrationStallFrames = 150,
   });
 
   /// The camera-backed frame source. Defaults to one whose adapter decodes
@@ -75,6 +76,11 @@ class CameraTrainingScreen extends StatefulWidget {
   /// mis-places the net and mis-scales depth). Defaults to `true`; widget tests
   /// that feed a scripted stroke set it `false` so grading starts immediately.
   final bool autoCalibrate;
+
+  /// Warm-up frame budget before calibration is deemed stalled (the ball is
+  /// rarely seen, so the phone is likely mis-placed) and the banner turns into a
+  /// "reposition the phone" prompt. See [ShotAnalyzer.isCalibrationStalled].
+  final int calibrationStallFrames;
 
   @override
   State<CameraTrainingScreen> createState() => _CameraTrainingScreenState();
@@ -133,6 +139,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   ShotAnalyzer _buildAnalyzer() => ShotAnalyzer(
         config: _config,
         calibrator: widget.autoCalibrate ? TableCalibrator() : null,
+        calibrationStallFrames: widget.calibrationStallFrames,
       );
 
   Future<void> _startVision() async {
@@ -287,7 +294,10 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
                   // rallying so the app can learn where the table/net are before
                   // it starts grading.
                   if (!_finished && !_paused && _analyzer.isCalibrating)
-                    const _CalibrationBanner(),
+                    _CalibrationBanner(
+                      progress: _analyzer.calibrationProgress,
+                      stalled: _analyzer.isCalibrationStalled,
+                    ),
                   if (!_finished && summary.shotCount == 0)
                     _PlayerSidePicker(
                       playerSide: _config.playerSide,
@@ -416,27 +426,41 @@ class _PausedBanner extends StatelessWidget {
 /// geometry from the live ball path, before any stroke is graded. The
 /// training-mode analog of the match screen's calibration hint.
 class _CalibrationBanner extends StatelessWidget {
-  const _CalibrationBanner();
+  const _CalibrationBanner({this.progress = 0, this.stalled = false});
+
+  /// Fraction `[0, 1]` of the way to a usable calibration, shown as a percentage.
+  final double progress;
+
+  /// Whether calibration has stalled (the ball is rarely seen, so the phone is
+  /// likely mis-placed). Turns the banner into an actionable reposition prompt.
+  final bool stalled;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final color = stalled ? Colors.orangeAccent : Colors.white;
     return Container(
       color: Colors.black45,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(
+          SizedBox(
             width: 14,
             height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: stalled
+                ? Icon(Icons.error_outline, size: 14, color: color)
+                : const CircularProgressIndicator(strokeWidth: 2),
           ),
           const SizedBox(width: 10),
           Flexible(
             child: Text(
-              'Calibrating… keep rallying so the app can find the table.',
-              style: theme.textTheme.bodySmall?.copyWith(color: Colors.white),
+              stalled
+                  ? 'Can’t see the ball — reposition the phone so the whole '
+                      'table and the ball are in view.'
+                  : 'Calibrating… keep rallying so the app can find the table '
+                      '(${(progress * 100).round()}%).',
+              style: theme.textTheme.bodySmall?.copyWith(color: color),
             ),
           ),
         ],

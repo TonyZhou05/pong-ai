@@ -288,6 +288,19 @@ behind a `VisionService` interface. This lets us:
        default (`autoCalibrate`, off in the scripted widget tests), shows a
        "Calibrating…" hint during warm-up, and draws the net line / target band /
        report from `_analyzer.config` so they follow the calibrated table.
+     - **[done — iteration 107]** Calibration progress + stall feedback
+       (training). The training-mode parity of iteration 100's match-path stall
+       feedback: `ShotAnalyzer` now exposes `calibrationProgress` (ball samples
+       collected / required), `calibrationFramesObserved`, and
+       `isCalibrationStalled` (a configurable `calibrationStallFrames` budget,
+       default 150 ≈ 5s at 30fps). Without it a mis-placed phone would hang on
+       "Calibrating…" forever, since the calibrator never reaches its threshold
+       when the ball is rarely in view. `CameraTrainingScreen`'s
+       `_CalibrationBanner` now shows a live progress percentage and, once
+       stalled, switches to the actionable orange "Can't see the ball — reposition
+       the phone so the whole table and the ball are in view" prompt (mirroring
+       the match scoreboard). `calibrationStallFrames` is injectable so the stall
+       prompt is widget-testable headlessly.
      - **[done — iteration 91]** Live game-point / match-point cue.
        `core/scoring/match_situation.dart` (`MatchSituation`) derives, from a
        `MatchState` snapshot alone, whether a side is one point from winning the
