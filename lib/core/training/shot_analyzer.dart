@@ -225,6 +225,41 @@ class TrainingSummary {
     return current;
   }
 
+  /// Minimum shots before an intra-session trend is meaningful: each half needs
+  /// at least two shots to average.
+  static const int _trendMinShots = 4;
+
+  /// Whether the session has enough shots ([_trendMinShots]) to split into two
+  /// halves and measure a within-session trend.
+  bool get hasScoreTrend => shots.length >= _trendMinShots;
+
+  /// Average shot quality over the *first* half of the session's shots, in
+  /// `[0, 1]`. `0` until [hasScoreTrend]. For an odd shot count the middle shot
+  /// is excluded so the two halves stay equal-sized.
+  double get firstHalfAverageScore {
+    if (!hasScoreTrend) return 0;
+    final half = shots.length ~/ 2;
+    return _mean(shots.take(half).map((s) => s.score));
+  }
+
+  /// Average shot quality over the *second* half of the session's shots, in
+  /// `[0, 1]`. `0` until [hasScoreTrend].
+  double get secondHalfAverageScore {
+    if (!hasScoreTrend) return 0;
+    final half = shots.length ~/ 2;
+    return _mean(shots.skip(shots.length - half).map((s) => s.score));
+  }
+
+  /// The change in average shot quality from the first half of the session to
+  /// the second, in score points (`[-1, 1]`). Positive = the player warmed up
+  /// and improved as the drill went on; negative = quality faded through the
+  /// session (a fatigue / concentration-drop signal a coach watches for).
+  /// `null` until [hasScoreTrend]. This is the *within-session* analog of
+  /// SessionTrends' cross-session improvement — every other metric here is a
+  /// whole-session aggregate that hides whether the player rose or faded.
+  double? get scoreTrend =>
+      hasScoreTrend ? secondHalfAverageScore - firstHalfAverageScore : null;
+
   /// How repeatable the placement was, in `[0, 1]`: `1` means every ball landed
   /// at the same depth, `0` means depths were spread across the whole half.
   /// Derived from the population standard deviation of shot depth.
@@ -308,6 +343,14 @@ class TrainingSummary {
     return 'F';
   }
 
+  /// A short human phrase for a first→second-half score [trend] (score points).
+  static String _trendLabel(double trend) {
+    final pts = (trend * 100).round();
+    if (pts >= 4) return 'warming up (+$pts% quality through the drill)';
+    if (pts <= -4) return 'fading ($pts% — watch for fatigue)';
+    return 'steady';
+  }
+
   static double _mean(Iterable<double> xs) {
     final list = xs.toList();
     if (list.isEmpty) return 0;
@@ -339,6 +382,7 @@ class TrainingSummary {
       ],
       if (longestOnTargetStreak >= 2)
         'Best on-target streak: $longestOnTargetStreak in a row.',
+      if (scoreTrend != null) 'Session trend: ${_trendLabel(scoreTrend!)}.',
       '  • ${gradeCount(ShotGrade.excellent)} excellent',
       '  • ${gradeCount(ShotGrade.good)} good',
       '  • ${gradeCount(ShotGrade.fair)} fair',

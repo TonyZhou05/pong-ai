@@ -69,6 +69,9 @@ Map<String, Object?> buildTrainingReportJson(
       'overallGrade': summary.overallGrade,
       'averageScore': _round(summary.averageScore),
       'longestOnTargetStreak': summary.longestOnTargetStreak,
+      // Within-session quality trend (2nd-half minus 1st-half average score):
+      // positive = warmed up, negative = faded/fatigue. Null until 4 shots.
+      'scoreTrend': summary.hasScoreTrend ? _round(summary.scoreTrend!) : null,
       'durationMs': summary.durationMs,
     },
     'placement': {

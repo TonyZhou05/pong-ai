@@ -397,6 +397,79 @@ void main() {
       expect(summary.longestOnTargetStreak, 0);
       expect(summary.currentOnTargetStreak, 0);
     });
+
+    test('scoreTrend is null until four shots split into two halves', () {
+      Shot at(int t, double score) =>
+          Shot(timestampMs: t, speed: 1, depth: 0.7, score: score);
+      expect(TrainingSummary([at(0, 0.5)]).scoreTrend, isNull);
+      expect(
+        TrainingSummary([at(0, 0.5), at(1, 0.6), at(2, 0.7)]).hasScoreTrend,
+        isFalse,
+      );
+      final four =
+          TrainingSummary([at(0, 0.5), at(1, 0.5), at(2, 0.5), at(3, 0.5)]);
+      expect(four.hasScoreTrend, isTrue);
+      expect(four.scoreTrend, isNotNull);
+    });
+
+    test('a session that improves reports a positive warming-up trend', () {
+      Shot at(int t, double score) =>
+          Shot(timestampMs: t, speed: 1, depth: 0.7, score: score);
+      // First half averages 0.40, second half 0.80 → +0.40 trend.
+      final summary = TrainingSummary([
+        at(0, 0.30),
+        at(1, 0.50),
+        at(2, 0.70),
+        at(3, 0.90),
+      ]);
+      expect(summary.firstHalfAverageScore, closeTo(0.40, 1e-9));
+      expect(summary.secondHalfAverageScore, closeTo(0.80, 1e-9));
+      expect(summary.scoreTrend, closeTo(0.40, 1e-9));
+      expect(summary.report(), contains('Session trend: warming up (+40%'));
+    });
+
+    test('a fading session reports a negative fatigue trend', () {
+      Shot at(int t, double score) =>
+          Shot(timestampMs: t, speed: 1, depth: 0.7, score: score);
+      // First half 0.85, second half 0.35 → −0.50 trend.
+      final summary = TrainingSummary([
+        at(0, 0.90),
+        at(1, 0.80),
+        at(2, 0.40),
+        at(3, 0.30),
+      ]);
+      expect(summary.scoreTrend, closeTo(-0.50, 1e-9));
+      expect(summary.report(), contains('fading (-50% — watch for fatigue)'));
+    });
+
+    test('the middle shot is excluded for an odd shot count', () {
+      Shot at(int t, double score) =>
+          Shot(timestampMs: t, speed: 1, depth: 0.7, score: score);
+      // 5 shots: halves are the first two and last two; the middle (0.0) drops.
+      final summary = TrainingSummary([
+        at(0, 0.20),
+        at(1, 0.40),
+        at(2, 0.00),
+        at(3, 0.60),
+        at(4, 0.80),
+      ]);
+      expect(summary.firstHalfAverageScore, closeTo(0.30, 1e-9));
+      expect(summary.secondHalfAverageScore, closeTo(0.70, 1e-9));
+      expect(summary.scoreTrend, closeTo(0.40, 1e-9));
+    });
+
+    test('a flat session reads as a steady trend', () {
+      Shot at(int t, double score) =>
+          Shot(timestampMs: t, speed: 1, depth: 0.7, score: score);
+      final summary = TrainingSummary([
+        at(0, 0.60),
+        at(1, 0.60),
+        at(2, 0.60),
+        at(3, 0.60),
+      ]);
+      expect(summary.scoreTrend, closeTo(0.0, 1e-9));
+      expect(summary.report(), contains('Session trend: steady'));
+    });
   });
 
   test('reset clears all session state', () {

@@ -928,6 +928,20 @@ behind a `VisionService` interface. This lets us:
      persists to history. Backward-compatible: `missedShots` defaults to `0`, so
      directly-built summaries and every existing test read 100% accuracy with no
      new report line.
+   - **[done — iteration 87]** Within-session shot-quality trend
+     (`core/training/shot_analyzer.dart`). Every other `TrainingSummary` metric is
+     a whole-session aggregate (average, consistency, streak) that hides whether
+     the player *rose or faded* over the drill — a real coaching signal (warm-up vs
+     fatigue/concentration drop). `TrainingSummary` now splits the ordered shots
+     into equal first/second halves (the middle shot dropped for an odd count) and
+     exposes `firstHalfAverageScore`/`secondHalfAverageScore`, `hasScoreTrend`
+     (≥4 shots), and `scoreTrend` (second-half minus first-half average score, in
+     `[-1, 1]`; positive = warming up, negative = fading). `report()` gains a
+     "Session trend: warming up (+N%) / fading (−N% — watch for fatigue) / steady"
+     line, and `buildTrainingReportJson`'s `session` block carries `scoreTrend`
+     (null until 4 shots) so the trend persists to history. The within-session
+     analog of `SessionTrends`' cross-session improvement, derived purely from the
+     recorded shot scores with no new tracking state.
    - **[done — iteration 78]** Training on-target streak
      (`core/training/shot_analyzer.dart`). The match summary has counted a
      player's `longestStreakFor` (consecutive points won) since iteration 5, but

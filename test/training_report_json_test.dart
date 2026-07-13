@@ -56,6 +56,8 @@ void main() {
     expect(session['shotCount'], summary.shotCount);
     expect(session['overallGrade'], summary.overallGrade);
     expect(session['longestOnTargetStreak'], summary.longestOnTargetStreak);
+    // Only two shots, so the within-session trend is an explicit null.
+    expect(session['scoreTrend'], isNull);
 
     // Both shots are serialized with a grade.
     final shots = decoded['shots'] as List;
@@ -90,6 +92,20 @@ void main() {
       jsonDecode(trainingReportJsonString(const TrainingSummary([]))),
       isA<Map>(),
     );
+  });
+
+  test('the session block carries the within-session score trend', () {
+    Shot at(int t, double score) =>
+        Shot(timestampMs: t, speed: 1, depth: 0.7, score: score);
+    // First half 0.30, second half 0.70 → +0.40 trend, persisted for history.
+    final summary = TrainingSummary([
+      at(0, 0.20),
+      at(1, 0.40),
+      at(2, 0.60),
+      at(3, 0.80),
+    ]);
+    final json = buildTrainingReportJson(summary);
+    expect((json['session'] as Map)['scoreTrend'], closeTo(0.40, 1e-9));
   });
 
   test('config section reflects the drill target side', () {
