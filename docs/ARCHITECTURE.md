@@ -536,6 +536,16 @@ behind a `VisionService` interface. This lets us:
      short-match controller (`ScoringEngine(pointsPerGame: 3, bestOf: 1)`) that
      the demo rallies finish, exercising the summary panel end-to-end for the
      first time.
+   - **[done — iteration 57]** Live-camera "Save to history" parity. Iterations
+     46/47 added the producer only to the scripted *demo* screens
+     (`TrainingScreen`/`MatchScreen`), so the actual production live-camera path
+     could not persist a session — `CameraTrainingScreen`'s end-of-session report
+     had Copy report / Export JSON but no Save to history. It now carries the same
+     injectable `historyStoreLoader` (default `defaultSessionHistoryStore`) and a
+     "Save to history" action that persists `buildTrainingReportJson` as a
+     `SessionKind.training` record, closing the demo-vs-live gap for training.
+     (`CameraMatchScreen` still has no end-of-match summary panel at all — a
+     larger follow-up than a single producer button.)
    - **[done — iteration 48]** Across-session progression / trends. Iterations
      45–47 persisted each session and listed them one-by-one, but nothing mined
      the *collection* — yet both JSON exporters name "diff pace/placement/rhythm

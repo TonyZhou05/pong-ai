@@ -6,6 +6,8 @@ import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/tracking_quality.dart';
+import '../../core/history/history_store_provider.dart';
+import '../../core/history/session_history_store.dart';
 import '../../core/training/shot_analyzer.dart';
 import '../../core/training/training_feedback.dart';
 import '../../core/training/training_report_json.dart';
@@ -40,6 +42,7 @@ class CameraTrainingScreen extends StatefulWidget {
     this.cameraPreviewBuilder,
     this.config = const TrainingConfig(),
     this.model = defaultVisionModel,
+    this.historyStoreLoader = defaultSessionHistoryStore,
   });
 
   /// The camera-backed frame source. Defaults to one whose adapter decodes
@@ -59,6 +62,10 @@ class CameraTrainingScreen extends StatefulWidget {
   /// model is bundled to improve recall (see docs/ARCHITECTURE.md); the profile
   /// carries both the model path and the matching decode config.
   final VisionModelProfile model;
+
+  /// Resolves the store the "Save to history" action writes to. Defaults to the
+  /// on-device documents-directory store; tests inject an in-memory fake.
+  final Future<SessionHistoryStore> Function() historyStoreLoader;
 
   @override
   State<CameraTrainingScreen> createState() => _CameraTrainingScreenState();
@@ -174,6 +181,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
                       summary: summary,
                       config: widget.config,
                       quality: _quality,
+                      historyStoreLoader: widget.historyStoreLoader,
                     )
                   : _ShotFeed(shots: _recentShots),
             ),
@@ -360,11 +368,25 @@ class _SessionReport extends StatelessWidget {
     required this.summary,
     required this.config,
     required this.quality,
+    required this.historyStoreLoader,
   });
 
   final TrainingSummary summary;
   final TrainingConfig config;
   final TrackingQualityAnalyzer quality;
+  final Future<SessionHistoryStore> Function() historyStoreLoader;
+
+  Future<void> _saveToHistory(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final store = await historyStoreLoader();
+    await store.save(
+      kind: SessionKind.training,
+      report: buildTrainingReportJson(summary, config: config),
+    );
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Saved to history')),
+    );
+  }
 
   Future<void> _copyReport(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -446,6 +468,11 @@ class _SessionReport extends StatelessWidget {
               child: Wrap(
                 spacing: 8,
                 children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.save_alt, size: 18),
+                    label: const Text('Save to history'),
+                    onPressed: () => _saveToHistory(context),
+                  ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.copy, size: 18),
                     label: const Text('Copy report'),
