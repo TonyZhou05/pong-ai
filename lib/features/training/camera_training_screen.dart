@@ -1,0 +1,373 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:ultralytics_yolo/ultralytics_yolo.dart';
+
+import '../../core/analysis/ball_tracker.dart';
+import '../../core/training/shot_analyzer.dart';
+import '../../core/vision/detection.dart';
+import '../../core/vision/yolo_vision_service.dart';
+
+/// The **live camera** training screen: runs on-device `ultralytics_yolo`
+/// inference over the phone's camera and grades each practice stroke in real
+/// time via the [ShotAnalyzer] pipeline.
+///
+/// This is the production counterpart to [TrainingScreen] (which replays a
+/// scripted drill): here a [YOLOView] platform view produces detections, its
+/// `onStreamingData` callback feeds a [YoloVisionService], and that service's
+/// [FrameResult] stream drives a [ShotAnalyzer]. The camera preview fills the
+/// screen and the session grade, target band and recent-shot feed are overlaid
+/// on top — the "Ball AI"-style live training view.
+///
+/// Placed table-side facing the practice net, each outgoing stroke that crosses
+/// the net and lands on the target half is segmented, graded on landing depth
+/// and pace, and folded into a running session summary. Tap "Finish" to freeze
+/// the session and read the end-of-session report.
+///
+/// The camera preview is injected via [cameraPreviewBuilder] and the frame
+/// source via [visionService] so widget tests can drive the pipeline headlessly
+/// without a platform view or camera.
+class CameraTrainingScreen extends StatefulWidget {
+  const CameraTrainingScreen({
+    super.key,
+    this.visionService,
+    this.cameraPreviewBuilder,
+    this.config = const TrainingConfig(),
+    this.modelPath = 'yolo11n',
+    this.task = YOLOTask.detect,
+  });
+
+  /// The camera-backed frame source. Defaults to a fresh [YoloVisionService].
+  final YoloVisionService? visionService;
+
+  /// Builds the camera preview widget. Defaults to a real [YOLOView] wired to
+  /// [visionService]. Injectable so tests can substitute a headless stand-in.
+  final Widget Function(BuildContext, YoloVisionService)? cameraPreviewBuilder;
+
+  /// What a "good" shot looks like (target depth, pace reference, player side).
+  final TrainingConfig config;
+
+  /// The on-device model to run. Defaults to the COCO `yolo11n` detector, which
+  /// labels `sports ball` — the ball the [ShotAnalyzer] tracks. Swap for a
+  /// fine-tuned ping-pong-ball model to improve recall (see
+  /// docs/ARCHITECTURE.md).
+  final String modelPath;
+
+  /// The inference task. [YOLOTask.detect] yields the ball box the shot
+  /// segmentation needs.
+  final YOLOTask task;
+
+  @override
+  State<CameraTrainingScreen> createState() => _CameraTrainingScreenState();
+}
+
+class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
+  late final YoloVisionService _vision;
+  late final ShotAnalyzer _analyzer;
+
+  StreamSubscription<FrameResult>? _sub;
+  FrameResult? _lastFrame;
+  bool _finished = false;
+  final List<Shot> _recentShots = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _vision = widget.visionService ?? YoloVisionService();
+    _analyzer = ShotAnalyzer(config: widget.config);
+    _startVision();
+  }
+
+  Future<void> _startVision() async {
+    await _vision.load();
+    _sub = _vision.frames.listen(_onFrame);
+    await _vision.start();
+  }
+
+  void _onFrame(FrameResult frame) {
+    final shot = _analyzer.onFrame(frame);
+    if (!mounted) return;
+    setState(() {
+      _lastFrame = frame;
+      if (shot != null) {
+        _recentShots.add(shot);
+        if (_recentShots.length > 5) {
+          _recentShots.removeRange(0, _recentShots.length - 5);
+        }
+      }
+    });
+  }
+
+  void _finish() {
+    _vision.stop();
+    setState(() => _finished = true);
+  }
+
+  void _restart() {
+    _analyzer.reset();
+    setState(() {
+      _recentShots.clear();
+      _finished = false;
+      _lastFrame = null;
+    });
+    _vision.start();
+  }
+
+  Widget _buildCameraPreview(BuildContext context) {
+    final builder = widget.cameraPreviewBuilder;
+    if (builder != null) return builder(context, _vision);
+    return YOLOView(
+      modelPath: widget.modelPath,
+      task: widget.task,
+      onStreamingData: _vision.onStreamingData,
+    );
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _vision.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = _analyzer.summary;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Live Training'),
+        actions: [
+          IconButton(
+            icon: Icon(_finished ? Icons.play_arrow : Icons.stop),
+            tooltip: _finished ? 'Restart drill' : 'Finish session',
+            onPressed: _finished ? _restart : _finish,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildCameraPreview(context),
+            _TargetOverlay(frame: _lastFrame, config: widget.config),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _LiveSummaryHeader(summary: summary),
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: _finished
+                  ? _SessionReport(summary: summary)
+                  : _ShotFeed(shots: _recentShots),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Translucent session-grade header overlaid on the camera preview.
+class _LiveSummaryHeader extends StatelessWidget {
+  const _LiveSummaryHeader({required this.summary});
+
+  final TrainingSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      color: Colors.black54,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Column(
+            children: [
+              Text(
+                'Grade',
+                style: theme.textTheme.labelMedium
+                    ?.copyWith(color: Colors.white70),
+              ),
+              Text(
+                summary.overallGrade,
+                style: theme.textTheme.displaySmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${summary.shotCount} shots',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(color: Colors.white),
+                ),
+                Text(
+                  'Avg depth: ${(summary.averageDepth * 100).round()}%   '
+                  'Consistency: ${(summary.consistency * 100).round()}%',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Draws the net line, the target landing band and the tracked ball on top of
+/// the camera preview so the player can see where shots should land.
+class _TargetOverlay extends StatelessWidget {
+  const _TargetOverlay({required this.frame, required this.config});
+
+  final FrameResult? frame;
+  final TrainingConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    final ball = frame?.ball;
+    // The target band spans [targetDepth ± tolerance] on the far half, mapped
+    // back to normalized x. Depth d on the right half is x = netX + d·(1−netX);
+    // on the left half it mirrors to x = netX − d·netX.
+    final netX = config.geometry.netX;
+    final onRight = config.targetSide == TableSide.right;
+    double depthToX(double d) =>
+        onRight ? netX + d * (1 - netX) : netX - d * netX;
+    final near =
+        depthToX((config.targetDepth - config.depthTolerance).clamp(0.0, 1.0));
+    final far =
+        depthToX((config.targetDepth + config.depthTolerance).clamp(0.0, 1.0));
+    final bandLeft = near < far ? near : far;
+    final bandRight = near < far ? far : near;
+
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          return Stack(
+            children: [
+              // Target landing band.
+              Positioned(
+                left: bandLeft * w,
+                top: 0,
+                width: (bandRight - bandLeft) * w,
+                height: h,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(color: Color(0x2648C9B0)),
+                ),
+              ),
+              // Net line.
+              Align(
+                alignment: Alignment(netX * 2 - 1, 0),
+                child: Container(width: 2, color: Colors.white54),
+              ),
+              if (ball != null)
+                Positioned(
+                  left: ball.box.centerX * w - 7,
+                  top: ball.box.centerY * h - 7,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEB3B),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black54),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Rolling list of the most recent graded strokes overlaid on the camera.
+class _ShotFeed extends StatelessWidget {
+  const _ShotFeed({required this.shots});
+
+  final List<Shot> shots;
+
+  static String _describe(Shot s) {
+    final depth = (s.depth * 100).round();
+    final pct = (s.score * 100).round();
+    return '${s.grade.name} — depth $depth%, $pct%';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      color: Colors.black54,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recent shots',
+            style: theme.textTheme.titleSmall?.copyWith(color: Colors.white),
+          ),
+          const SizedBox(height: 4),
+          if (shots.isEmpty)
+            Text(
+              'Waiting for the first shot…',
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+            )
+          else
+            for (final s in shots.reversed)
+              Text(
+                '• ${_describe(s)}',
+                style:
+                    theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// End-of-session report, shown once the player taps Finish.
+class _SessionReport extends StatelessWidget {
+  const _SessionReport({required this.summary});
+
+  final TrainingSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      color: Colors.black87,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Session complete',
+            style: theme.textTheme.titleMedium?.copyWith(color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            summary.report(),
+            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+}

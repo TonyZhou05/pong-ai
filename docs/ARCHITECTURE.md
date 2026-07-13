@@ -239,3 +239,18 @@ behind a `VisionService` interface. This lets us:
      movement/rally analytics, rebuilt on the calibrated geometry) and surfaced
      as per-side short/mid/deep counts in the Match screen's post-match summary.
 7. Training mode: shot segmentation + quality grading.
+   - **[done — iteration 20]** `CameraTrainingScreen`
+     (`features/training/camera_training_screen.dart`): the live-camera
+     counterpart to the demo `TrainingScreen`. It instantiates the real
+     `ultralytics_yolo` `YOLOView` platform view (default `YOLOTask.detect` +
+     `yolo11n`, which labels `sports ball`), routes its `onStreamingData` into a
+     `YoloVisionService`, and drives a `ShotAnalyzer` from that stream —
+     overlaying the session grade/shot-count header, the net line + target
+     landing band, the tracked ball, and a rolling graded-shot feed on the
+     camera preview. A "Finish" action freezes the session and shows the
+     end-of-session report; "Restart" resets the analyzer and resumes. The
+     camera preview and vision service are injectable so the whole wiring is
+     widget-tested headlessly (no platform view). Reachable from the home
+     screen's new "Live Training" card. This closes the objective's second
+     priority (analyse training-shot quality) for the live-camera path, leaving
+     only the shared fine-tuned ping-pong model bundling (roadmap item 2).

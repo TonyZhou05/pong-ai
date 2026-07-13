@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../match/camera_match_screen.dart';
 import '../match/match_screen.dart';
+import '../training/camera_training_screen.dart';
 import '../training/training_screen.dart';
 
 /// Landing screen: pick between refereeing a live match and training mode.
@@ -12,7 +13,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -27,7 +28,7 @@ class HomeScreen extends StatelessWidget {
                 'Place your phone on the side of the table.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
-              const Spacer(),
+              const SizedBox(height: 32),
               _ModeCard(
                 icon: Icons.videocam,
                 title: 'Live Match',
@@ -51,16 +52,27 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _ModeCard(
+                icon: Icons.videocam,
+                title: 'Live Training',
+                subtitle: 'Point the camera at the net and grade shots live.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CameraTrainingScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ModeCard(
                 icon: Icons.fitness_center,
                 title: 'Training',
-                subtitle: 'Practise vs. a net and grade your shots.',
+                subtitle: 'Demo replay: grade a scripted drill.',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const TrainingScreen(),
                   ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 24),
             ],
           ),
         ),
