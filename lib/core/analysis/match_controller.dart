@@ -18,6 +18,7 @@ import '../scoring/scoring_engine.dart';
 import '../vision/detection.dart';
 import 'ball_tracker.dart';
 import 'match_summary.dart';
+import 'player_movement.dart';
 import 'rally_referee.dart';
 import 'table_calibrator.dart';
 
@@ -29,7 +30,12 @@ class MatchController {
     this.calibrator,
   })  : _tracker = tracker ?? BallTracker(),
         referee = referee ?? RallyReferee(),
-        engine = engine ?? ScoringEngine();
+        engine = engine ?? ScoringEngine() {
+    _movement = PlayerMovementAnalyzer(
+      geometry: _tracker.geometry,
+      leftPlayer: this.referee.leftPlayer,
+    );
+  }
 
   BallTracker _tracker;
 
@@ -76,6 +82,14 @@ class MatchController {
   MatchSummary get summary =>
       MatchSummary(points: points, finalState: engine.state);
 
+  /// Player movement / footwork analytics accumulated from the pose model over
+  /// the (post-calibration) frames scored so far. Rebuilt on the calibrated
+  /// geometry so its net-split side assignment matches the referee.
+  late PlayerMovementAnalyzer _movement;
+
+  /// Footwork / positioning metrics for [player] over the match so far.
+  PlayerMovementStats movementFor(Player player) => _movement.statsFor(player);
+
   void _record(Player winner, PointReason reason, int timestampMs) {
     _points.add(
       ScoredPoint(winner: winner, reason: reason, timestampMs: timestampMs),
@@ -97,6 +111,11 @@ class MatchController {
       if (geometry == null) return const [];
       _applyCalibration(geometry);
     }
+
+    // Mine this frame's player poses for footwork/positioning analytics. Runs
+    // only once scoring is live (past any calibration warm-up), so the geometry
+    // used to attribute players to sides is the calibrated one.
+    _movement.observe(frame);
 
     final decisions = <PointDecision>[];
     for (final event in _tracker.update(frame)) {
@@ -124,6 +143,13 @@ class MatchController {
       geometry: geometry,
       minBounceSpeed: _tracker.minBounceSpeed,
       maxGapFrames: _tracker.maxGapFrames,
+    );
+    // Rebuild movement analytics on the calibrated net line so player-to-side
+    // attribution matches the now-inferred geometry (nothing was scored during
+    // warm-up, so no movement is lost).
+    _movement = PlayerMovementAnalyzer(
+      geometry: geometry,
+      leftPlayer: referee.leftPlayer,
     );
     _calibrated = true;
   }

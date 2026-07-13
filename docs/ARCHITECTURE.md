@@ -194,4 +194,16 @@ behind a `VisionService` interface. This lets us:
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
    clips, ready for SPIN/OpenTTGames conversion.
 6. Post-match summary + analytics charts.
+   - **[done — iteration 16]** `PlayerMovementAnalyzer`
+     (`core/analysis/player_movement.dart`): the first layer to consume the
+     *pose* model for performance analytics. It folds each frame's
+     `PersonPose`s into per-player footwork metrics — distance travelled,
+     lateral/depth court coverage, mobility (distance / tracked second), and
+     average stance width — locating each player by the midpoint of their
+     visible ankle keypoints (falling back to the box bottom-centre) and
+     attributing them to `Player.a`/`Player.b` by the net-split side, matching
+     `RallyReferee`'s mapping. It is wired live into `MatchController`
+     (`movementFor(player)`), rebuilt on the calibrated geometry so
+     side-assignment uses the inferred net line, and surfaced in the Match
+     screen's post-match summary panel.
 7. Training mode: shot segmentation + quality grading.

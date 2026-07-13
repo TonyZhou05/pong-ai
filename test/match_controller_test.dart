@@ -174,4 +174,53 @@ void main() {
       expect(mc.score.pointsB, 0);
     });
   });
+
+  group('MatchController — player movement analytics', () {
+    /// A frame with a left-side and right-side player whose box bottom-centre
+    /// (their inferred foot) sits at the given x's.
+    FrameResult playersFrame(int t, double leftX, double rightX) => FrameResult(
+          timestampMs: t,
+          people: [
+            PersonPose(box: BBox(leftX - 0.025, 0.4, 0.05, 0.4), keypoints: const []),
+            PersonPose(box: BBox(rightX - 0.025, 0.4, 0.05, 0.4), keypoints: const []),
+          ],
+        );
+
+    test('accumulates per-player footwork through the live pipeline', () {
+      final mc = MatchController();
+      mc.onFrame(playersFrame(0, 0.20, 0.80));
+      mc.onFrame(playersFrame(33, 0.30, 0.75));
+      mc.onFrame(playersFrame(66, 0.30, 0.70));
+
+      final a = mc.movementFor(Player.a); // left side
+      final b = mc.movementFor(Player.b); // right side
+      expect(a.framesTracked, 3);
+      expect(b.framesTracked, 3);
+      // Player A's foot moved 0.20→0.30→0.30 = 0.10 total.
+      expect(a.distanceTravelled, closeTo(0.10, 1e-9));
+      // Player B's foot moved 0.80→0.75→0.70 = 0.10 total.
+      expect(b.distanceTravelled, closeTo(0.10, 1e-9));
+      expect(a.wasTracked, isTrue);
+    });
+
+    test('movement side assignment follows the calibrated net line', () {
+      final mc = MatchController(
+        calibrator: TableCalibrator(minBallSamples: 8),
+      );
+      // The warm-up frames that only defer scoring record no movement; the one
+      // that completes calibration is a live frame, so it counts (1 each).
+      for (final f in _warmup()) {
+        mc.onFrame(f);
+      }
+      expect(mc.movementFor(Player.a).framesTracked, 1);
+      expect(mc.movementFor(Player.b).framesTracked, 1);
+
+      // Post-calibration frames feed the (net≈0.5) analyzer: 0.25→left (A),
+      // 0.75→right (B).
+      mc.onFrame(playersFrame(2000, 0.25, 0.75));
+      expect(mc.movementFor(Player.a).framesTracked, 2);
+      expect(mc.movementFor(Player.b).framesTracked, 2);
+      expect(mc.movementFor(Player.a).averageX, closeTo((0.245 + 0.25) / 2, 1e-9));
+    });
+  });
 }

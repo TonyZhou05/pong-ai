@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/analysis/match_controller.dart';
 import '../../core/analysis/match_summary.dart';
+import '../../core/analysis/player_movement.dart';
 import '../../core/analysis/rally_referee.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
@@ -118,7 +119,12 @@ class _MatchScreenState extends State<MatchScreen> {
                 onPick: (winner) => _resolve(pending.first, winner),
               )
             else if (state.isMatchOver)
-              _SummaryPanel(summary: _controller.summary)
+              _SummaryPanel(
+                summary: _controller.summary,
+                movement: {
+                  for (final p in Player.values) p: _controller.movementFor(p),
+                },
+              )
             else
               _CallFeed(calls: _recentCalls, matchOver: state.isMatchOver),
           ],
@@ -364,9 +370,12 @@ class _CallFeed extends StatelessWidget {
 
 /// Post-match performance breakdown, shown once the match is over.
 class _SummaryPanel extends StatelessWidget {
-  const _SummaryPanel({required this.summary});
+  const _SummaryPanel({required this.summary, required this.movement});
 
   final MatchSummary summary;
+
+  /// Per-player footwork/positioning metrics mined from the pose model.
+  final Map<Player, PlayerMovementStats> movement;
 
   static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
 
@@ -396,7 +405,13 @@ class _SummaryPanel extends StatelessWidget {
           Row(
             children: [
               for (final player in Player.values)
-                Expanded(child: _PlayerStatColumn(summary: summary, player: player)),
+                Expanded(
+                  child: _PlayerStatColumn(
+                    summary: summary,
+                    player: player,
+                    movement: movement[player],
+                  ),
+                ),
             ],
           ),
         ],
@@ -406,14 +421,23 @@ class _SummaryPanel extends StatelessWidget {
 }
 
 class _PlayerStatColumn extends StatelessWidget {
-  const _PlayerStatColumn({required this.summary, required this.player});
+  const _PlayerStatColumn({
+    required this.summary,
+    required this.player,
+    this.movement,
+  });
 
   final MatchSummary summary;
   final Player player;
 
+  /// Footwork/positioning metrics for this player, if the pose model tracked
+  /// them; null/absent when they were never detected.
+  final PlayerMovementStats? movement;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final m = movement;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -425,6 +449,10 @@ class _PlayerStatColumn extends StatelessWidget {
         Text('${summary.forcedErrorsWonBy(player)} forced errors'),
         Text('${summary.openPlayPointsWonBy(player)} open play'),
         Text('longest run: ${summary.longestStreakFor(player)}'),
+        if (m != null && m.wasTracked) ...[
+          Text('moved: ${m.distanceTravelled.toStringAsFixed(2)}'),
+          Text('mobility: ${m.mobilityPerSecond.toStringAsFixed(2)}/s'),
+        ],
       ],
     );
   }

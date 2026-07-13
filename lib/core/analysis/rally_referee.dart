@@ -75,6 +75,10 @@ class RallyReferee {
   /// [TableSide] onto the scoring engine's [Player] identities.
   final Player _leftPlayer;
 
+  /// The player on the left half of the table (net-split). Exposed so movement
+  /// analytics can attribute detected people to the same [Player] identities.
+  Player get leftPlayer => _leftPlayer;
+
   /// The side of the most recent legal bounce this rally, or null before one.
   TableSide? _lastBounceSide;
 
