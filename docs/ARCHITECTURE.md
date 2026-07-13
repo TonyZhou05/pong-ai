@@ -111,6 +111,7 @@ lib/
     vision/              Camera + model abstraction
       detection.dart     Detection / keypoint data models
       vision_service.dart Interface over the YOLO runtime (swappable, mockable)
+      yolo_frame_adapter.dart Pure mapping: ultralytics_yolo streaming output → FrameResult
     tracking/            Ball Kalman tracker, rally/point event detection
     analysis/            Performance + shot-quality analytics
   features/
@@ -138,6 +139,11 @@ behind a `VisionService` interface. This lets us:
 1. **[done — iteration 1]** Project scaffold, model decision, pure-Dart scoring
    engine + tests.
 2. Wire `ultralytics_yolo` `YOLOView`, render live pose + ball overlays.
+   - **[done — iteration 9]** `YoloFrameAdapter`: pure, unit-tested mapping from
+     the plugin's `onStreamingData` payload (or parsed `List<YOLOResult>`) into
+     the runtime-agnostic `FrameResult` — the seam a camera-backed
+     `VisionService` funnels live detections through. Remaining: instantiate the
+     `YOLOView`/controller and bundle the exported `.tflite`/`.mlpackage` models.
 3. Ball Kalman tracker + rally/point event detection from detections.
 4. Connect events → scoring engine → live scoreboard UI.
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
