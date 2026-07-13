@@ -9,9 +9,13 @@
 ///
 /// [buildMatchReportJson] emits the full analytics off a [MatchController] as a
 /// plain, JSON-encodable [Map] (a versioned schema), and [matchReportJsonString]
-/// pretty-prints it. Like the rest of `core/`, it has no Flutter or vision
-/// dependencies, so the export is deterministic and unit-testable end-to-end
-/// from a synthetic frame stream — and it round-trips through `dart:convert`.
+/// pretty-prints it. Alongside the aggregate sections it carries a `pointLog`:
+/// the ordered per-rally record (winner, fault reason, server, game index,
+/// timestamp) mirroring the training export's per-shot list, so a coach can
+/// replay a match rally-by-rally rather than only reading the totals. Like the
+/// rest of `core/`, it has no Flutter or vision dependencies, so the export is
+/// deterministic and unit-testable end-to-end from a synthetic frame stream —
+/// and it round-trips through `dart:convert`.
 library;
 
 import 'dart:convert';
@@ -122,6 +126,18 @@ Map<String, Object?>? _coachingJson(PlayerInsights pi) {
   };
 }
 
+/// One rally in the ordered point log — who won it, why (the fault reason),
+/// who served, which game it belonged to, and when. This is the per-event
+/// granularity a coach needs to replay a match rally-by-rally, mirroring how
+/// the training export lists every graded shot.
+Map<String, Object?> _pointJson(ScoredPoint pt) => {
+      'winner': _playerKey(pt.winner),
+      'reason': pt.reason.name,
+      'server': pt.server == null ? null : _playerKey(pt.server!),
+      'gameIndex': pt.gameIndex,
+      'timestampMs': pt.timestampMs,
+    };
+
 Map<String, Object?>? _placementJson(SidePlacementStats p) {
   if (p.count == 0) return null;
   return {
@@ -165,6 +181,9 @@ Map<String, Object?> buildMatchReportJson(MatchController controller) {
           _playerKey(p): _playerSummaryJson(summary, p),
       },
     },
+    'pointLog': [
+      for (final pt in summary.points) _pointJson(pt),
+    ],
     'rallies': _rallyJson(controller.rallyStats),
     'ballSpeed': controller.hasBallSpeedData
         ? {

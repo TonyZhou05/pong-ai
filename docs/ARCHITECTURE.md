@@ -968,7 +968,15 @@ behind a `VisionService` interface. This lets us:
      companion had lacked — so a persisted history session, not just the on-screen
      panel, can surface each player's "focus next" cue. The training JSON export
      (`buildTrainingReportJson`) gained the same `coaching` section from
-     `TrainingFeedback` (iteration 51), closing the parallel gap.
+     `TrainingFeedback` (iteration 51), closing the parallel gap. *(iteration
+     122)* The match export now also carries a `pointLog`: the ordered per-rally
+     record (`winner`, fault `reason`, `server`, `gameIndex`, `timestampMs`) read
+     off the durable `ScoredPoint` log. The aggregate sections only ever mined
+     that log into totals/momentum/game-scores; the training JSON already listed
+     every graded shot, so a per-point list was a genuine match-vs-training
+     export-granularity gap — a coach can now replay a match rally-by-rally
+     rather than only reading the totals. It flows into both match screens' Export
+     JSON and the persisted history record with no widget change.
    - **[done — iteration 121]** OS share sheet (`core/share/report_share.dart`).
      Both the match and training reports could only ever be *copied to the
      clipboard* (or persisted to on-device history) — there was no way to hand

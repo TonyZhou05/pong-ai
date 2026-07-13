@@ -103,6 +103,44 @@ void main() {
     expect((placement['left'] as Map)['count'], greaterThan(0));
   });
 
+  test('point log lists every scored rally in order with its fields', () {
+    final controller = MatchController();
+    for (final frame in demoMatchFrames()) {
+      controller.onFrame(frame);
+    }
+
+    final pointLog = buildMatchReportJson(controller)['pointLog'] as List;
+    // One entry per scored point, ordered like the durable log.
+    expect(pointLog, hasLength(controller.summary.points.length));
+    expect(pointLog, isNotEmpty);
+
+    for (var i = 0; i < pointLog.length; i++) {
+      final entry = pointLog[i] as Map<String, dynamic>;
+      final source = controller.summary.points[i];
+      expect(entry['winner'], source.winner == Player.a ? 'A' : 'B');
+      expect(entry['reason'], source.reason.name);
+      expect(entry['timestampMs'], source.timestampMs);
+      expect(entry['gameIndex'], source.gameIndex);
+      expect(
+        entry['server'],
+        source.server == null
+            ? isNull
+            : (source.server == Player.a ? 'A' : 'B'),
+      );
+    }
+
+    // The whole export still round-trips through JSON with the new section.
+    final decoded = jsonDecode(matchReportJsonString(controller))
+        as Map<String, dynamic>;
+    expect(decoded['pointLog'], equals(pointLog));
+  });
+
+  test('empty match emits an empty (not null) point log', () {
+    final json = buildMatchReportJson(MatchController());
+    expect(json['pointLog'], isA<List>());
+    expect(json['pointLog'], isEmpty);
+  });
+
   test('played match exports the per-player coaching section', () {
     final controller = MatchController();
     for (final frame in demoMatchFrames()) {
