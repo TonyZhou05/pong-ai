@@ -799,6 +799,18 @@ behind a `VisionService` interface. This lets us:
      `bestOnTargetStreak` (personal-best "in a row" across every session that
      tracked it), surfaced as a "Best on-target streak: N in a row" `report()`
      line and a "· streak N" segment on the Training-progress card's Best line.
+   - **[done — iteration 96]** Recurring in-match coaching focus. The match report
+     JSON persisted per-seat `coaching.<seat>.focus` (the weakest `MatchInsights`
+     dimension) since the coaching layer began, and the training side mined its
+     `coaching.focus` into a cross-session `SessionTrends.recurringFocus`, but the
+     match side never aggregated its persisted focus across matches. Added
+     `MatchTrendPoint.focusAreas` (both seats' flagged focus dimensions) plus
+     `SessionTrends.matchFocusCounts` / `recurringMatchFocus` /
+     `recurringMatchFocusCount` / `hasRecurringMatchFocus` — the weakness flagged in
+     the most saved matches (counted once per match even if both seats flag it,
+     recency tie-break), the match-side twin of the training `recurringFocus`.
+     Surfaced as a "Recurring match focus: <dim> (N of M matches)" `report()` line
+     and a focus row on the history screen's Match-record card.
    - **[done — iteration 86]** Head-to-head win streak. `SessionTrends` tallied the
      cumulative A-vs-B win record (`matchWinsBy`) but never looked at the *order* of
      wins, so a run of consecutive same-seat wins was invisible. Added

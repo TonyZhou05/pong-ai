@@ -51,6 +51,8 @@ StoredSession _match(
   double? averageKmh,
   String? winner,
   int? durationMs,
+  String? focusA,
+  String? focusB,
 }) =>
     StoredSession(
       id: id,
@@ -72,6 +74,11 @@ StoredSession _match(
           'ballSpeed': {
             if (maxKmh != null) 'maxKmh': maxKmh,
             if (averageKmh != null) 'averageKmh': averageKmh,
+          },
+        if (focusA != null || focusB != null)
+          'coaching': {
+            if (focusA != null) 'playerA': {'focus': focusA},
+            if (focusB != null) 'playerB': {'focus': focusB},
           },
       },
     );
@@ -488,6 +495,78 @@ void main() {
         _training('b', t1, averageScore: 0.6, grade: 'B', focus: 'Rhythm'),
       ]);
       expect(trends.report(), contains('Recurring focus: Rhythm (2 of 2 drills)'));
+    });
+  });
+
+  group('SessionTrends recurring match focus', () {
+    final t3 = DateTime(2026, 7, 15, 9);
+
+    test('parses per-seat coaching focus out of a match report', () {
+      final point = MatchTrendPoint.fromStored(
+        _match('m', t0, focusA: 'Serve effectiveness', focusB: 'Return of serve'),
+      );
+      expect(
+        point!.focusAreas,
+        containsAll(['Serve effectiveness', 'Return of serve']),
+      );
+    });
+
+    test('leaves focusAreas empty when no coaching section was recorded', () {
+      final point = MatchTrendPoint.fromStored(_match('m', t0, totalPoints: 21));
+      expect(point!.focusAreas, isEmpty);
+    });
+
+    test('tallies each match once per focus even if both seats flag it', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, focusA: 'Serve effectiveness', focusB: 'Serve effectiveness'),
+        _match('m2', t1, focusA: 'Return of serve'),
+      ]);
+      // Both seats flagged the same focus in m1, but it counts as one match.
+      expect(trends.matchFocusCounts['Serve effectiveness'], 1);
+      expect(trends.matchFocusCounts['Return of serve'], 1);
+      expect(trends.hasRecurringMatchFocus, isFalse);
+    });
+
+    test('surfaces the most common in-match weakness across matches', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, focusA: 'Serve effectiveness'),
+        _match('m2', t1, focusA: 'Return of serve'),
+        _match('m3', t2, focusA: 'Serve effectiveness'),
+      ]);
+      expect(trends.recurringMatchFocus, 'Serve effectiveness');
+      expect(trends.recurringMatchFocusCount, 2);
+      expect(trends.hasRecurringMatchFocus, isTrue);
+    });
+
+    test('breaks count ties toward the more recent match focus', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, focusA: 'Serve effectiveness'),
+        _match('m2', t1, focusA: 'Return of serve'),
+        _match('m3', t2, focusA: 'Serve effectiveness'),
+        _match('m4', t3, focusA: 'Return of serve'),
+      ]);
+      // Both appear twice; Return of serve's latest match (m4) is newest.
+      expect(trends.recurringMatchFocus, 'Return of serve');
+    });
+
+    test('null when no match recorded a coaching focus', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, totalPoints: 21),
+      ]);
+      expect(trends.recurringMatchFocus, isNull);
+      expect(trends.recurringMatchFocusCount, 0);
+      expect(trends.hasRecurringMatchFocus, isFalse);
+    });
+
+    test('report surfaces a recurring match focus', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, focusA: 'Serve effectiveness'),
+        _match('m2', t1, focusA: 'Serve effectiveness'),
+      ]);
+      expect(
+        trends.report(),
+        contains('Recurring match focus: Serve effectiveness (2 of 2 matches)'),
+      );
     });
   });
 

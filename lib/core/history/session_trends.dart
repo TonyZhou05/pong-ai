@@ -122,6 +122,7 @@ class MatchTrendPoint {
     this.longestRallyStrokes,
     this.averageRallyStrokes,
     this.winner,
+    this.focusAreas = const [],
   });
 
   final String id;
@@ -152,6 +153,15 @@ class MatchTrendPoint {
   /// The match winner key (`A` / `B`), null if the match did not finish.
   final String? winner;
 
+  /// The coaching *focus* dimensions this match flagged, one per seat that had
+  /// coachable data (e.g. `[Serve effectiveness, Return of serve]`), from the
+  /// persisted per-player `coaching.<seat>.focus` fields. Empty when the report
+  /// recorded no coaching (too little data) or predates the field. A match can
+  /// contribute two entries (one per seat), so seat identity is deliberately
+  /// dropped — this feeds an aggregate "which weakness shows up most in matches
+  /// played on this table" tally rather than a per-person trend.
+  final List<String> focusAreas;
+
   /// Parse a stored match session, or null if it is not a match record.
   static MatchTrendPoint? fromStored(StoredSession session) {
     if (session.kind != SessionKind.match) return null;
@@ -161,6 +171,14 @@ class MatchTrendPoint {
     final rallies = report['rallies'];
     final score = report['score'];
     final winner = score is Map ? score['winner'] : null;
+    final coaching = report['coaching'];
+    final focusAreas = <String>[];
+    if (coaching is Map) {
+      for (final seat in coaching.values) {
+        final focus = seat is Map ? seat['focus'] : null;
+        if (focus is String) focusAreas.add(focus);
+      }
+    }
     return MatchTrendPoint(
       id: session.id,
       savedAt: session.savedAt,
@@ -175,6 +193,7 @@ class MatchTrendPoint {
       averageRallyStrokes:
           rallies is Map ? _asDouble(rallies['averageStrokes']) : null,
       winner: winner is String ? winner : null,
+      focusAreas: focusAreas,
     );
   }
 }
@@ -602,6 +621,61 @@ class SessionTrends {
   String? get currentMatchWinStreakSeat =>
       _decidedWinners.isEmpty ? null : _decidedWinners.last;
 
+  /// How many saved *matches* flagged each coaching focus dimension, e.g.
+  /// `{Serve effectiveness: 3, Return of serve: 1}`. A focus flagged for both
+  /// seats in one match still counts once (per-match, not per-seat), so the
+  /// tally reads as "how many matches showed this weakness". Matches with no
+  /// coaching data are excluded. The match-side twin of [focusCounts],
+  /// aggregating both players since a match has no single tracked user.
+  Map<String, int> get matchFocusCounts {
+    final counts = <String, int>{};
+    for (final m in matchSessions) {
+      for (final focus in m.focusAreas.toSet()) {
+        counts[focus] = (counts[focus] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  /// The coaching focus that comes up most often across saved matches — the
+  /// weakness players keep showing in real games. Ties break toward the area
+  /// whose most recent match is newer (so the current struggle wins). Null if no
+  /// match recorded any coaching focus. The match-side twin of [recurringFocus].
+  String? get recurringMatchFocus {
+    final counts = matchFocusCounts;
+    if (counts.isEmpty) return null;
+    // Latest match index carrying each focus, for deterministic recency ties.
+    final latestIndex = <String, int>{};
+    for (var i = 0; i < matchSessions.length; i++) {
+      for (final focus in matchSessions[i].focusAreas) {
+        latestIndex[focus] = i;
+      }
+    }
+    String? best;
+    var bestCount = 0;
+    var bestRecency = -1;
+    counts.forEach((focus, count) {
+      final recency = latestIndex[focus] ?? -1;
+      if (count > bestCount ||
+          (count == bestCount && recency > bestRecency)) {
+        best = focus;
+        bestCount = count;
+        bestRecency = recency;
+      }
+    });
+    return best;
+  }
+
+  /// How many matches flagged [recurringMatchFocus] (0 if none).
+  int get recurringMatchFocusCount {
+    final focus = recurringMatchFocus;
+    return focus == null ? 0 : (matchFocusCounts[focus] ?? 0);
+  }
+
+  /// Whether a coaching focus recurs across at least two saved matches — enough
+  /// to read as a persistent in-match weakness rather than a one-off.
+  bool get hasRecurringMatchFocus => recurringMatchFocusCount >= 2;
+
   /// The recorded values of a nullable per-session metric, in session order
   /// (oldest first), skipping sessions that did not record it.
   List<double> _metricSeries(double? Function(TrainingTrendPoint) select) {
@@ -744,6 +818,12 @@ class SessionTrends {
     final avgSpeed = averageMatchBallSpeedKmh;
     if (avgSpeed != null) {
       lines.add('Average ball: ${avgSpeed.toStringAsFixed(1)} km/h');
+    }
+    if (hasRecurringMatchFocus) {
+      lines.add(
+        'Recurring match focus: $recurringMatchFocus '
+        '($recurringMatchFocusCount of $matchCount matches)',
+      );
     }
   }
 

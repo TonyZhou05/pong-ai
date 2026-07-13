@@ -353,6 +353,26 @@ class _MatchSummaryCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(chips.join(' · '), style: theme.textTheme.bodyMedium),
             ],
+            if (trends.hasRecurringMatchFocus) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.center_focus_strong,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Match focus: ${trends.recurringMatchFocus!.toLowerCase()} '
+                      '(${trends.recurringMatchFocusCount}/${trends.matchCount} matches)',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

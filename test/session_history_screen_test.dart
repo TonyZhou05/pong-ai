@@ -341,6 +341,33 @@ void main() {
       expect(find.textContaining('A 1–1 B'), findsOneWidget);
     });
 
+    testWidgets('match-record card surfaces a recurring in-match focus',
+        (tester) async {
+      final store = FakeHistoryStore();
+      for (var i = 0; i < 2; i++) {
+        await store.save(
+          kind: SessionKind.match,
+          report: {
+            'score': {'gamesA': 3, 'gamesB': 1, 'winner': 'A'},
+            'coaching': {
+              'playerA': {'focus': 'Serve effectiveness'},
+            },
+          },
+          at: DateTime(2026, 1, i + 1, 9),
+        );
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: store)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Match focus: serve effectiveness'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('delete removes a session from the list', (tester) async {
       final store = FakeHistoryStore();
       await store.save(
