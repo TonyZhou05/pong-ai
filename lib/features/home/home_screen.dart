@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../history/session_history_screen.dart';
 import '../match/camera_match_screen.dart';
 import '../match/match_screen.dart';
 import '../training/camera_training_screen.dart';
@@ -69,6 +70,17 @@ class HomeScreen extends StatelessWidget {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const TrainingScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ModeCard(
+                icon: Icons.history,
+                title: 'History',
+                subtitle: 'Review saved match and training summaries.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SessionHistoryScreen(),
                   ),
                 ),
               ),

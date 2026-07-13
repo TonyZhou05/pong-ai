@@ -490,6 +490,21 @@ behind a `VisionService` interface. This lets us:
      `*.json` files, and — like the rest of `core/` — it is pure Dart (`dart:io`
      + `dart:convert`, no Flutter/plugin) so it is unit-tested end-to-end against
      a temp dir with no device.
+   - **[done — iteration 46]** Session-history UI: producer + consumer wiring for
+     the iteration-45 store, which until now had neither. `SessionHistoryScreen`
+     (`features/history/session_history_screen.dart`) lists stored sessions
+     newest-first (kind icon, a pure/unit-tested `sessionHeadline` derived from the
+     report — match score or training grade/shot-count — and save time), opens any
+     one to a read-only detail view of its pretty-printed report, and can delete;
+     it takes an injectable `store` (tests) and otherwise resolves the on-device
+     store lazily via `defaultSessionHistoryStore()`
+     (`core/history/history_store_provider.dart`, the `path_provider`
+     documents-dir seam). The training report gained a "Save to history" action
+     (an injectable `historyStoreLoader` on `TrainingScreen`) that persists
+     `buildTrainingReportJson` via the store, and the home screen gained a
+     "History" card. Screen tests run against an in-memory fake store so they can
+     pump/settle normally (a `testWidgets` body's real `dart:io` only advances
+     under `runAsync`); the on-disk store keeps its own temp-dir unit tests.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 44]** Training-mode tracking-quality / detection-health.

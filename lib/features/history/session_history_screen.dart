@@ -1,0 +1,232 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+
+import '../../core/history/history_store_provider.dart';
+import '../../core/history/session_history_store.dart';
+
+/// Browse, view and delete previously-saved match / training sessions.
+///
+/// The analytics pipeline has produced structured JSON reports since
+/// iterations 38/39 and [SessionHistoryStore] (iteration 45) persisted them —
+/// but nothing ever *read* them back, so the across-session history the exports
+/// were built for had no surface. This screen is that consumer: it lists the
+/// stored sessions newest-first, opens any one to view its full report, and can
+/// delete it.
+///
+/// The [store] is injectable (tests pass a temp-dir store); by default the
+/// screen resolves the on-device store lazily via [defaultSessionHistoryStore]
+/// so `flutter test` never touches the `path_provider` plugin.
+class SessionHistoryScreen extends StatefulWidget {
+  const SessionHistoryScreen({
+    super.key,
+    this.store,
+    this.storeLoader,
+  });
+
+  /// A ready store to use directly (tests). When null, [storeLoader] resolves
+  /// one lazily.
+  final SessionHistoryStore? store;
+
+  /// Resolves the store when [store] is null. Defaults to the on-device
+  /// documents-directory store.
+  final Future<SessionHistoryStore> Function()? storeLoader;
+
+  @override
+  State<SessionHistoryScreen> createState() => _SessionHistoryScreenState();
+}
+
+class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
+  SessionHistoryStore? _store;
+  List<StoredSession>? _sessions;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _sessions = null;
+      _error = null;
+    });
+    try {
+      final store = widget.store ??
+          _store ??
+          await (widget.storeLoader ?? defaultSessionHistoryStore)();
+      final sessions = await store.list();
+      if (!mounted) return;
+      setState(() {
+        _store = store;
+        _sessions = sessions;
+      });
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e);
+    }
+  }
+
+  Future<void> _delete(StoredSession session) async {
+    final store = _store;
+    if (store == null) return;
+    await store.delete(session.id);
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('History'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Reload',
+            onPressed: _load,
+          ),
+        ],
+      ),
+      body: SafeArea(child: _body(context)),
+    );
+  }
+
+  Widget _body(BuildContext context) {
+    final theme = Theme.of(context);
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            "Couldn't load history.\n$_error",
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+    final sessions = _sessions;
+    if (sessions == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (sessions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No saved sessions yet.\nFinish a match or training drill and tap '
+            '"Save to history".',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+    return ListView.separated(
+      itemCount: sessions.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, i) {
+        final session = sessions[i];
+        return ListTile(
+          leading: Icon(
+            session.kind == SessionKind.match
+                ? Icons.sports_tennis
+                : Icons.fitness_center,
+          ),
+          title: Text(sessionHeadline(session)),
+          subtitle: Text(formatSessionTime(session.savedAt)),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Delete',
+            onPressed: () => _delete(session),
+          ),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => _SessionDetailScreen(session: session),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Read-only view of one stored session's full structured report.
+class _SessionDetailScreen extends StatelessWidget {
+  const _SessionDetailScreen({required this.session});
+
+  final StoredSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pretty =
+        const JsonEncoder.withIndent('  ').convert(session.report);
+    return Scaffold(
+      appBar: AppBar(title: Text(sessionHeadline(session))),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                formatSessionTime(session.savedAt),
+                style: theme.textTheme.labelLarge,
+              ),
+              const SizedBox(height: 12),
+              SelectableText(
+                pretty,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(fontFamily: 'monospace'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A one-line headline for a stored session, derived from the report contents
+/// (final score for a match, grade + shot count for a drill). Pure so it is
+/// unit-testable without rendering.
+String sessionHeadline(StoredSession session) {
+  final report = session.report;
+  switch (session.kind) {
+    case SessionKind.match:
+      final score = report['score'];
+      if (score is Map) {
+        final gamesA = score['gamesA'];
+        final gamesB = score['gamesB'];
+        if (gamesA is num && gamesB is num && (gamesA > 0 || gamesB > 0)) {
+          return 'Match · $gamesA–$gamesB games';
+        }
+        final pointsA = score['pointsA'];
+        final pointsB = score['pointsB'];
+        if (pointsA is num && pointsB is num) {
+          return 'Match · $pointsA–$pointsB';
+        }
+      }
+      return 'Match';
+    case SessionKind.training:
+      final s = report['session'];
+      if (s is Map) {
+        final grade = s['overallGrade'];
+        final shots = s['shotCount'];
+        if (grade is String && shots is num) {
+          return 'Training · grade $grade · $shots shots';
+        }
+      }
+      return 'Training';
+  }
+}
+
+/// Format a session's save time as a compact local timestamp.
+String formatSessionTime(DateTime at) {
+  final local = at.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${local.year}-${two(local.month)}-${two(local.day)} '
+      '${two(local.hour)}:${two(local.minute)}';
+}

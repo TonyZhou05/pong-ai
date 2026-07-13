@@ -13,6 +13,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   # On-device YOLO detection + pose (official Ultralytics plugin).
   ultralytics_yolo: ^0.6.9
+  # Platform documents directory for the on-disk session-history store.
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:
