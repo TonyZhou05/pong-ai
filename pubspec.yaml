@@ -1,0 +1,26 @@
+name: pong_ai
+description: "AI table-tennis referee & coach — auto scoring, player/ball tracking, and training-shot analysis."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  # On-device YOLO detection + pose (official Ultralytics plugin).
+  ultralytics_yolo: ^0.6.9
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  # Bundled models are added in a later iteration.
+  # assets:
+  #   - assets/models/
