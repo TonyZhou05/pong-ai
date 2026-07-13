@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
+import '../../core/history/session_trends.dart';
 
 /// Browse, view and delete previously-saved match / training sessions.
 ///
@@ -123,6 +124,17 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
         ),
       );
     }
+    final trends = SessionTrends.fromSessions(sessions);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (trends.hasTrainingTrend) _TrendsHeader(trends: trends),
+        Expanded(child: _sessionList(sessions)),
+      ],
+    );
+  }
+
+  Widget _sessionList(List<StoredSession> sessions) {
     return ListView.separated(
       itemCount: sessions.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
@@ -148,6 +160,69 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Compact across-session training-progression card shown above the list once
+/// there are at least two saved drills to trend between.
+class _TrendsHeader extends StatelessWidget {
+  const _TrendsHeader({required this.trends});
+
+  final SessionTrends trends;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final improvement = trends.scoreImprovement;
+    final first = trends.firstSession!;
+    final latest = trends.latestSession!;
+    String pct(double v) => '${(v * 100).round()}%';
+    final delta = improvement ?? 0;
+    final improving = delta > 0.0005;
+    final declining = delta < -0.0005;
+    final color = improving
+        ? Colors.green
+        : (declining ? theme.colorScheme.error : theme.colorScheme.onSurface);
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Training progress', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  improving
+                      ? Icons.trending_up
+                      : (declining ? Icons.trending_down : Icons.trending_flat),
+                  color: color,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${pct(first.averageScore)} → ${pct(latest.averageScore)}',
+                  style: theme.textTheme.titleLarge?.copyWith(color: color),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '(${delta >= 0 ? '+' : ''}${(delta * 100).round()}%)',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: color),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Best: grade ${trends.bestSession!.overallGrade} · '
+              '${trends.trainingCount} drills'
+              '${trends.bestMaxSpeedKmh != null ? ' · fastest ${trends.bestMaxSpeedKmh!.toStringAsFixed(1)} km/h' : ''}',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

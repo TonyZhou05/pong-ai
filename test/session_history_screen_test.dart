@@ -196,6 +196,65 @@ void main() {
       expect(find.textContaining('"gamesA": 3'), findsOneWidget);
     });
 
+    testWidgets('shows a training-progress header once two drills are saved',
+        (tester) async {
+      final store = FakeHistoryStore();
+      await store.save(
+        kind: SessionKind.training,
+        report: {
+          'session': {
+            'overallGrade': 'C',
+            'shotCount': 6,
+            'averageScore': 0.50,
+          },
+        },
+        at: DateTime(2026, 1, 1, 9),
+      );
+      await store.save(
+        kind: SessionKind.training,
+        report: {
+          'session': {
+            'overallGrade': 'A',
+            'shotCount': 8,
+            'averageScore': 0.80,
+          },
+        },
+        at: DateTime(2026, 1, 5, 9),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: store)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Training progress'), findsOneWidget);
+      expect(find.text('50% → 80%'), findsOneWidget);
+      expect(find.byIcon(Icons.trending_up), findsOneWidget);
+    });
+
+    testWidgets('no trends header with a single saved drill', (tester) async {
+      final store = FakeHistoryStore();
+      await store.save(
+        kind: SessionKind.training,
+        report: {
+          'session': {
+            'overallGrade': 'B',
+            'shotCount': 6,
+            'averageScore': 0.65,
+          },
+        },
+        at: DateTime(2026, 1, 1, 9),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: store)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Training progress'), findsNothing);
+      expect(find.byType(ListTile), findsOneWidget);
+    });
+
     testWidgets('delete removes a session from the list', (tester) async {
       final store = FakeHistoryStore();
       await store.save(

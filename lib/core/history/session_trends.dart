@@ -1,0 +1,219 @@
+/// Across-session progression / trends over the saved session history.
+///
+/// [SessionHistoryStore] (iteration 45) persists each match / training report
+/// and [SessionHistoryScreen] (iteration 46/47) lists them one-by-one — but
+/// nothing ever looked at the *collection*. Both structured exporters
+/// (`buildMatchReportJson`, `buildTrainingReportJson`) name this as their whole
+/// reason for existing: "diff pace/placement/rhythm across sessions", "diffed
+/// across sessions". A single drill's grade tells you how today went; whether
+/// you are actually *improving* only shows up across many sessions.
+///
+/// [SessionTrends] folds a list of [StoredSession]s (the exact records the store
+/// hands back) into training-progression metrics — score improvement over time,
+/// the best session, latest-vs-first deltas — plus a small match tally. Like the
+/// rest of `core/`, it is pure Dart (parses the stored JSON maps only, no
+/// Flutter / vision / plugin) and unit-testable end-to-end.
+library;
+
+import 'session_history_store.dart';
+
+/// One training session reduced to the headline metrics a progression view
+/// needs, parsed out of its stored `buildTrainingReportJson` map.
+class TrainingTrendPoint {
+  const TrainingTrendPoint({
+    required this.id,
+    required this.savedAt,
+    required this.shotCount,
+    required this.averageScore,
+    required this.overallGrade,
+    this.depthConsistency,
+    this.maxSpeedKmh,
+    this.rhythmConsistency,
+  });
+
+  final String id;
+  final DateTime savedAt;
+  final int shotCount;
+  final double averageScore;
+  final String overallGrade;
+
+  /// Placement consistency (population stddev of landing depth); lower is
+  /// tighter. Null if the stored report predates the field.
+  final double? depthConsistency;
+
+  /// Peak physical shot speed in km/h, null if the session recorded no scaled
+  /// pace (e.g. an all-slow drill or an older report).
+  final double? maxSpeedKmh;
+
+  /// Metronome rhythm score in [0,1]; null if the drill had < 2 shots.
+  final double? rhythmConsistency;
+
+  /// Parse a stored training session, or null if the report shape is not a
+  /// recognizable training export (so a corrupt / foreign record is skipped).
+  static TrainingTrendPoint? fromStored(StoredSession session) {
+    if (session.kind != SessionKind.training) return null;
+    final s = session.report['session'];
+    if (s is! Map) return null;
+    final avg = _asDouble(s['averageScore']);
+    final shots = _asInt(s['shotCount']);
+    final grade = s['overallGrade'];
+    if (avg == null || shots == null || grade is! String) return null;
+
+    final placement = session.report['placement'];
+    final pace = session.report['pace'];
+    final tempo = session.report['tempo'];
+    return TrainingTrendPoint(
+      id: session.id,
+      savedAt: session.savedAt,
+      shotCount: shots,
+      averageScore: avg,
+      overallGrade: grade,
+      depthConsistency:
+          placement is Map ? _asDouble(placement['depthConsistency']) : null,
+      maxSpeedKmh: pace is Map ? _asDouble(pace['maxSpeedKmh']) : null,
+      rhythmConsistency:
+          tempo is Map ? _asDouble(tempo['rhythmConsistency']) : null,
+    );
+  }
+}
+
+/// Cross-session progression over a saved-session history.
+class SessionTrends {
+  const SessionTrends({
+    required this.trainingSessions,
+    required this.matchCount,
+  });
+
+  /// Every parseable training session, oldest first (so index 0 is where the
+  /// player started and the last is their most recent drill).
+  final List<TrainingTrendPoint> trainingSessions;
+
+  /// How many stored sessions were matches. Matches pit Player A vs B rather
+  /// than a single tracked user, so there is no personal win-rate to trend;
+  /// the count still situates the training history in the whole record.
+  final int matchCount;
+
+  /// Fold the store's records (in any order) into trends. Training sessions are
+  /// sorted oldest-first by save time (ties broken by id) so deltas read as
+  /// first → latest.
+  factory SessionTrends.fromSessions(Iterable<StoredSession> sessions) {
+    final training = <TrainingTrendPoint>[];
+    var matches = 0;
+    for (final session in sessions) {
+      if (session.kind == SessionKind.match) {
+        matches++;
+        continue;
+      }
+      final point = TrainingTrendPoint.fromStored(session);
+      if (point != null) training.add(point);
+    }
+    training.sort((a, b) {
+      final byTime = a.savedAt.compareTo(b.savedAt);
+      return byTime != 0 ? byTime : a.id.compareTo(b.id);
+    });
+    return SessionTrends(trainingSessions: training, matchCount: matches);
+  }
+
+  int get trainingCount => trainingSessions.length;
+
+  /// Whether there are enough training sessions (>= 2) for a first→latest
+  /// improvement to be meaningful.
+  bool get hasTrainingTrend => trainingSessions.length >= 2;
+
+  TrainingTrendPoint? get firstSession =>
+      trainingSessions.isEmpty ? null : trainingSessions.first;
+
+  TrainingTrendPoint? get latestSession =>
+      trainingSessions.isEmpty ? null : trainingSessions.last;
+
+  /// The training session with the highest average score (ties broken toward
+  /// the more recent one), or null if there are none.
+  TrainingTrendPoint? get bestSession {
+    TrainingTrendPoint? best;
+    for (final p in trainingSessions) {
+      if (best == null || p.averageScore >= best.averageScore) best = p;
+    }
+    return best;
+  }
+
+  /// Mean average-score across all training sessions, null if there are none.
+  double? get meanScore {
+    if (trainingSessions.isEmpty) return null;
+    final total =
+        trainingSessions.fold<double>(0, (sum, p) => sum + p.averageScore);
+    return total / trainingSessions.length;
+  }
+
+  /// Latest average score minus the first: positive means the player's shot
+  /// quality has improved over the tracked history. Null with < 2 sessions.
+  double? get scoreImprovement {
+    if (!hasTrainingTrend) return null;
+    return trainingSessions.last.averageScore -
+        trainingSessions.first.averageScore;
+  }
+
+  /// Fastest shot (km/h) recorded across every session that scaled pace, or
+  /// null if none did — the personal-best radar number.
+  double? get bestMaxSpeedKmh {
+    double? best;
+    for (final p in trainingSessions) {
+      final s = p.maxSpeedKmh;
+      if (s == null) continue;
+      if (best == null || s > best) best = s;
+    }
+    return best;
+  }
+
+  /// A short human-readable progression summary, mirroring the text-report style
+  /// of the per-session analytics.
+  String report() {
+    final lines = <String>['Progress across saved sessions'];
+    lines.add(
+      'Sessions: $trainingCount training'
+      '${matchCount > 0 ? ', $matchCount match' : ''}',
+    );
+    if (trainingSessions.isEmpty) {
+      lines.add('No training drills saved yet.');
+      return lines.join('\n');
+    }
+
+    final mean = meanScore!;
+    lines.add('Average shot score: ${_pct(mean)}');
+
+    final improvement = scoreImprovement;
+    if (improvement != null) {
+      final first = trainingSessions.first.averageScore;
+      final latest = trainingSessions.last.averageScore;
+      final verb = improvement > 0.0005
+          ? 'up'
+          : (improvement < -0.0005 ? 'down' : 'flat');
+      lines.add(
+        'Trend: ${_pct(first)} → ${_pct(latest)} '
+        '($verb ${_signedPct(improvement)})',
+      );
+    }
+
+    final best = bestSession!;
+    lines.add(
+      'Best session: grade ${best.overallGrade} '
+      '(${_pct(best.averageScore)}, ${best.shotCount} shots)',
+    );
+
+    final topSpeed = bestMaxSpeedKmh;
+    if (topSpeed != null) {
+      lines.add('Fastest shot: ${topSpeed.toStringAsFixed(1)} km/h');
+    }
+    return lines.join('\n');
+  }
+
+  static String _pct(double v) => '${(v * 100).round()}%';
+
+  static String _signedPct(double v) {
+    final rounded = (v * 100).round();
+    return '${rounded >= 0 ? '+' : ''}$rounded%';
+  }
+}
+
+double? _asDouble(Object? v) => v is num ? v.toDouble() : null;
+
+int? _asInt(Object? v) => v is num ? v.toInt() : null;

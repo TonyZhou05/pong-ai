@@ -517,6 +517,16 @@ behind a `VisionService` interface. This lets us:
      short-match controller (`ScoringEngine(pointsPerGame: 3, bestOf: 1)`) that
      the demo rallies finish, exercising the summary panel end-to-end for the
      first time.
+   - **[done — iteration 48]** Across-session progression / trends. Iterations
+     45–47 persisted each session and listed them one-by-one, but nothing mined
+     the *collection* — yet both JSON exporters name "diff pace/placement/rhythm
+     across sessions" as their whole reason for existing. `SessionTrends`
+     (`core/history/session_trends.dart`) folds the stored records into
+     training-progression metrics (first→latest average-score improvement, best
+     session, personal-best km/h, a match tally) by parsing the stored report
+     maps only — pure Dart, no Flutter/plugin, unit-tested end-to-end. The
+     history screen surfaces it as a compact "Training progress" card shown once
+     ≥ 2 drills are saved.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 44]** Training-mode tracking-quality / detection-health.
