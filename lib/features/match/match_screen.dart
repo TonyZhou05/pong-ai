@@ -383,6 +383,7 @@ class _CallFeed extends StatelessWidget {
       PointReason.doubleBounce => 'double bounce',
       PointReason.notReturned => 'not returned',
       PointReason.outOfPlay => 'out of play',
+      PointReason.manual => 'manual',
     };
     return '$who — $reason';
   }

@@ -371,6 +371,16 @@ behind a `VisionService` interface. This lets us:
      preserving the chosen server, `MatchController.setMatchFormat()` exposes it,
      and `CameraMatchScreen`'s scoreboard shows a "Best of: 3/5/7" chip picker
      alongside the first-server picker while the match hasn't started.
+   - **[done — iteration 74]** Manual point correction. The live match could
+     only auto-score from the ball path, resolve an *undetermined* in-flight
+     loss, or `undo` — but if the vision missed a rally entirely (occlusion,
+     ball out of frame, a serve the tracker never picked up) the score silently
+     drifted with no way to correct it upward. `MatchController.awardManualPoint(winner)`
+     directly awards a point (no-op once the match is over), recording it in the
+     point log with a new `PointReason.manual` so it undoes, switches ends, and
+     feeds the summary exactly like an auto-scored point, stamped at the last
+     frame's timestamp. `CameraMatchScreen`'s call-feed panel shows "Missed a
+     point? +A / +B" buttons once scoring is live (hidden during calibration).
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
    clips, ready for SPIN/OpenTTGames conversion.

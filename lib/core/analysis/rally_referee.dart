@@ -37,6 +37,11 @@ enum PointReason {
   /// The path alone cannot say whose fault it was; [PointDecision.winner] is
   /// null and the UI should ask the user.
   outOfPlay,
+
+  /// The point was entered by the user, not inferred from the ball path — e.g.
+  /// the vision pipeline missed a rally entirely and the user tapped a
+  /// "+point" button to keep the score correct.
+  manual,
 }
 
 /// The referee's verdict at the end of a rally.

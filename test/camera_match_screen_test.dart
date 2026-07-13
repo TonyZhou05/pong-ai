@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/core/analysis/match_controller.dart';
+import 'package:pong_ai/core/analysis/rally_referee.dart';
 import 'package:pong_ai/core/history/session_history_store.dart';
 import 'package:pong_ai/core/scoring/scoring_engine.dart';
 import 'package:pong_ai/core/vision/detection.dart';
@@ -256,6 +257,42 @@ void main() {
 
       // A point was scored, so the picker disappears (format locked in).
       expect(find.text('Best of:'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'manual +point button hand-awards a missed rally to the score',
+    (tester) async {
+      final vision = YoloVisionService();
+      final controller = MatchController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            matchControllerBuilder: () => controller,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // The call feed offers manual score-correction buttons once scoring is
+      // live (no calibrator, so there is no warm-up).
+      expect(find.text('Missed a point?'), findsOneWidget);
+      expect(controller.score.pointsB, 0);
+
+      // Tapping +B hands the point to Player B — the fix for a rally the vision
+      // missed entirely.
+      await tester.tap(find.widgetWithText(OutlinedButton, '+B'));
+      await tester.pump();
+
+      expect(controller.score.pointsB, 1);
+      expect(controller.points.single.reason, PointReason.manual);
 
       await tester.pumpWidget(const SizedBox());
     },

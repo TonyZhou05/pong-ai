@@ -438,4 +438,61 @@ void main() {
       expect(mc.score.initialServer, Player.b);
     });
   });
+
+  group('MatchController — manual point', () {
+    test('awardManualPoint scores, logs with the manual reason, and undoes', () {
+      final mc = MatchController();
+      // Seed a real frame so the manual point is stamped in the frame clock.
+      mc.onFrame(_frame(500, 0.40, 0.50));
+
+      mc.awardManualPoint(Player.b);
+      expect(mc.score.pointsB, 1);
+      expect(mc.score.pointsA, 0);
+      expect(mc.points.single.reason, PointReason.manual);
+      expect(mc.points.single.winner, Player.b);
+      expect(mc.points.single.timestampMs, 500);
+
+      expect(mc.undo(), isTrue);
+      expect(mc.score.pointsB, 0);
+      expect(mc.points, isEmpty);
+    });
+
+    test('captures the current server and game index before awarding', () {
+      final mc = MatchController();
+      expect(mc.setFirstServer(Player.b), isTrue);
+
+      mc.awardManualPoint(Player.a);
+      // The point is credited to A but its rally was served by B (the serve
+      // rotation only advances after the award).
+      expect(mc.points.single.server, Player.b);
+      expect(mc.points.single.gameIndex, 0);
+      expect(mc.score.server, Player.b); // still B until it's held twice
+    });
+
+    test('is a no-op once the match is over', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 1, bestOf: 1),
+      );
+      mc.awardManualPoint(Player.a);
+      mc.awardManualPoint(Player.a); // 2-0 wins the (win-by-2) game and match
+      expect(mc.score.isMatchOver, isTrue);
+      final before = mc.points.length;
+
+      mc.awardManualPoint(Player.b);
+      expect(mc.points.length, before);
+      expect(mc.score.pointsB, 0);
+    });
+
+    test('a manually-awarded game boundary switches ends when opted in', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      mc.awardManualPoint(Player.a);
+      mc.awardManualPoint(Player.a); // completes game 1 for A
+      expect(mc.score.gamesA, 1);
+      // Players change ends after the game, flipping the side→player mapping.
+      expect(mc.referee.leftPlayer, Player.b);
+    });
+  });
 }

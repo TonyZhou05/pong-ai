@@ -152,6 +152,11 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     if (_controller.undo()) setState(() {});
   }
 
+  void _manualPoint(Player winner) {
+    setState(() => _controller.awardManualPoint(winner));
+    if (_controller.score.isMatchOver) _vision.stop();
+  }
+
   void _setFirstServer(Player p) {
     if (_controller.setFirstServer(p)) setState(() {});
   }
@@ -257,6 +262,10 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                 child: _LiveCallFeed(
                   calls: _recentCalls,
                   matchOver: state.isMatchOver,
+                  // Hand-award a missed point once scoring is live (not during
+                  // calibration warm-up).
+                  onManualPoint:
+                      _controller.isCalibrating ? null : _manualPoint,
                 ),
               ),
           ],
@@ -546,10 +555,18 @@ class _LiveTrackingOverlay extends StatelessWidget {
 
 /// Rolling referee-call feed overlaid on the camera preview.
 class _LiveCallFeed extends StatelessWidget {
-  const _LiveCallFeed({required this.calls, required this.matchOver});
+  const _LiveCallFeed({
+    required this.calls,
+    required this.matchOver,
+    this.onManualPoint,
+  });
 
   final List<PointDecision> calls;
   final bool matchOver;
+
+  /// Called when the user hand-awards a point the vision missed. Null while
+  /// calibrating (no scoring yet) or once the match is over.
+  final void Function(Player)? onManualPoint;
 
   static String _describe(PointDecision d) {
     final who = switch (d.winner) {
@@ -561,6 +578,7 @@ class _LiveCallFeed extends StatelessWidget {
       PointReason.doubleBounce => 'double bounce',
       PointReason.notReturned => 'not returned',
       PointReason.outOfPlay => 'out of play',
+      PointReason.manual => 'manual',
     };
     return '$who — $reason';
   }
@@ -592,6 +610,42 @@ class _LiveCallFeed extends StatelessWidget {
                 style:
                     theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
               ),
+          // Manual score correction: if the pipeline misses a rally, the user
+          // can hand the point to the right player so the score stays true.
+          if (onManualPoint != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  'Missed a point?',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: Colors.white70),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  onPressed: () => onManualPoint!(Player.a),
+                  child: const Text('+A'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  onPressed: () => onManualPoint!(Player.b),
+                  child: const Text('+B'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

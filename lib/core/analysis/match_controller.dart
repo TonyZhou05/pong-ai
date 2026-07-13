@@ -80,6 +80,10 @@ class MatchController {
 
   bool _calibrated = false;
 
+  /// Timestamp of the most recent frame fed through [onFrame], used to stamp a
+  /// manually-entered point ([awardManualPoint]) at "now" in the same clock.
+  int _lastTimestampMs = 0;
+
   /// Whether the once-per-deciding-game mid-game end change has already fired.
   /// In the last possible game the players also change ends the first time
   /// someone reaches half the game points (ITTF 2.13.4), a switch distinct from
@@ -192,6 +196,7 @@ class MatchController {
   /// most one per rally-ending event). Decisive decisions are applied to the
   /// [engine] automatically; undetermined ones are collected in [undetermined].
   List<PointDecision> onFrame(FrameResult frame) {
+    _lastTimestampMs = frame.timestampMs;
     // Detection-health accounting runs on every frame, including calibration
     // warm-up, since it measures how well the phone placement tracks the ball
     // and players regardless of whether we are scoring yet.
@@ -274,6 +279,20 @@ class MatchController {
     // metres-per-unit ruler reflects the inferred table width in the frame.
     _ballSpeed = BallSpeedEstimator(geometry: geometry);
     _calibrated = true;
+  }
+
+  /// Directly award a point to [winner] that the pipeline never scored — e.g.
+  /// the vision missed a rally entirely and the user is correcting the score by
+  /// hand. Recorded in the point log (with [PointReason.manual]) so it undoes
+  /// and analyses like any other point, capturing the current server/game index
+  /// and honouring end changes. No-op once the match is over.
+  void awardManualPoint(Player winner) {
+    if (engine.state.isMatchOver) return;
+    final server = engine.state.server;
+    final gameIndex = engine.state.gamesA + engine.state.gamesB;
+    engine.awardPoint(winner);
+    _record(winner, PointReason.manual, _lastTimestampMs, server, gameIndex);
+    _maybeSwitchEnds(gameIndex);
   }
 
   /// Manually award an [undetermined] point the referee could not attribute
