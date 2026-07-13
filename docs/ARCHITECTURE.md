@@ -415,6 +415,17 @@ behind a `VisionService` interface. This lets us:
      "Play to: 11/21" chip picker (`_GameLengthPicker` → `setMatchFormat(pointsPerGame:)`)
      beside the best-of picker while the match hasn't started — pure last-mile
      wiring of a capability the engine already supported.
+   - **[done — iteration 102]** Rematch / "Play again". Once a match ended the
+     live `CameraMatchScreen` stopped the camera and could only save/export the
+     report — starting another match meant backing out and re-entering the
+     screen, which discarded the picked format and re-ran auto-calibration.
+     `ScoringEngine.reset()` clears the score/history while keeping the format
+     and first server, `RallyReferee.resetEnds()` restores the starting
+     side→player mapping, and `MatchController.startNewMatch()` composes them
+     with a tracker/analytics reset on the *already-calibrated* geometry (no
+     re-calibration). The match-over panel now leads with a "Play again" button
+     that resets the controller and resumes the camera stream in place, so the
+     players just keep playing table-side.
    - **[done — iteration 74]** Manual point correction. The live match could
      only auto-score from the ball path, resolve an *undetermined* in-flight
      loss, or `undo` — but if the vision missed a rally entirely (occlusion,

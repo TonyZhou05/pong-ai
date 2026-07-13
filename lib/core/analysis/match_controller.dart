@@ -307,6 +307,14 @@ class MatchController {
       maxGapFrames: _tracker.maxGapFrames,
       maxJump: _tracker.maxJump,
     );
+    _rebuildGeometryAnalytics(geometry);
+    _calibrated = true;
+  }
+
+  /// (Re)build the geometry-bound analytics fresh on [geometry], clearing any
+  /// accumulated data. Shared by [_applyCalibration] (rebuilding on the inferred
+  /// table) and [startNewMatch] (clearing for a rematch on the same table).
+  void _rebuildGeometryAnalytics(TableGeometry geometry) {
     // Rebuild movement analytics on the calibrated net line so player-to-side
     // attribution matches the now-inferred geometry (nothing was scored during
     // warm-up, so no movement is lost).
@@ -322,7 +330,25 @@ class MatchController {
     // Rebuild the speed estimator on the calibrated table span so its
     // metres-per-unit ruler reflects the inferred table width in the frame.
     _ballSpeed = BallSpeedEstimator(geometry: geometry);
-    _calibrated = true;
+  }
+
+  /// Reset for a **rematch**: clear the score, point log, rally state and every
+  /// live analytic, but keep the already-calibrated [geometry] and the match
+  /// format (points-per-game / best-of / first server). So once a match is over
+  /// the players can immediately play another — table-side, without leaving the
+  /// screen or re-calibrating. The referee's side→player mapping is restored to
+  /// the players' starting ends. No-op-safe to call at any time.
+  void startNewMatch() {
+    engine.reset();
+    referee.reset();
+    referee.resetEnds();
+    _midGameEndsSwitched = false;
+    _points.clear();
+    _undetermined.clear();
+    _tracker.reset();
+    _rallies.reset();
+    _tracking.reset();
+    _rebuildGeometryAnalytics(geometry);
   }
 
   /// Directly award a point to [winner] that the pipeline never scored — e.g.

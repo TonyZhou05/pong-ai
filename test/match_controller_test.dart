@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pong_ai/core/analysis/ball_tracker.dart';
 import 'package:pong_ai/core/analysis/match_controller.dart';
 import 'package:pong_ai/core/analysis/rally_referee.dart';
 import 'package:pong_ai/core/analysis/table_calibrator.dart';
@@ -545,6 +546,61 @@ void main() {
       mc.awardManualPoint(Player.b);
       expect(mc.points.length, before);
       expect(mc.score.pointsB, 0);
+    });
+
+    test('startNewMatch resets score/log but keeps format and first server',
+        () {
+      final mc = MatchController(
+        engine: ScoringEngine(
+          pointsPerGame: 3,
+          bestOf: 1,
+          firstServer: Player.b,
+        ),
+      );
+      // A double bounce on the right awards the left player (A) a point and
+      // records bounce placement.
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+      expect(mc.points, isNotEmpty);
+      expect(mc.placementFor(TableSide.right).count, greaterThan(0));
+
+      mc.startNewMatch();
+
+      // Score, point log and live analytics are cleared.
+      expect(mc.score.pointsA, 0);
+      expect(mc.score.pointsB, 0);
+      expect(mc.score.gamesA, 0);
+      expect(mc.points, isEmpty);
+      expect(mc.undetermined, isEmpty);
+      expect(mc.placementFor(TableSide.right).count, 0);
+      expect(mc.matchNotStarted, isTrue);
+      // Format + first server survive.
+      expect(mc.score.pointsPerGame, 3);
+      expect(mc.score.bestOf, 1);
+      expect(mc.score.server, Player.b);
+      expect(mc.score.initialServer, Player.b);
+
+      // Scoring works again from a clean slate.
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+    });
+
+    test('startNewMatch restores the side→player mapping after end changes', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      mc.awardManualPoint(Player.a);
+      mc.awardManualPoint(Player.a); // completes game 1, players switch ends
+      expect(mc.referee.leftPlayer, Player.b);
+
+      mc.startNewMatch();
+      expect(mc.referee.leftPlayer, Player.a); // back to the starting ends
+      expect(mc.score.gamesA, 0);
     });
 
     test('a manually-awarded game boundary switches ends when opted in', () {

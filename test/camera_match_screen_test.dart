@@ -130,6 +130,51 @@ void main() {
   );
 
   testWidgets(
+    'Play again resets the score and resumes scoring on the same screen',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // Short best-of-one, 3-point game so the demo rallies end the match.
+            matchControllerBuilder: () =>
+                MatchController(engine: ScoringEngine(pointsPerGame: 3, bestOf: 1)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      for (final frame in demoMatchFrames()) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      expect(find.textContaining('wins the match'), findsOneWidget);
+
+      // Tap "Play again": the match-over panel is replaced by the live call
+      // feed and the score returns to the pre-match waiting state.
+      await tester.ensureVisible(find.text('Play again'));
+      await tester.tap(find.text('Play again'));
+      await tester.pump();
+      expect(find.textContaining('wins the match'), findsNothing);
+      expect(find.text('Waiting for the first rally…'), findsOneWidget);
+
+      // The camera stream resumed, so the next scripted rally scores again.
+      for (final frame in demoMatchFrames().take(13)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      expect(find.textContaining('Player A — not returned'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'live tracking overlay draws player boxes and the ball over the preview',
     (tester) async {
       final vision = YoloVisionService();

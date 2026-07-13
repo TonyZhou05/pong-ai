@@ -159,6 +159,20 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     if (_controller.score.isMatchOver) _vision.stop();
   }
 
+  /// Start a fresh match on the same (already-calibrated) table without leaving
+  /// the screen — the players just play again. Resets the score/analytics,
+  /// clears the live overlay, and resumes the camera stream (stopped at match
+  /// end). The picked format and first server are preserved.
+  void _playAgain() {
+    setState(() {
+      _controller.startNewMatch();
+      _recentCalls.clear();
+      _lastFrame = null;
+      _predictedBall = null;
+    });
+    _vision.start();
+  }
+
   void _setFirstServer(Player p) {
     if (_controller.setFirstServer(p)) setState(() {});
   }
@@ -284,6 +298,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                 child: _MatchOverPanel(
                   controller: _controller,
                   historyStoreLoader: widget.historyStoreLoader,
+                  onPlayAgain: _playAgain,
                 ),
               )
             else
@@ -872,10 +887,12 @@ class _MatchOverPanel extends StatelessWidget {
   const _MatchOverPanel({
     required this.controller,
     required this.historyStoreLoader,
+    required this.onPlayAgain,
   });
 
   final MatchController controller;
   final Future<SessionHistoryStore> Function() historyStoreLoader;
+  final VoidCallback onPlayAgain;
 
   static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
 
@@ -1054,6 +1071,11 @@ class _MatchOverPanel extends StatelessWidget {
               child: Wrap(
                 spacing: 8,
                 children: [
+                  FilledButton.icon(
+                    icon: const Icon(Icons.replay, size: 18),
+                    label: const Text('Play again'),
+                    onPressed: onPlayAgain,
+                  ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.save_alt, size: 18),
                     label: const Text('Save to history'),

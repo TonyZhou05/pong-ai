@@ -190,6 +190,25 @@ class ScoringEngine {
     return true;
   }
 
+  /// Reset the score to the start of a fresh match, **keeping** the current
+  /// format ([MatchState.pointsPerGame]/[MatchState.bestOf]) and first server.
+  /// Used to start a rematch without re-picking the format — the players just
+  /// play again. Clears the undo history so the previous match can't leak in.
+  void reset() {
+    _history.clear();
+    _state = MatchState(
+      pointsA: 0,
+      pointsB: 0,
+      gamesA: 0,
+      gamesB: 0,
+      server: _state.initialServer,
+      initialServer: _state.initialServer,
+      pointsPerGame: _state.pointsPerGame,
+      bestOf: _state.bestOf,
+      isMatchOver: false,
+    );
+  }
+
   bool _isGameWon(int pa, int pb, int target) {
     final leader = pa >= pb ? pa : pb;
     final trailer = pa >= pb ? pb : pa;

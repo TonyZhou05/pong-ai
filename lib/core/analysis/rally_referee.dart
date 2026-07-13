@@ -102,6 +102,12 @@ class RallyReferee {
   /// ([reset]) is unaffected; the swap persists for the rest of the match.
   void switchEnds() => _endsSwapped = !_endsSwapped;
 
+  /// Restore the original side→player mapping (as if no [switchEnds] had
+  /// happened). Called when starting a rematch so the new match's side
+  /// attribution begins from the players' starting ends rather than wherever
+  /// the previous match's end changes left it.
+  void resetEnds() => _endsSwapped = false;
+
   /// The side of the most recent legal bounce this rally, or null before one.
   TableSide? _lastBounceSide;
 

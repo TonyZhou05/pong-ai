@@ -179,4 +179,42 @@ void main() {
       expect(engine.state.bestOf, 5);
     });
   });
+
+  group('ScoringEngine — reset (rematch)', () {
+    test('clears the score but keeps format and first server', () {
+      final engine = ScoringEngine(
+        firstServer: Player.b,
+        pointsPerGame: 21,
+        bestOf: 3,
+      );
+      engine.awardPoint(Player.a);
+      engine.awardPoint(Player.b);
+      engine.awardPoint(Player.b);
+
+      engine.reset();
+
+      expect(engine.state.pointsA, 0);
+      expect(engine.state.pointsB, 0);
+      expect(engine.state.gamesA, 0);
+      expect(engine.state.gamesB, 0);
+      expect(engine.state.isMatchOver, isFalse);
+      // Format and first server survive the reset.
+      expect(engine.state.pointsPerGame, 21);
+      expect(engine.state.bestOf, 3);
+      expect(engine.state.server, Player.b);
+      expect(engine.state.initialServer, Player.b);
+      // The previous match's points can't be undone back into the new one.
+      expect(engine.undo(), isFalse);
+    });
+
+    test('lets the format be re-picked after a reset', () {
+      final engine = ScoringEngine();
+      engine.awardPoint(Player.a);
+      expect(engine.setMatchFormat(bestOf: 3), isFalse); // locked mid-match
+
+      engine.reset();
+      expect(engine.setMatchFormat(bestOf: 3), isTrue); // unlocked again
+      expect(engine.state.bestOf, 3);
+    });
+  });
 }
