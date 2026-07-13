@@ -193,6 +193,14 @@ behind a `VisionService` interface. This lets us:
      fix; was box width). With the phone at the side of the table the players are
      seen side-on — narrow but tall boxes — so a width-only cap would drop the
      real players in favor of a wide, short spectator facing the camera.
+     A ball candidate whose *smaller* box dimension exceeds
+     `YoloFrameConfig.maxBallRelativeSize` (iteration 65; both live model
+     profiles set 0.25, off by default in the bare config) is rejected as too
+     large to be a ping-pong ball — the generic COCO "sports ball" class fires
+     on heads, logos, and gym basketballs, and such a gross false positive would
+     otherwise seed a bad trajectory *before* the `BallTracker` `maxJump` gate
+     (which only engages once a trajectory exists) can catch it. Gating on the
+     smaller dimension keeps a motion-blurred ball (elongated along one axis).
    - **[done — iteration 10]** `YoloVisionService`: the camera-backed
      `VisionService` implementation — routes the `YOLOView.onStreamingData`
      callback through `YoloFrameAdapter` onto a `FrameResult` broadcast stream,

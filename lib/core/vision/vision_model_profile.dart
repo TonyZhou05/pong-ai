@@ -78,6 +78,12 @@ const VisionModelProfile cocoDetectProfile = VisionModelProfile(
   id: 'coco-detect',
   name: 'COCO detector (yolo11n)',
   modelPath: 'yolo11n',
+  frameConfig: YoloFrameConfig(
+    // The generic "sports ball" class fires readily on large round objects
+    // (heads, logos, a stray basketball). Cap the ball to a plausible
+    // ping-pong size so such gross false positives can't seed the tracker.
+    maxBallRelativeSize: 0.25,
+  ),
   description: 'Works out of the box, but the small, motion-blurred ball is '
       'only the generic COCO "sports ball" class — lower ball recall.',
 );
@@ -98,6 +104,8 @@ const VisionModelProfile pingPongDetectProfile = VisionModelProfile(
     // fast ball matters more than the odd false positive (the Kalman outlier
     // gate in BallTracker rejects the wild ones anyway).
     minBallConfidence: 0.15,
+    // Keep the same ping-pong size sanity cap as the COCO profile.
+    maxBallRelativeSize: 0.25,
   ),
   description: 'Fine-tuned multi-class (person + ball) detector for higher '
       'recall on the small, motion-blurred ball. Bundle the exported .tflite / '

@@ -35,6 +35,14 @@ void main() {
       expect(pingPongDetectProfile.modelPath, endsWith('.tflite'));
     });
 
+    test('both live profiles cap the ball size for ping-pong plausibility', () {
+      // The generic "sports ball" class fires on large round objects, so both
+      // real-camera profiles gate the ball to a plausible ping-pong size.
+      expect(cocoDetectProfile.frameConfig.maxBallRelativeSize, isNotNull);
+      expect(cocoDetectProfile.frameConfig.maxBallRelativeSize, lessThan(0.5));
+      expect(pingPongDetectProfile.frameConfig.maxBallRelativeSize, isNotNull);
+    });
+
     test('createVisionService wires the profile frame-config into the adapter',
         () {
       final service = pingPongDetectProfile.createVisionService();

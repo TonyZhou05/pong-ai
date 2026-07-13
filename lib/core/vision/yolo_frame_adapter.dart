@@ -16,8 +16,13 @@ class YoloFrameConfig {
     this.personLabels = const {'person'},
     this.minBallConfidence = 0.20,
     this.minPersonConfidence = 0.30,
+    this.maxBallRelativeSize,
     this.maxPeople = 2,
-  });
+  }) : assert(
+          maxBallRelativeSize == null ||
+              (maxBallRelativeSize > 0 && maxBallRelativeSize <= 1),
+          'maxBallRelativeSize must be in (0, 1]',
+        );
 
   /// Lower-cased class names that count as the ball.
   final Set<String> ballLabels;
@@ -27,6 +32,21 @@ class YoloFrameConfig {
 
   /// Drop ball detections below this confidence.
   final double minBallConfidence;
+
+  /// Reject a "ball" detection whose *smaller* box dimension exceeds this
+  /// fraction of the frame — a physical size sanity cap for a ping-pong ball.
+  ///
+  /// A regulation ball is 40mm on a 2.74m table that spans the frame, i.e. under
+  /// ~2% of the frame; even accounting for the near-camera perspective and
+  /// motion blur it never approaches a quarter of the frame. So a generic
+  /// COCO "sports ball" box that is large in *both* axes (a person's head/torso,
+  /// a bright round logo, or an actual basketball/volleyball in a gym) cannot be
+  /// the ping-pong ball and would otherwise seed a bad trajectory — before the
+  /// [BallTracker]'s post-trajectory `maxJump` gate can ever engage. Gating on
+  /// the smaller dimension keeps a legitimately motion-blurred ball (elongated
+  /// along one axis only) while catching genuinely large false positives.
+  /// `null` disables the gate (the default, preserving prior behaviour).
+  final double? maxBallRelativeSize;
 
   /// Drop person detections below this confidence.
   final double minPersonConfidence;
@@ -98,6 +118,7 @@ class YoloFrameAdapter {
       final label = r.className.toLowerCase();
       if (config.ballLabels.contains(label)) {
         if (r.confidence < config.minBallConfidence) continue;
+        if (_ballTooLarge(r.normalizedBox)) continue;
         if (bestBall == null || r.confidence > bestBall.confidence) {
           bestBall = r;
         }
@@ -137,6 +158,17 @@ class YoloFrameAdapter {
   }
 
   BBox _bbox(Rect box) => BBox(box.left, box.top, box.width, box.height);
+
+  /// Whether a ball candidate's box is implausibly large for a ping-pong ball.
+  /// Uses the *smaller* dimension so a motion-blurred ball (elongated along one
+  /// axis) survives while a head/torso/large-ball false positive (large in both
+  /// axes) is rejected. Always false when the gate is disabled.
+  bool _ballTooLarge(Rect box) {
+    final limit = config.maxBallRelativeSize;
+    if (limit == null) return false;
+    final smaller = box.width < box.height ? box.width : box.height;
+    return smaller > limit;
+  }
 
   static double _boxArea(BBox box) => box.width * box.height;
 

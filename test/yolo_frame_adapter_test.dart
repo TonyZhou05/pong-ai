@@ -167,6 +167,48 @@ void main() {
       final frame = adapter.fromResults([], timestampMs: 0, fps: 28.5);
       expect(frame.fps, closeTo(28.5, 1e-9));
     });
+
+    test('size gate rejects an implausibly large ball, keeping a real one', () {
+      const gated = YoloFrameAdapter(
+        config: YoloFrameConfig(maxBallRelativeSize: 0.25),
+      );
+      final frame = gated.fromResults(
+        [
+          // A high-confidence but huge "sports ball" (a mislabeled head/logo):
+          // large in both axes -> rejected.
+          _result('sports ball', 0.95, const Rect.fromLTWH(0.3, 0.3, 0.4, 0.4)),
+          // A genuine tiny ping-pong ball at lower confidence -> kept.
+          _result('sports ball', 0.6, const Rect.fromLTWH(0.5, 0.5, 0.02, 0.02)),
+        ],
+        timestampMs: 0,
+      );
+      expect(frame.ball, isNotNull);
+      expect(frame.ball!.confidence, closeTo(0.6, 1e-9));
+      expect(frame.ball!.box.width, closeTo(0.02, 1e-9));
+    });
+
+    test('size gate keeps a motion-blurred ball elongated along one axis', () {
+      const gated = YoloFrameAdapter(
+        config: YoloFrameConfig(maxBallRelativeSize: 0.25),
+      );
+      // A fast ball smears wide (0.4) but stays thin (0.03) — the smaller
+      // dimension is under the cap, so it survives.
+      final frame = gated.fromResults(
+        [_result('sports ball', 0.8, const Rect.fromLTWH(0.3, 0.5, 0.4, 0.03))],
+        timestampMs: 0,
+      );
+      expect(frame.ball, isNotNull);
+      expect(frame.ball!.box.width, closeTo(0.4, 1e-9));
+    });
+
+    test('size gate is off by default (large ball still accepted)', () {
+      final frame = adapter.fromResults(
+        [_result('sports ball', 0.9, const Rect.fromLTWH(0.3, 0.3, 0.4, 0.4))],
+        timestampMs: 0,
+      );
+      expect(frame.ball, isNotNull);
+      expect(frame.ball!.box.width, closeTo(0.4, 1e-9));
+    });
   });
 
   group('YoloFrameAdapter.fromStreamingData', () {
