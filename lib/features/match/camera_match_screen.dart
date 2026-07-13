@@ -252,6 +252,10 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                 calibrating: _controller.isCalibrating,
                 calibrationProgress: _controller.calibrationProgress,
                 calibrationStalled: _controller.isCalibrationStalled,
+                // Tell the players to physically swap sides whenever the app
+                // has just changed ends between games, so their real positions
+                // stay in sync with the app's side→player mapping.
+                changeEndsPending: _controller.changeEndsPending,
                 // Let the user record who actually serves first while the match
                 // hasn't started, so the serve indicator and serve analytics
                 // aren't stuck assuming Player A.
@@ -329,6 +333,7 @@ class _LiveScoreboard extends StatelessWidget {
     required this.calibrating,
     this.calibrationProgress = 1,
     this.calibrationStalled = false,
+    this.changeEndsPending = false,
     this.onPickServer,
     this.onPickBestOf,
     this.onPickPointsPerGame,
@@ -336,6 +341,12 @@ class _LiveScoreboard extends StatelessWidget {
 
   final MatchState state;
   final bool calibrating;
+
+  /// Whether the players are due to physically change ends (the app just
+  /// swapped its side→player mapping between games / at the deciding-game
+  /// midpoint). Surfaced as a "Change ends" prompt so the players actually
+  /// swap sides and stay in sync with the app's mapping.
+  final bool changeEndsPending;
 
   /// Fraction `[0, 1]` of the way to a usable calibration, for the warm-up
   /// progress line. Ignored unless [calibrating].
@@ -405,6 +416,7 @@ class _LiveScoreboard extends StatelessWidget {
               label: banner,
               matchPoint: MatchSituation(state).isMatchPoint,
             ),
+          if (changeEndsPending && !state.isMatchOver) const _ChangeEndsBanner(),
           if (onPickServer != null)
             _ServerPicker(server: state.server, onPick: onPickServer!),
           if (onPickBestOf != null)
@@ -415,6 +427,44 @@ class _LiveScoreboard extends StatelessWidget {
               onPick: onPickPointsPerGame!,
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// A "Change ends" prompt shown between games (and at the deciding-game
+/// midpoint) once the app has swapped its side→player mapping, telling the
+/// players to physically switch sides so their real positions stay in sync with
+/// the app. Clears as soon as the next point is scored.
+class _ChangeEndsBanner extends StatelessWidget {
+  const _ChangeEndsBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.lightBlueAccent.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.swap_horiz, size: 16, color: Colors.black),
+            const SizedBox(width: 4),
+            Text(
+              'CHANGE ENDS',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

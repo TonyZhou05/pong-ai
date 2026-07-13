@@ -391,6 +391,16 @@ behind a `VisionService` interface. This lets us:
      change (and their `undo` reversals). Footwork/coverage samples now stay
      attributed to the correct player after the players change ends, closing the
      iteration-61/62 follow-up.
+   - **[done — iteration 103]** "Change ends" prompt. The iteration-61/62 end
+     switching flips the app's *internal* side→player mapping silently — it
+     assumes the players also physically swap sides. If they don't, the mapping
+     and reality diverge and every later point is mis-attributed.
+     `MatchController.changeEndsPending` is set the moment an end change fires
+     (a completed game, or the deciding-game midpoint) and cleared as soon as the
+     next point is scored (reversed on `undo`, cleared on `startNewMatch`, always
+     false when `switchEndsBetweenGames` is off). `CameraMatchScreen`'s scoreboard
+     surfaces it as a `_ChangeEndsBanner` ("CHANGE ENDS") between games so the
+     players actually switch sides and stay in sync with the app.
    - **[done — iteration 70]** First-server selection. `ScoringEngine` defaulted
      to `Player.a` serving with no way to record who actually serves first, so
      the "who's serving" indicator and the iteration-26 serve/receive analytics

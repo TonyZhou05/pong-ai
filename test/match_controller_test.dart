@@ -253,6 +253,63 @@ void main() {
       expect(mc.score.pointsA, 0);
       expect(mc.referee.leftPlayer, Player.a); // switch reversed
     });
+
+    test('flags changeEndsPending between games and clears on the next point',
+        () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      expect(mc.changeEndsPending, isFalse);
+
+      winGameOnRight(mc, startT: 0); // completes game 1 → ends switch
+      expect(mc.score.gamesA, 1);
+      expect(mc.changeEndsPending, isTrue);
+
+      // The first point of game 2 clears the prompt (play resumed swapped).
+      for (final f in _doubleBounceOn(0.75, startT: 3000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsB, 1);
+      expect(mc.changeEndsPending, isFalse);
+    });
+
+    test('changeEndsPending stays false when end switching is off', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+      );
+      winGameOnRight(mc, startT: 0);
+      expect(mc.score.gamesA, 1);
+      expect(mc.changeEndsPending, isFalse);
+    });
+
+    test('undo across a game boundary clears changeEndsPending', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      winGameOnRight(mc, startT: 0);
+      expect(mc.changeEndsPending, isTrue);
+
+      mc.undo(); // undo the game-winning point → reverse the switch
+      expect(mc.score.gamesA, 0);
+      expect(mc.changeEndsPending, isFalse);
+    });
+
+    test('changeEndsPending fires at the deciding-game midpoint', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      winGameOnRight(mc, startT: 0);
+      winGameOnRight(mc, startT: 3000); // games 1–1, decider starts
+      // First decider point crosses the midpoint (mid = 1) → mid-game switch.
+      for (final f in _doubleBounceOn(0.75, startT: 6000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+      expect(mc.changeEndsPending, isTrue);
+    });
   });
 
   group('MatchController — auto-calibration', () {

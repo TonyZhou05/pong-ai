@@ -510,6 +510,58 @@ void main() {
   );
 
   testWidgets(
+    'a completed game prompts the players to change ends, then clears',
+    (tester) async {
+      final vision = YoloVisionService();
+      // A 3-point best-of-3 with end switching on: game 1 completing swaps the
+      // internal mapping, so the players must physically change ends.
+      final controller = MatchController(
+        engine: ScoringEngine(pointsPerGame: 3, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            matchControllerBuilder: () => controller,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('CHANGE ENDS'), findsNothing);
+
+      // Feed the demo rallies until game 1 completes (A reaches 3 points).
+      final frames = demoMatchFrames().iterator;
+      while (controller.score.gamesA == 0 && frames.moveNext()) {
+        vision.onFrame(frames.current);
+        await tester.pump();
+      }
+      expect(controller.score.gamesA, 1);
+      await tester.pump(); // rebuild the scoreboard with the pending flag set
+
+      // The prompt now tells the players to swap sides for game 2.
+      expect(find.text('CHANGE ENDS'), findsOneWidget);
+
+      // Playing on: the first scored point of game 2 clears the prompt.
+      while (controller.score.pointsA + controller.score.pointsB == 0 &&
+          frames.moveNext()) {
+        vision.onFrame(frames.current);
+        await tester.pump();
+      }
+      expect(controller.score.pointsA + controller.score.pointsB, greaterThan(0));
+      await tester.pump(); // rebuild the scoreboard with the flag cleared
+      expect(find.text('CHANGE ENDS'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'a stalled calibration prompts the user to reposition the phone',
     (tester) async {
       final vision = YoloVisionService();

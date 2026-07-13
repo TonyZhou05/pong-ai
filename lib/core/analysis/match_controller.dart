@@ -104,6 +104,20 @@ class MatchController {
   /// symmetrically on [undo]; reset whenever a new game begins.
   bool _midGameEndsSwitched = false;
 
+  /// Whether the players are due to physically change ends right now. Set the
+  /// moment [switchEndsBetweenGames] flips the internal side→player mapping (a
+  /// completed game, or the deciding-game midpoint) and cleared as soon as the
+  /// next point is scored. The live scoreboard surfaces this as a "Change ends"
+  /// prompt so the players actually swap sides — otherwise the app's swapped
+  /// mapping and the physical reality diverge and every subsequent point is
+  /// mis-attributed. Reversed on [undo] and cleared on [startNewMatch].
+  bool _changeEndsPending = false;
+
+  /// See [_changeEndsPending]: true while the players should switch ends before
+  /// resuming play, false otherwise (and always false when
+  /// [switchEndsBetweenGames] is off).
+  bool get changeEndsPending => _changeEndsPending;
+
   /// Whether the controller is still in the calibration warm-up (no points are
   /// scored yet). Always false when no [calibrator] was supplied.
   bool get isCalibrating => calibrator != null && !_calibrated;
@@ -222,6 +236,10 @@ class MatchController {
     Player server,
     int gameIndex,
   ) {
+    // A point was just scored, so any pending "change ends" window (from the
+    // previous game's completion or the deciding-game midpoint) has closed:
+    // play has resumed from the swapped ends.
+    _changeEndsPending = false;
     _points.add(
       ScoredPoint(
         winner: winner,
@@ -343,6 +361,7 @@ class MatchController {
     referee.reset();
     referee.resetEnds();
     _midGameEndsSwitched = false;
+    _changeEndsPending = false;
     _points.clear();
     _undetermined.clear();
     _tracker.reset();
@@ -393,7 +412,10 @@ class MatchController {
     if (gamesAfter > gamesBefore) {
       // A game just completed. Change ends for the next game (unless the match
       // is over), and clear the mid-game latch for the fresh game.
-      if (!state.isMatchOver) _switchEnds();
+      if (!state.isMatchOver) {
+        _switchEnds();
+        _changeEndsPending = true;
+      }
       _midGameEndsSwitched = false;
       return;
     }
@@ -404,6 +426,7 @@ class MatchController {
         _reachedDecidingMidpoint(state)) {
       _switchEnds();
       _midGameEndsSwitched = true;
+      _changeEndsPending = true;
     }
   }
 
@@ -468,6 +491,7 @@ class MatchController {
         // Undo crossed a game boundary back down (a match-winning point never
         // triggered a forward end change): reverse the between-games switch.
         _switchEnds();
+        _changeEndsPending = false;
       } else if (_midGameEndsSwitched &&
           _isDecidingGame(state) &&
           !_reachedDecidingMidpoint(state)) {
@@ -475,6 +499,7 @@ class MatchController {
         // reverse the mid-game switch.
         _switchEnds();
         _midGameEndsSwitched = false;
+        _changeEndsPending = false;
       }
     }
     return true;
