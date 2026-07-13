@@ -19,19 +19,43 @@ import '../vision/detection.dart';
 import 'ball_tracker.dart';
 import 'match_summary.dart';
 import 'rally_referee.dart';
+import 'table_calibrator.dart';
 
 class MatchController {
   MatchController({
     BallTracker? tracker,
     RallyReferee? referee,
     ScoringEngine? engine,
-  })  : tracker = tracker ?? BallTracker(),
+    this.calibrator,
+  })  : _tracker = tracker ?? BallTracker(),
         referee = referee ?? RallyReferee(),
         engine = engine ?? ScoringEngine();
 
-  final BallTracker tracker;
+  BallTracker _tracker;
+
+  /// The trajectory tracker. When an auto-[calibrator] is supplied it is
+  /// rebuilt (with the same tuning) once calibration completes, so this getter
+  /// always reflects the geometry currently in force.
+  BallTracker get tracker => _tracker;
+
   final RallyReferee referee;
   final ScoringEngine engine;
+
+  /// Optional auto-calibrator. When provided, the controller spends a warm-up
+  /// phase feeding frames to it (scoring nothing) until it can infer the
+  /// [TableGeometry] from where the ball and players actually are; only then
+  /// does it rebuild [tracker] with that geometry and start scoring. This lets
+  /// the user just place the phone table-side instead of hand-marking corners.
+  final TableCalibrator? calibrator;
+
+  bool _calibrated = false;
+
+  /// Whether the controller is still in the calibration warm-up (no points are
+  /// scored yet). Always false when no [calibrator] was supplied.
+  bool get isCalibrating => calibrator != null && !_calibrated;
+
+  /// The table geometry currently driving rally detection.
+  TableGeometry get geometry => _tracker.geometry;
 
   /// Decisions the referee could not attribute a winner to
   /// ([PointReason.outOfPlay]); the UI can surface these for the user to
@@ -64,8 +88,18 @@ class MatchController {
   /// most one per rally-ending event). Decisive decisions are applied to the
   /// [engine] automatically; undetermined ones are collected in [undetermined].
   List<PointDecision> onFrame(FrameResult frame) {
+    // Warm-up: accumulate observations and defer all scoring until the geometry
+    // is trusted. Once it is, rebuild the tracker and score from here onward.
+    final cal = calibrator;
+    if (cal != null && !_calibrated) {
+      cal.observe(frame);
+      final geometry = cal.calibrate();
+      if (geometry == null) return const [];
+      _applyCalibration(geometry);
+    }
+
     final decisions = <PointDecision>[];
-    for (final event in tracker.update(frame)) {
+    for (final event in _tracker.update(frame)) {
       final decision = referee.update(event);
       if (decision == null) continue;
 
@@ -78,9 +112,20 @@ class MatchController {
       decisions.add(decision);
 
       // A rally just ended; start the next one from a clean trajectory.
-      tracker.reset();
+      _tracker.reset();
     }
     return decisions;
+  }
+
+  /// Swap in a tracker built on the calibrated [geometry], preserving the
+  /// original tracker's tuning, and mark calibration complete.
+  void _applyCalibration(TableGeometry geometry) {
+    _tracker = BallTracker(
+      geometry: geometry,
+      minBounceSpeed: _tracker.minBounceSpeed,
+      maxGapFrames: _tracker.maxGapFrames,
+    );
+    _calibrated = true;
   }
 
   /// Manually award an [undetermined] point the referee could not attribute

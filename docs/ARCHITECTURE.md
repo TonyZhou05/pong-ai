@@ -164,6 +164,12 @@ behind a `VisionService` interface. This lets us:
      of ball positions + net line from the two players' x, or the ball-travel
      midpoint) over a warm-up window, so the user just places the phone
      table-side instead of hand-marking the table corners.
+   - **[done — iteration 13]** `MatchController` now accepts an optional
+     `TableCalibrator` and runs a warm-up phase: it feeds frames to the
+     calibrator (scoring nothing, `isCalibrating == true`) until a trustworthy
+     `TableGeometry` is inferred, then rebuilds its `BallTracker` on that
+     geometry and starts scoring — so the self-calibration is actually in force
+     on the live pipeline, not just an isolated component.
 4. Connect events → scoring engine → live scoreboard UI.
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
