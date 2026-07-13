@@ -8,6 +8,7 @@ import '../../core/vision/detection.dart';
 import '../../core/vision/replay_vision_service.dart';
 import '../../core/vision/synthetic_frames.dart';
 import '../../core/vision/vision_service.dart';
+import 'training_shot_map.dart';
 
 /// Live training screen: streams vision frames through a [ShotAnalyzer] and
 /// renders each graded stroke plus a running session summary (pace, placement
@@ -118,7 +119,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
               child: _TargetView(frame: _lastFrame, config: widget.config),
             ),
             if (_finished)
-              _SessionReport(summary: summary)
+              _SessionReport(summary: summary, config: widget.config)
             else
               _ShotFeed(shots: _recentShots),
           ],
@@ -291,9 +292,10 @@ class _ShotFeed extends StatelessWidget {
 
 /// End-of-session report, shown once the replay finishes.
 class _SessionReport extends StatelessWidget {
-  const _SessionReport({required this.summary});
+  const _SessionReport({required this.summary, required this.config});
 
   final TrainingSummary summary;
+  final TrainingConfig config;
 
   @override
   Widget build(BuildContext context) {
@@ -302,13 +304,21 @@ class _SessionReport extends StatelessWidget {
       width: double.infinity,
       color: theme.colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Session complete', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(summary.report(), style: theme.textTheme.bodyMedium),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Session complete', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(summary.report(), style: theme.textTheme.bodyMedium),
+            if (summary.shots.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text('Placement map', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 6),
+              TrainingShotMapView(shots: summary.shots, config: config),
+            ],
+          ],
+        ),
       ),
     );
   }

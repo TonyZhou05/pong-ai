@@ -265,3 +265,16 @@ behind a `VisionService` interface. This lets us:
      screen's new "Live Training" card. This closes the objective's second
      priority (analyse training-shot quality) for the live-camera path, leaving
      only the shared fine-tuned ping-pong model bundling (roadmap item 2).
+   - **[done — iteration 22]** `TrainingShotMapView`
+     (`features/training/training_shot_map.dart`): the *visual* training
+     placement map, the practice-mode counterpart to the match `ShotMapView`.
+     Each graded `Shot` now carries not just its landing `depth` (net → baseline)
+     but also a `lateral` (across-table) position — computed in `ShotAnalyzer`
+     from the bounce's `y` against the (calibrated) `TableGeometry`, exactly like
+     `BouncePlacementAnalyzer`. The view draws every shot as a grade-coloured dot
+     on a schematic target half (depth → x, lateral → y) with the target landing
+     band highlighted, so a player can *see* how tightly their drill shots
+     cluster. The placement→pixel geometry is a pure, unit-tested
+     `trainingShotMapPosition(Shot)` seam; the `CustomPaint` painter just draws
+     the points and band. Surfaced in both the demo `TrainingScreen` and the
+     live `CameraTrainingScreen` end-of-session reports.

@@ -7,6 +7,7 @@ import '../../core/analysis/ball_tracker.dart';
 import '../../core/training/shot_analyzer.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/yolo_vision_service.dart';
+import 'training_shot_map.dart';
 
 /// The **live camera** training screen: runs on-device `ultralytics_yolo`
 /// inference over the phone's camera and grades each practice stroke in real
@@ -161,7 +162,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
               left: 0,
               right: 0,
               child: _finished
-                  ? _SessionReport(summary: summary)
+                  ? _SessionReport(summary: summary, config: widget.config)
                   : _ShotFeed(shots: _recentShots),
             ),
           ],
@@ -343,9 +344,10 @@ class _ShotFeed extends StatelessWidget {
 
 /// End-of-session report, shown once the player taps Finish.
 class _SessionReport extends StatelessWidget {
-  const _SessionReport({required this.summary});
+  const _SessionReport({required this.summary, required this.config});
 
   final TrainingSummary summary;
+  final TrainingConfig config;
 
   @override
   Widget build(BuildContext context) {
@@ -354,19 +356,32 @@ class _SessionReport extends StatelessWidget {
       width: double.infinity,
       color: Colors.black87,
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Session complete',
-            style: theme.textTheme.titleMedium?.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            summary.report(),
-            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-          ),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Session complete',
+              style: theme.textTheme.titleMedium?.copyWith(color: Colors.white),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              summary.report(),
+              style:
+                  theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+            ),
+            if (summary.shots.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Placement map',
+                style:
+                    theme.textTheme.titleSmall?.copyWith(color: Colors.white),
+              ),
+              const SizedBox(height: 6),
+              TrainingShotMapView(shots: summary.shots, config: config),
+            ],
+          ],
+        ),
       ),
     );
   }

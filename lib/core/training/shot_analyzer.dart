@@ -31,6 +31,7 @@ class Shot {
     required this.speed,
     required this.depth,
     required this.score,
+    this.lateral = 0.5,
   });
 
   /// Time of the target-side bounce that completed the stroke.
@@ -42,6 +43,12 @@ class Shot {
   /// Where the ball landed on the target half: `0` at the net, `1` at the far
   /// baseline. Clamped to `[0, 1]`.
   final double depth;
+
+  /// Where the ball landed across the table's near/far depth: `0` at the
+  /// surface's near (top) edge, `1` at its far (bottom) edge. Clamped to
+  /// `[0, 1]`. Together with [depth] this locates the bounce on the target half
+  /// for the training shot-map. Defaults to the table's centre (`0.5`).
+  final double lateral;
 
   /// Combined quality in `[0, 1]` (placement accuracy blended with pace).
   final double score;
@@ -241,6 +248,7 @@ class ShotAnalyzer {
 
   Shot _recordShot(BounceEvent bounce) {
     final depth = _depthOf(bounce.x);
+    final lateral = _lateralOf(bounce.y);
     final placement =
         (1 - (depth - config.targetDepth).abs() / config.depthTolerance)
             .clamp(0.0, 1.0);
@@ -252,6 +260,7 @@ class ShotAnalyzer {
       timestampMs: bounce.timestampMs,
       speed: _peakSpeed,
       depth: depth,
+      lateral: lateral,
       score: score,
     );
     _shots.add(shot);
@@ -268,6 +277,15 @@ class ShotAnalyzer {
         ? (x - netX) / (1 - netX)
         : (netX - x) / netX;
     return d.clamp(0.0, 1.0);
+  }
+
+  /// Normalized lateral landing position across the table's near/far depth:
+  /// `0` at the surface's near (top) edge, `1` at its far (bottom) edge.
+  double _lateralOf(double y) {
+    final geo = config.geometry;
+    final span = geo.bottom - geo.top;
+    if (span <= 0) return 0.5;
+    return ((y - geo.top) / span).clamp(0.0, 1.0);
   }
 
   /// Forget all session state (e.g. to start a new drill).
