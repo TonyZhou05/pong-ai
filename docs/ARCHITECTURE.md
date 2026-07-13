@@ -505,6 +505,18 @@ behind a `VisionService` interface. This lets us:
      "History" card. Screen tests run against an in-memory fake store so they can
      pump/settle normally (a `testWidgets` body's real `dart:io` only advances
      under `runAsync`); the on-disk store keeps its own temp-dir unit tests.
+   - **[done — iteration 47]** Match-side "Save to history" producer, closing the
+     parallel gap iteration 46 left (only training could save). `MatchScreen`'s
+     post-match summary panel gained a "Save to history" action (an injectable
+     `historyStoreLoader`, default `defaultSessionHistoryStore`) that persists
+     `buildMatchReportJson` as a `SessionKind.match` record, so both modes now
+     feed the history screen. Reaching that panel also required making it
+     scrollable (`SingleChildScrollView` in a `Flexible`) — previously it was an
+     unbounded `Column` that overflowed once a match actually completed — and
+     `MatchScreen` gained a `matchControllerBuilder` seam so tests can inject a
+     short-match controller (`ScoringEngine(pointsPerGame: 3, bestOf: 1)`) that
+     the demo rallies finish, exercising the summary panel end-to-end for the
+     first time.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 44]** Training-mode tracking-quality / detection-health.

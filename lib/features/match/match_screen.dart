@@ -13,6 +13,8 @@ import '../../core/analysis/player_movement.dart';
 import '../../core/analysis/rally_analyzer.dart';
 import '../../core/analysis/rally_referee.dart';
 import '../../core/analysis/tracking_quality.dart';
+import '../../core/history/history_store_provider.dart';
+import '../../core/history/session_history_store.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/replay_vision_service.dart';
@@ -30,10 +32,23 @@ import '../summary/shot_map.dart';
 /// defaults to a [ReplayVisionService] playing a scripted demo match so the
 /// whole pipeline is visible in-app without a camera.
 class MatchScreen extends StatefulWidget {
-  const MatchScreen({super.key, this.visionServiceBuilder});
+  const MatchScreen({
+    super.key,
+    this.visionServiceBuilder,
+    this.matchControllerBuilder,
+    this.historyStoreLoader = defaultSessionHistoryStore,
+  });
 
   /// Builds the frame source. Defaults to the scripted demo replay.
   final VisionService Function()? visionServiceBuilder;
+
+  /// Builds the scoring pipeline. Defaults to a plain [MatchController]; tests
+  /// inject one with a short match config to reach the summary panel quickly.
+  final MatchController Function()? matchControllerBuilder;
+
+  /// Resolves the store the "Save to history" action writes to. Defaults to the
+  /// on-device documents-directory store; tests inject an in-memory fake.
+  final Future<SessionHistoryStore> Function() historyStoreLoader;
 
   @override
   State<MatchScreen> createState() => _MatchScreenState();
@@ -41,7 +56,7 @@ class MatchScreen extends StatefulWidget {
 
 class _MatchScreenState extends State<MatchScreen> {
   late final VisionService _vision;
-  final MatchController _controller = MatchController();
+  late final MatchController _controller;
 
   StreamSubscription<FrameResult>? _sub;
   FrameResult? _lastFrame;
@@ -55,6 +70,7 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   void initState() {
     super.initState();
+    _controller = widget.matchControllerBuilder?.call() ?? MatchController();
     _vision = widget.visionServiceBuilder?.call() ??
         ReplayVisionService(demoMatchFrames());
     _startVision();
@@ -129,25 +145,31 @@ class _MatchScreenState extends State<MatchScreen> {
                 onPick: (winner) => _resolve(pending.first, winner),
               )
             else if (state.isMatchOver)
-              _SummaryPanel(
-                summary: _controller.summary,
-                rallies: _controller.rallyStats,
-                movement: {
-                  for (final p in Player.values) p: _controller.movementFor(p),
-                },
-                positions: {
-                  for (final p in Player.values) p: _controller.positionsFor(p),
-                },
-                netX: _controller.geometry.netX,
-                placement: {
-                  for (final s in TableSide.values)
-                    s: _controller.placementFor(s),
-                },
-                maxBallSpeedKmh:
-                    _controller.hasBallSpeedData ? _controller.maxBallSpeedKmh : null,
-                tracking: _controller.trackingQuality,
-                reportText: buildMatchReport(_controller),
-                reportJson: matchReportJsonString(_controller),
+              Flexible(
+                child: _SummaryPanel(
+                  summary: _controller.summary,
+                  rallies: _controller.rallyStats,
+                  movement: {
+                    for (final p in Player.values) p: _controller.movementFor(p),
+                  },
+                  positions: {
+                    for (final p in Player.values)
+                      p: _controller.positionsFor(p),
+                  },
+                  netX: _controller.geometry.netX,
+                  placement: {
+                    for (final s in TableSide.values)
+                      s: _controller.placementFor(s),
+                  },
+                  maxBallSpeedKmh: _controller.hasBallSpeedData
+                      ? _controller.maxBallSpeedKmh
+                      : null,
+                  tracking: _controller.trackingQuality,
+                  reportText: buildMatchReport(_controller),
+                  reportJson: matchReportJsonString(_controller),
+                  reportJsonMap: buildMatchReportJson(_controller),
+                  historyStoreLoader: widget.historyStoreLoader,
+                ),
               )
             else
               _CallFeed(calls: _recentCalls, matchOver: state.isMatchOver),
@@ -405,6 +427,8 @@ class _SummaryPanel extends StatelessWidget {
     required this.tracking,
     required this.reportText,
     required this.reportJson,
+    required this.reportJsonMap,
+    required this.historyStoreLoader,
   });
 
   final MatchSummary summary;
@@ -439,7 +463,22 @@ class _SummaryPanel extends StatelessWidget {
   /// clipboard by the "Export JSON" action for storage / integration.
   final String reportJson;
 
+  /// The structured JSON report as a map, persisted by "Save to history".
+  final Map<String, Object?> reportJsonMap;
+
+  /// Resolves the store the "Save to history" action writes to.
+  final Future<SessionHistoryStore> Function() historyStoreLoader;
+
   static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
+
+  Future<void> _saveToHistory(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final store = await historyStoreLoader();
+    await store.save(kind: SessionKind.match, report: reportJsonMap);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Saved to history')),
+    );
+  }
 
   Future<void> _copyReport(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -465,7 +504,8 @@ class _SummaryPanel extends StatelessWidget {
       width: double.infinity,
       color: theme.colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.all(16),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -566,6 +606,11 @@ class _SummaryPanel extends StatelessWidget {
               spacing: 8,
               children: [
                 OutlinedButton.icon(
+                  icon: const Icon(Icons.save_alt, size: 18),
+                  label: const Text('Save to history'),
+                  onPressed: () => _saveToHistory(context),
+                ),
+                OutlinedButton.icon(
                   icon: const Icon(Icons.data_object, size: 18),
                   label: const Text('Export JSON'),
                   onPressed: () => _copyJson(context),
@@ -579,6 +624,7 @@ class _SummaryPanel extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
