@@ -6,6 +6,7 @@ import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/match_controller.dart';
+import '../../core/analysis/match_insights.dart';
 import '../../core/analysis/match_report.dart';
 import '../../core/analysis/match_report_json.dart';
 import '../../core/analysis/rally_referee.dart';
@@ -838,6 +839,24 @@ class _MatchOverPanel extends StatelessWidget {
                   ),
               ],
             ),
+            // The prioritized "what to work on next" cue per player — parity
+            // with the demo MatchScreen's summary so the live/production path
+            // surfaces coaching, not just raw stats.
+            if (MatchInsights(summary).hasData) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Coaching',
+                style: theme.textTheme.labelLarge?.copyWith(color: Colors.white),
+              ),
+              for (final player in Player.values)
+                if (MatchInsights(summary).insightsFor(player).focusTip
+                    case final tip?)
+                  Text(
+                    '${_name(player)}: $tip',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: Colors.white70),
+                  ),
+            ],
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,

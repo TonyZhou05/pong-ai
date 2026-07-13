@@ -112,6 +112,9 @@ void main() {
       // (momentum timeline + shot map), matching the demo MatchScreen panel.
       expect(find.byType(MomentumChartView), findsOneWidget);
       expect(find.byType(ShotMapView), findsOneWidget);
+      // The panel now also surfaces the prioritized coaching cue, matching the
+      // demo MatchScreen summary (both players served, so insights have data).
+      expect(find.text('Coaching'), findsOneWidget);
       await tester.ensureVisible(find.text('Save to history'));
       await tester.tap(find.text('Save to history'));
       await tester.pumpAndSettle();
