@@ -270,4 +270,97 @@ void main() {
       expect(events, isEmpty);
     });
   });
+
+  group('BallTracker — outlier gate (maxJump)', () {
+    test('is disabled by default: an implausible jump is still accepted', () {
+      final tracker = BallTracker();
+      _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+        _frame(66, 0.95, 0.5), // huge jump, but no gate
+      ]);
+      expect(tracker.outlierCount, 0);
+      expect(tracker.lastSample!.x, 0.95);
+    });
+
+    test('rejects a detection that jumps implausibly far from prediction', () {
+      final tracker = BallTracker(maxJump: 0.4);
+      // Establish a steady rightward track (prediction ~0.30 next).
+      _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+      ]);
+      // A spurious detection across the frame: >0.4 from the ~0.30 prediction.
+      final events = tracker.update(_frame(66, 0.95, 0.5));
+      expect(events, isEmpty);
+      expect(tracker.outlierCount, 1);
+      // The trajectory is NOT teleported — last accepted sample is unchanged.
+      expect(tracker.lastSample!.x, 0.25);
+    });
+
+    test('a rejected outlier does not manufacture a net-cross', () {
+      // Without the gate the 0.25 -> 0.95 jump would register a L->R crossing.
+      final tracker = BallTracker(maxJump: 0.4);
+      final events = _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+        _frame(66, 0.95, 0.5), // spurious, would-be crossing — rejected
+      ]);
+      expect(events.whereType<NetCrossEvent>(), isEmpty);
+      expect(tracker.currentSide, TableSide.left);
+    });
+
+    test('still accepts real detections that stay near the prediction', () {
+      final tracker = BallTracker(maxJump: 0.4);
+      final events = _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+        _frame(66, 0.30, 0.5),
+        _frame(99, 0.35, 0.5),
+      ]);
+      expect(tracker.outlierCount, 0);
+      expect(tracker.lastSample!.x, 0.35);
+      // A genuine steady track still crosses if it reaches the far side.
+      expect(events.whereType<NetCrossEvent>(), isEmpty);
+    });
+
+    test('never rejects the first samples that seed the trajectory', () {
+      // Only one prior sample -> no established velocity -> gate must not fire.
+      final tracker = BallTracker(maxJump: 0.1);
+      _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.90, 0.5), // second sample: seeds velocity, not gated
+      ]);
+      expect(tracker.outlierCount, 0);
+      expect(tracker.lastSample!.x, 0.90);
+    });
+
+    test('persistent outliers end the rally via BallLost after the gap', () {
+      final tracker = BallTracker(maxJump: 0.4, maxGapFrames: 2);
+      final events = _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+        _frame(66, 0.95, 0.5), // outlier 1
+        _frame(99, 0.96, 0.5), // outlier 2
+        _frame(132, 0.97, 0.5), // outlier 3 -> exceeds gap -> BallLost + reset
+      ]);
+      expect(events.whereType<BallLostEvent>(), hasLength(1));
+      // After the ball-lost reset the outlier counter is cleared and the next
+      // detection re-seeds a fresh trajectory.
+      expect(tracker.outlierCount, 0);
+      expect(tracker.hasEstimate, isFalse);
+    });
+
+    test('reset clears the outlier counter', () {
+      final tracker = BallTracker(maxJump: 0.4);
+      _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+        _frame(66, 0.95, 0.5),
+      ]);
+      expect(tracker.outlierCount, 1);
+      tracker.reset();
+      expect(tracker.outlierCount, 0);
+    });
+  });
 }

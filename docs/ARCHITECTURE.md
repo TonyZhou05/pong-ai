@@ -188,6 +188,24 @@ behind a `VisionService` interface. This lets us:
      a predicted "ghost" ball through motion-blur gaps instead of freezing. It
      runs alongside the raw-detection event logic — scoring still fires only on
      real detections — so it is purely additive.
+   - **[done — iteration 29]** Kalman-prediction **outlier gate** in
+     `BallTracker` (`maxJump`): the complement to iteration 14's filter. The
+     filter *bridged* frames where the detector loses the ball; this rejects
+     frames where the detector finds the *wrong* ball. Once a trajectory is
+     established (≥2 accepted samples), a detection landing more than `maxJump`
+     (normalized distance) from the constant-velocity prediction is treated as a
+     spurious detection — the detector latching onto a round object or bright
+     logo elsewhere in the frame — and routed through the missing-ball path
+     instead of accepted, so it can't teleport the trajectory and manufacture a
+     bogus net-cross/bounce → mis-scored point; persistent spurious detections
+     end the rally via the normal `BallLostEvent` after `maxGapFrames`. The
+     residual is gated *after* the CV prediction, so it is time-scale-invariant
+     (a true ball's residual is measurement noise + gentle bounce reversal, far
+     below a conservative `0.4`). Disabled by default (`maxJump == null`) so the
+     raw-detection scoring path and every synthetic-clip test are unchanged; the
+     live-camera `CameraMatchScreen` enables it (`0.4`) where real detector
+     false-positives occur, and `MatchController` preserves it across the
+     post-calibration tracker rebuild.
    - **[done — iteration 11]** `TableGeometry` table-surface calibration gating
      off-table bounces.
    - **[done — iteration 12]** `TableCalibrator`: pure-Dart auto-calibration

@@ -132,14 +132,21 @@ class BallLostEvent extends TrackerEvent {
 /// * A bounce requires the vertical velocity to flip from clearly *descending*
 ///   to clearly *ascending*, each above [minBounceSpeed], which rejects the
 ///   jitter of a near-stationary or noisily-detected ball.
+/// * Once a trajectory is established, a detection that lands implausibly far
+///   ([maxJump]) from the Kalman-predicted position is rejected as a spurious
+///   detection (the detector latching onto a round object / bright logo
+///   elsewhere in the frame) rather than teleporting the trajectory — see
+///   [update]. Disabled by default (`maxJump == null`).
 class BallTracker {
   BallTracker({
     this.geometry = const TableGeometry(),
     this.minBounceSpeed = 0.004,
     this.maxGapFrames = 6,
+    this.maxJump,
     BallTrajectoryFilter? filter,
   })  : assert(minBounceSpeed >= 0),
         assert(maxGapFrames >= 0),
+        assert(maxJump == null || maxJump > 0),
         _filter = filter ?? BallTrajectoryFilter();
 
   final TableGeometry geometry;
@@ -150,6 +157,17 @@ class BallTracker {
   /// How many consecutive frames without a detection are tolerated before the
   /// trajectory is considered broken.
   final int maxGapFrames;
+
+  /// Maximum normalized distance a detection may sit from the Kalman-predicted
+  /// position before it is treated as a spurious detection (a physical-
+  /// plausibility gate). `null` disables gating, so raw detections are always
+  /// accepted — the default, preserving the pre-gate behaviour. A generous
+  /// value (e.g. `0.4`, ~40% of the frame) rejects only gross teleports: the
+  /// residual gated here is *after* the constant-velocity prediction, so a true
+  /// ball's frame-to-frame residual (measurement noise + gentle bounce reversal)
+  /// stays far below it while a detection latching onto something across the
+  /// table does not.
+  final double? maxJump;
 
   /// Constant-velocity Kalman smoother/predictor kept in lock-step with the
   /// accepted samples so we can estimate the ball's position through detector
@@ -164,8 +182,16 @@ class BallTracker {
 
   int _missedFrames = 0;
 
+  int _outlierCount = 0;
+
   /// The most recent accepted ball sample, or null before the first detection.
   BallSample? get lastSample => _prev;
+
+  /// How many detections have been rejected as spurious by the [maxJump] gate
+  /// on the current trajectory (cleared on [reset] and when the trajectory is
+  /// dropped via a [BallLostEvent]). Useful for observability/tests; always 0
+  /// when gating is disabled.
+  int get outlierCount => _outlierCount;
 
   /// The side the ball was last seen on, or null before the first detection.
   TableSide? get currentSide =>
@@ -191,6 +217,18 @@ class BallTracker {
   List<TrackerEvent> update(FrameResult frame) {
     final ball = frame.ball;
     if (ball == null) {
+      return _handleMissingBall(frame.timestampMs);
+    }
+
+    // Physical-plausibility gate: once a trajectory is established, a detection
+    // that jumps implausibly far from the Kalman prediction is almost certainly
+    // a false positive (the detector latching onto something across the frame),
+    // so reject it and route this frame through the missing-ball path. The
+    // filter then extrapolates over it, and if the spurious detections persist
+    // past maxGapFrames the rally ends cleanly instead of the trajectory
+    // teleporting and manufacturing a bogus net-cross/bounce.
+    if (_isOutlier(frame.timestampMs, ball.box.centerX, ball.box.centerY)) {
+      _outlierCount++;
       return _handleMissingBall(frame.timestampMs);
     }
 
@@ -229,6 +267,20 @@ class BallTracker {
     return events;
   }
 
+  /// Whether a detection at ([x], [y], [timestampMs]) is too far from the
+  /// Kalman-predicted position to be the ball. Only fires once a velocity is
+  /// established (≥2 accepted samples, i.e. [_lastVy] is set) so the very first
+  /// samples that seed the trajectory are never rejected.
+  bool _isOutlier(int timestampMs, double x, double y) {
+    final gate = maxJump;
+    if (gate == null || _lastVy == null) return false;
+    final predicted = _filter.estimateAt(timestampMs);
+    if (predicted == null) return false;
+    final dx = x - predicted.x;
+    final dy = y - predicted.y;
+    return dx * dx + dy * dy > gate * gate;
+  }
+
   List<TrackerEvent> _handleMissingBall(int timestampMs) {
     if (_prev == null) return const [];
     _missedFrames++;
@@ -236,6 +288,7 @@ class BallTracker {
       _prev = null;
       _lastVy = null;
       _missedFrames = 0;
+      _outlierCount = 0;
       _filter.reset();
       return [BallLostEvent(timestampMs)];
     }
@@ -276,6 +329,7 @@ class BallTracker {
     _prev = null;
     _lastVy = null;
     _missedFrames = 0;
+    _outlierCount = 0;
     _filter.reset();
   }
 }

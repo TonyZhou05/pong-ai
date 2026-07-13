@@ -194,6 +194,7 @@ class MatchController {
       geometry: geometry,
       minBounceSpeed: _tracker.minBounceSpeed,
       maxGapFrames: _tracker.maxGapFrames,
+      maxJump: _tracker.maxJump,
     );
     // Rebuild movement analytics on the calibrated net line so player-to-side
     // attribution matches the now-inferred geometry (nothing was scored during

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
+import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/match_controller.dart';
 import '../../core/analysis/rally_referee.dart';
 import '../../core/analysis/table_calibrator.dart';
@@ -78,7 +79,15 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     super.initState();
     _vision = widget.visionService ?? YoloVisionService();
     _controller = widget.matchControllerBuilder?.call() ??
-        MatchController(calibrator: TableCalibrator());
+        MatchController(
+          calibrator: TableCalibrator(),
+          // Real on-device detections carry false positives (a round object or
+          // bright logo across the table). Gate them against the Kalman
+          // prediction so a spurious detection can't teleport the trajectory and
+          // manufacture a bogus point. 0.4 (~40% of the frame) is conservative:
+          // it clears normal play and gentle bounces, catching only gross jumps.
+          tracker: BallTracker(maxJump: 0.4),
+        );
     _startVision();
   }
 
