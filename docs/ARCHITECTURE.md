@@ -249,6 +249,18 @@ behind a `VisionService` interface. This lets us:
      verifiable without pixels; the `CustomPaint` painter just draws those
      points. Surfaced in the Match screen's post-match summary panel below the
      per-side short/mid/deep counts.
+   - **[done — iteration 23]** `MomentumChartView`
+     (`features/summary/momentum_chart.dart`): the score-progression / momentum
+     timeline. `MatchSummary` already keeps the ordered `ScoredPoint` log, but it
+     was only reduced to aggregate counts. This plots the *running lead* — the
+     cumulative point differential (Player A − Player B) after each rally — as a
+     filled-area timeline that rides above the centre line while A leads and dips
+     below while B leads, so runs and comebacks are visible at a glance. The
+     point-log → differential math is a pure, unit-tested `momentumSeries(points)`
+     seam (leading `0` start, `points.length + 1` entries); the `CustomPaint`
+     painter just draws the curve. Surfaced in the Match screen's post-match
+     summary panel above the rally/placement stats.
+
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 20]** `CameraTrainingScreen`
      (`features/training/camera_training_screen.dart`): the live-camera

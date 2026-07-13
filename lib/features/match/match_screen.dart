@@ -14,6 +14,7 @@ import '../../core/vision/detection.dart';
 import '../../core/vision/replay_vision_service.dart';
 import '../../core/vision/synthetic_frames.dart';
 import '../../core/vision/vision_service.dart';
+import '../summary/momentum_chart.dart';
 import '../summary/shot_map.dart';
 
 /// Live match screen: streams vision frames through the [MatchController] and
@@ -421,6 +422,13 @@ class _SummaryPanel extends StatelessWidget {
             '${summary.totalPoints} points played',
             style: theme.textTheme.bodyMedium,
           ),
+          if (summary.totalPoints > 0) ...[
+            const SizedBox(height: 8),
+            Text('Momentum', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 4),
+            MomentumChartView(points: summary.points),
+            const SizedBox(height: 8),
+          ],
           if (rallies.rallyCount > 0)
             Text(
               'Rallies: avg ${rallies.averageStrokes.toStringAsFixed(1)} '
