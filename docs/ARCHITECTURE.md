@@ -188,7 +188,11 @@ behind a `VisionService` interface. This lets us:
    - **[done — iteration 9]** `YoloFrameAdapter`: pure, unit-tested mapping from
      the plugin's `onStreamingData` payload (or parsed `List<YOLOResult>`) into
      the runtime-agnostic `FrameResult` — the seam a camera-backed
-     `VisionService` funnels live detections through.
+     `VisionService` funnels live detections through. When more than `maxPeople`
+     persons are detected it keeps the two largest by box **area** (iteration 64
+     fix; was box width). With the phone at the side of the table the players are
+     seen side-on — narrow but tall boxes — so a width-only cap would drop the
+     real players in favor of a wide, short spectator facing the camera.
    - **[done — iteration 10]** `YoloVisionService`: the camera-backed
      `VisionService` implementation — routes the `YOLOView.onStreamingData`
      callback through `YoloFrameAdapter` onto a `FrameResult` broadcast stream,

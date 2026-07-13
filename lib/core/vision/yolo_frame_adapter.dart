@@ -31,8 +31,9 @@ class YoloFrameConfig {
   /// Drop person detections below this confidence.
   final double minPersonConfidence;
 
-  /// Keep at most this many players (the most confident ones), since only two
-  /// people ever matter at a table. Non-positive means "no limit".
+  /// Keep at most this many players (the largest by box area — the two people
+  /// nearest/most prominent at the table), since only two people ever matter at
+  /// a table. Non-positive means "no limit".
   final int maxPeople;
 }
 
@@ -111,9 +112,13 @@ class YoloFrameAdapter {
       }
     }
 
-    // Keep only the most-confident players; two ever matter at a table.
+    // Keep only the two most-prominent people (largest box *area*), since only
+    // two players ever matter at a table. Area, not width: with the phone at the
+    // side of the table the players are seen side-on (narrow but tall boxes),
+    // while a spectator facing the camera is wide but short — sorting on width
+    // alone would systematically drop the real players for a bystander.
     if (config.maxPeople > 0 && people.length > config.maxPeople) {
-      people.sort((a, b) => b.box.width.compareTo(a.box.width));
+      people.sort((a, b) => _boxArea(b.box).compareTo(_boxArea(a.box)));
       people.removeRange(config.maxPeople, people.length);
     }
 
@@ -132,6 +137,8 @@ class YoloFrameAdapter {
   }
 
   BBox _bbox(Rect box) => BBox(box.left, box.top, box.width, box.height);
+
+  static double _boxArea(BBox box) => box.width * box.height;
 
   List<Keypoint> _keypoints(
     yolo.YOLOResult r,

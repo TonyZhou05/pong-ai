@@ -128,7 +128,7 @@ void main() {
       expect(frame.people, isEmpty);
     });
 
-    test('caps players at maxPeople, keeping the largest boxes', () {
+    test('caps players at maxPeople, keeping the largest boxes by area', () {
       final frame = adapter.fromResults(
         [
           _result('person', 0.9, const Rect.fromLTWH(0.0, 0.0, 0.10, 0.5)),
@@ -140,6 +140,27 @@ void main() {
       expect(frame.people, hasLength(2));
       final widths = frame.people.map((p) => p.box.width).toList()..sort();
       expect(widths, [closeTo(0.10, 1e-9), closeTo(0.30, 1e-9)]);
+    });
+
+    test('keeps side-on players (tall, narrow) over a wide, short spectator', () {
+      // Phone at the side of the table: the two players are seen side-on, so
+      // their boxes are narrow but tall. A spectator facing the camera is wide
+      // but short — a width-only cap would wrongly keep the spectator.
+      final frame = adapter.fromResults(
+        [
+          // Player 1: narrow + tall -> area 0.15 * 0.6 = 0.090.
+          _result('person', 0.9, const Rect.fromLTWH(0.10, 0.2, 0.15, 0.6)),
+          // Player 2: narrow + tall -> area 0.13 * 0.6 = 0.078.
+          _result('person', 0.9, const Rect.fromLTWH(0.60, 0.2, 0.13, 0.6)),
+          // Spectator: wide + short -> area 0.30 * 0.20 = 0.060 (widest box).
+          _result('person', 0.9, const Rect.fromLTWH(0.35, 0.7, 0.30, 0.20)),
+        ],
+        timestampMs: 0,
+      );
+      expect(frame.people, hasLength(2));
+      final lefts = frame.people.map((p) => p.box.left).toList()..sort();
+      // Both players kept; the wide spectator (left 0.35) dropped.
+      expect(lefts, [closeTo(0.10, 1e-9), closeTo(0.60, 1e-9)]);
     });
 
     test('propagates fps', () {
