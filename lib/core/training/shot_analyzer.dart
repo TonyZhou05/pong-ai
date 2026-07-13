@@ -115,6 +115,8 @@ class TrainingSummary {
 
   double get averageDepth => _mean(shots.map((s) => s.depth));
 
+  double get averageLateral => _mean(shots.map((s) => s.lateral));
+
   double get averageScore => _mean(shots.map((s) => s.score));
 
   /// Number of shots that earned [grade].
@@ -131,6 +133,21 @@ class TrainingSummary {
         _mean(shots.map((s) => math.pow(s.depth - mean, 2).toDouble()));
     final std = math.sqrt(variance);
     // A std of 0.5 spans an entire table half; treat that as fully inconsistent.
+    return (1 - std / 0.5).clamp(0.0, 1.0);
+  }
+
+  /// How repeatable the *across-table* (lateral) placement was, in `[0, 1]`:
+  /// `1` means every ball landed at the same lateral position, `0` means they
+  /// were spread across the whole width. Derived from the population standard
+  /// deviation of [Shot.lateral], the companion to [consistency] for the depth
+  /// axis — together they say whether the player is grouping shots into a spot.
+  double get lateralConsistency {
+    if (shots.length < 2) return shots.isEmpty ? 0 : 1;
+    final mean = averageLateral;
+    final variance =
+        _mean(shots.map((s) => math.pow(s.lateral - mean, 2).toDouble()));
+    final std = math.sqrt(variance);
+    // A std of 0.5 spans the whole width; treat that as fully inconsistent.
     return (1 - std / 0.5).clamp(0.0, 1.0);
   }
 
@@ -166,7 +183,8 @@ class TrainingSummary {
       '$shotCount shots — grade $overallGrade ($pct%).',
       'Avg depth: ${(averageDepth * 100).round()}% of the far half.',
       'Avg pace: ${averageSpeed.toStringAsFixed(2)} units/s.',
-      'Consistency: ${(consistency * 100).round()}%.',
+      'Depth consistency: ${(consistency * 100).round()}%.',
+      'Lateral consistency: ${(lateralConsistency * 100).round()}%.',
       '  • ${gradeCount(ShotGrade.excellent)} excellent',
       '  • ${gradeCount(ShotGrade.good)} good',
       '  • ${gradeCount(ShotGrade.fair)} fair',

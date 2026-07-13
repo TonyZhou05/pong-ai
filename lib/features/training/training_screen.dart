@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/analysis/ball_tracker.dart';
 import '../../core/training/shot_analyzer.dart';
@@ -119,7 +120,9 @@ class _TrainingScreenState extends State<TrainingScreen> {
               child: _TargetView(frame: _lastFrame, config: widget.config),
             ),
             if (_finished)
-              _SessionReport(summary: summary, config: widget.config)
+              // Bounded so the report's internal scroll view fits (and scrolls)
+              // instead of overflowing the column with the placement map.
+              Flexible(child: _SessionReport(summary: summary, config: widget.config))
             else
               _ShotFeed(shots: _recentShots),
           ],
@@ -297,6 +300,14 @@ class _SessionReport extends StatelessWidget {
   final TrainingSummary summary;
   final TrainingConfig config;
 
+  Future<void> _copyReport(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: summary.report()));
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Report copied to clipboard')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -317,6 +328,15 @@ class _SessionReport extends StatelessWidget {
               const SizedBox(height: 6),
               TrainingShotMapView(shots: summary.shots, config: config),
             ],
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copy report'),
+                onPressed: () => _copyReport(context),
+              ),
+            ),
           ],
         ),
       ),

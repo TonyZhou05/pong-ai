@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/app.dart';
 import 'package:pong_ai/core/training/shot_analyzer.dart';
@@ -33,6 +34,11 @@ class FakeVisionService implements VisionService {
   }
 
   void emit(FrameResult frame) => _controller.add(frame);
+
+  /// Close the stream so the screen's `onDone` fires and shows the report.
+  Future<void> finish() async {
+    if (!_controller.isClosed) await _controller.close();
+  }
 }
 
 void main() {
@@ -79,6 +85,50 @@ void main() {
 
     expect(find.text('1 shots'), findsOneWidget);
     expect(find.textContaining('excellent'), findsOneWidget);
+  });
+
+  testWidgets('session report Copy report action copies the summary text',
+      (tester) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    final fake = FakeVisionService();
+    await tester.pumpWidget(
+      MaterialApp(home: TrainingScreen(visionServiceBuilder: () => fake)),
+    );
+    await tester.pump();
+
+    // One graded stroke, then end the session so the report + Copy show.
+    for (final frame in trainingSessionFrames().take(14)) {
+      fake.emit(frame);
+      await tester.pump();
+    }
+    await fake.finish();
+    await tester.pump();
+
+    expect(find.text('Session complete'), findsOneWidget);
+    await tester.ensureVisible(find.text('Copy report'));
+    await tester.tap(find.text('Copy report'));
+    await tester.pump();
+
+    expect(copied, isNotNull);
+    expect(copied, contains('Training summary'));
+    expect(copied, contains('Lateral consistency'));
+    expect(find.text('Report copied to clipboard'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('Training card on the home screen opens the training screen',

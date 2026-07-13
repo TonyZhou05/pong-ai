@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 import '../../core/analysis/ball_tracker.dart';
@@ -349,6 +350,14 @@ class _SessionReport extends StatelessWidget {
   final TrainingSummary summary;
   final TrainingConfig config;
 
+  Future<void> _copyReport(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: summary.report()));
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Report copied to clipboard')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -380,6 +389,15 @@ class _SessionReport extends StatelessWidget {
               const SizedBox(height: 6),
               TrainingShotMapView(shots: summary.shots, config: config),
             ],
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copy report'),
+                onPressed: () => _copyReport(context),
+              ),
+            ),
           ],
         ),
       ),

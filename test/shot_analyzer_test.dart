@@ -148,11 +148,32 @@ void main() {
       expect(wide.consistency, lessThan(tight.consistency));
     });
 
+    test('averages and consistency mine the lateral (across-table) axis', () {
+      Shot shot(double lateral) => Shot(
+            timestampMs: 0,
+            speed: 1,
+            depth: 0.5,
+            lateral: lateral,
+            score: 0.8,
+          );
+      final grouped = TrainingSummary([shot(0.5), shot(0.5), shot(0.5)]);
+      expect(grouped.averageLateral, closeTo(0.5, 1e-9));
+      expect(grouped.lateralConsistency, closeTo(1.0, 1e-9));
+
+      final spread = TrainingSummary([shot(0.1), shot(0.5), shot(0.9)]);
+      expect(spread.averageLateral, closeTo(0.5, 1e-9));
+      expect(spread.lateralConsistency, lessThan(grouped.lateralConsistency));
+
+      expect(grouped.report(), contains('Lateral consistency: 100%'));
+    });
+
     test('empty session reports no shots', () {
       const summary = TrainingSummary([]);
       expect(summary.shotCount, 0);
       expect(summary.overallGrade, '–');
       expect(summary.consistency, 0);
+      expect(summary.averageLateral, 0);
+      expect(summary.lateralConsistency, 0);
       expect(summary.report(), contains('No shots recorded'));
     });
 

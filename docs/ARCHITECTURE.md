@@ -303,6 +303,21 @@ behind a `VisionService` interface. This lets us:
      (`Clipboard.setData`, no new dependency) with a confirmation snackbar.
 
 7. Training mode: shot segmentation + quality grading.
+   - **[done — iteration 27]** Training placement analytics + shareable report.
+     `Shot` has carried a `lateral` (across-table) landing coordinate since
+     iteration 22, but it fed only the visual `TrainingShotMapView` — no
+     aggregate stat mined it, so a drill's *across-table* grouping was invisible
+     to the textual summary. `TrainingSummary` now exposes `averageLateral` and
+     `lateralConsistency` (the companion to the existing depth-only
+     `consistency`, from the population stddev of `Shot.lateral`), and
+     `report()` reports both a "Depth consistency" and a "Lateral consistency"
+     line so a player can see whether they are grouping shots into a spot on
+     both axes. Both training screens' end-of-session reports gained a **Copy
+     report** action (`Clipboard.setData`, no new dependency, confirmation
+     snackbar) — the training-mode counterpart to the match `buildMatchReport`
+     export, closing the "produce summary" gap for practice sessions. The demo
+     `TrainingScreen`'s finished-state panel is now `Flexible` so the scrollable
+     report (with the placement map) fits instead of overflowing the column.
    - **[done — iteration 20]** `CameraTrainingScreen`
      (`features/training/camera_training_screen.dart`): the live-camera
      counterpart to the demo `TrainingScreen`. It instantiates the real
