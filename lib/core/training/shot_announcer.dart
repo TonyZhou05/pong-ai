@@ -12,9 +12,12 @@
 ///
 /// [ShotAnnouncer] is the pure, testable half of that: fed each freshly graded
 /// [Shot], it returns the spoken call the stroke warrants — a grade call
-/// ("Excellent shot!", "Good.", "Fair — a bit off.", "Off target.") plus an
+/// ("Excellent shot!", "Good.", "Fair — a bit off.", "Off target."), an
 /// encouraging streak call once several on-target shots land in a row
-/// ("Good. 3 in a row!"). It is deliberately Flutter- and audio-free: the
+/// ("Good. 3 in a row!"), and a session-best pace milestone when a shot beats
+/// the fastest one so far ("Good. New top speed, 42 km/h!") — the training-mode
+/// parity of the match announcer's climactic pressure cues. It is deliberately
+/// Flutter- and audio-free: the
 /// actual speaking/haptic cue lives behind an injectable sink in the UI layer,
 /// so a text-to-speech engine can be dropped in later without touching this
 /// deterministic call logic, matching the [MatchAnnouncer] seam.
@@ -32,6 +35,10 @@ class ShotAnnouncer {
   /// Number of consecutive on-target shots ending at the most recent one.
   int _streak = 0;
 
+  /// Fastest shot pace (km/h) seen so far this session, 0 until a shot carries a
+  /// physical speed (see [Shot.speedKmh]).
+  double _bestSpeedKmh = 0;
+
   /// Minimum consecutive on-target shots before the streak is called out.
   final int streakThreshold;
 
@@ -41,22 +48,42 @@ class ShotAnnouncer {
   /// The current on-target streak length (for the UI / tests).
   int get streak => _streak;
 
-  /// The spoken call for [shot]: its grade phrase, suffixed with a streak
+  /// The fastest shot pace (km/h) called out so far this session, 0 if no shot
+  /// has carried a physical speed yet.
+  double get topSpeedKmh => _bestSpeedKmh;
+
+  /// The spoken call for [shot]: its grade phrase, suffixed with a session-best
+  /// pace milestone when the shot beats the fastest so far, then a streak
   /// call-out once [streakThreshold] on-target shots have landed in a row. A
   /// below-target shot ([ShotGrade.fair] or [ShotGrade.poor]) breaks the streak.
   String onShot(Shot shot) {
     final onTarget = shot.grade.index >= ShotGrade.good.index;
     _streak = onTarget ? _streak + 1 : 0;
-    final call = _gradeCall(shot.grade);
-    if (onTarget && _streak >= streakThreshold) {
-      return '$call $_streak in a row!';
+    final parts = <String>[_gradeCall(shot.grade)];
+
+    // Session-best pace milestone. Only fires once a baseline exists (the first
+    // speed-bearing shot silently sets it, so the milestone isn't trivially true
+    // on shot one) and stays silent when no physical scale is available
+    // (speedKmh == 0, e.g. before table calibration provides a ruler).
+    if (shot.speedKmh > 0) {
+      if (_bestSpeedKmh > 0 && shot.speedKmh > _bestSpeedKmh) {
+        parts.add('New top speed, ${shot.speedKmh.round()} km/h!');
+      }
+      if (shot.speedKmh > _bestSpeedKmh) _bestSpeedKmh = shot.speedKmh;
     }
-    return call;
+
+    if (onTarget && _streak >= streakThreshold) {
+      parts.add('$_streak in a row!');
+    }
+    return parts.join(' ');
   }
 
-  /// Forget the running streak so the next [onShot] starts fresh (used when a
-  /// new drill session starts on the same screen).
-  void reset() => _streak = 0;
+  /// Forget the running streak and session-best pace so the next [onShot] starts
+  /// fresh (used when a new drill session starts on the same screen).
+  void reset() {
+    _streak = 0;
+    _bestSpeedKmh = 0;
+  }
 
   static String _gradeCall(ShotGrade grade) {
     switch (grade) {

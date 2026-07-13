@@ -7,6 +7,10 @@ import 'package:pong_ai/core/training/shot_announcer.dart';
 Shot _shot(double score) =>
     Shot(timestampMs: 0, speed: 1, depth: 0.75, score: score);
 
+/// Builds an on-target [Shot] carrying a physical [speedKmh] pace.
+Shot _fastShot(double speedKmh) =>
+    Shot(timestampMs: 0, speed: 1, depth: 0.75, score: 0.9, speedKmh: speedKmh);
+
 void main() {
   group('ShotAnnouncer grade calls', () {
     test('names each grade bucket', () {
@@ -59,6 +63,43 @@ void main() {
       final a = ShotAnnouncer(streakThreshold: 2);
       expect(a.onShot(_shot(0.9)), 'Excellent shot!'); // streak 1
       expect(a.onShot(_shot(0.9)), 'Excellent shot! 2 in a row!');
+    });
+  });
+
+  group('ShotAnnouncer top-speed milestone', () {
+    test('calls out only when a shot beats the session best', () {
+      final a = ShotAnnouncer();
+      // First speed-bearing shot silently sets the baseline (no milestone).
+      expect(a.onShot(_fastShot(30)), 'Excellent shot!'); // streak 1
+      expect(a.topSpeedKmh, 30);
+      // A slower shot does not fire the milestone.
+      expect(a.onShot(_fastShot(25)), 'Excellent shot!'); // streak 2
+      expect(a.topSpeedKmh, 30);
+      // A faster shot fires it (rounded), before the streak call-out.
+      expect(
+        a.onShot(_fastShot(42.4)),
+        'Excellent shot! New top speed, 42 km/h! 3 in a row!',
+      );
+      expect(a.topSpeedKmh, 42.4);
+    });
+
+    test('stays silent when shots carry no physical speed', () {
+      final a = ShotAnnouncer();
+      // speedKmh defaults to 0 (no ruler yet), so no milestone ever fires.
+      expect(a.onShot(_shot(0.9)), 'Excellent shot!');
+      expect(a.onShot(_shot(0.9)), 'Excellent shot!');
+      expect(a.topSpeedKmh, 0);
+    });
+
+    test('reset() forgets the session-best pace', () {
+      final a = ShotAnnouncer();
+      a.onShot(_fastShot(30));
+      a.onShot(_fastShot(40)); // milestone
+      expect(a.topSpeedKmh, 40);
+      a.reset();
+      expect(a.topSpeedKmh, 0);
+      // After reset the first speed shot is a baseline again, no milestone.
+      expect(a.onShot(_fastShot(35)), 'Excellent shot!');
     });
   });
 }

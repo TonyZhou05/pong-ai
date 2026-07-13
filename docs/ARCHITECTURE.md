@@ -315,6 +315,15 @@ behind a `VisionService` interface. This lets us:
        the call through an injectable `onAnnounce` sink (default: a
        `HapticFeedback.selectionClick` + `SystemSound` click cue, the drop-in seam
        for a TTS engine) and captions the latest call in the recent-shots feed.
+       - **[done — iteration 113]** Session-best pace milestone. `ShotAnnouncer`
+         previously ignored `Shot.speedKmh` entirely, so a drilling player never
+         heard when they'd just hit their fastest shot — the training-mode gap
+         opposite the match announcer's climactic pressure cues. `onShot` now
+         appends "New top speed, N km/h!" (before the streak call-out) whenever a
+         shot beats the session best, tracking `topSpeedKmh`. The first
+         speed-bearing shot silently sets the baseline (so it isn't trivially a
+         milestone), and the cue stays silent when `speedKmh == 0` (no table ruler
+         yet, before calibration); `reset()` clears the best for a fresh session.
      - **[done — iteration 91]** Live game-point / match-point cue.
        `core/scoring/match_situation.dart` (`MatchSituation`) derives, from a
        `MatchState` snapshot alone, whether a side is one point from winning the
