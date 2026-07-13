@@ -68,16 +68,34 @@ class PointDecision {
 /// It returns a [PointDecision] on the event that ends the rally and then
 /// resets itself for the next rally; otherwise it returns null.
 class RallyReferee {
-  RallyReferee({Player leftPlayer = Player.a}) : _leftPlayer = leftPlayer;
+  RallyReferee({Player leftPlayer = Player.a}) : _initialLeftPlayer = leftPlayer;
 
-  /// Which player occupies the left half of the table (split by the net). The
-  /// other player is on the right. This maps the tracker's spatial
-  /// [TableSide] onto the scoring engine's [Player] identities.
-  final Player _leftPlayer;
+  /// Which player occupied the left half of the table at the start of the match.
+  /// The live [leftPlayer] flips away from this each time the players
+  /// [switchEnds].
+  final Player _initialLeftPlayer;
 
-  /// The player on the left half of the table (net-split). Exposed so movement
-  /// analytics can attribute detected people to the same [Player] identities.
-  Player get leftPlayer => _leftPlayer;
+  /// Whether the players have swapped ends an odd number of times, so the
+  /// physical left/right halves now map to the opposite scoring [Player]s.
+  bool _endsSwapped = false;
+
+  /// The player currently occupying the left half of the table (split by the
+  /// net). The other player is on the right. This maps the tracker's spatial
+  /// [TableSide] onto the scoring engine's [Player] identities, accounting for
+  /// any end changes ([switchEnds]). Exposed so movement analytics can attribute
+  /// detected people to the same [Player] identities.
+  Player get leftPlayer =>
+      _endsSwapped ? _initialLeftPlayer.other : _initialLeftPlayer;
+
+  /// Swap which scoring [Player] each physical half of the table belongs to.
+  ///
+  /// In table tennis the players change ends between games, but the phone (and
+  /// therefore the camera's left/right) stays put — so after an end change the
+  /// person now on the left is the *other* [Player]. The [MatchController]
+  /// calls this when a game completes so the side→player attribution keeps
+  /// awarding points to the correct player across games. Rally state
+  /// ([reset]) is unaffected; the swap persists for the rest of the match.
+  void switchEnds() => _endsSwapped = !_endsSwapped;
 
   /// The side of the most recent legal bounce this rally, or null before one.
   TableSide? _lastBounceSide;
@@ -87,7 +105,7 @@ class RallyReferee {
 
   /// The player on a given side of the table.
   Player playerOn(TableSide side) =>
-      side == TableSide.left ? _leftPlayer : _leftPlayer.other;
+      side == TableSide.left ? leftPlayer : leftPlayer.other;
 
   /// Process one rally event; returns a verdict if it ends the rally.
   PointDecision? update(TrackerEvent event) {

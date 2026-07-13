@@ -32,6 +32,7 @@ class MatchController {
     RallyReferee? referee,
     ScoringEngine? engine,
     this.calibrator,
+    this.switchEndsBetweenGames = false,
   })  : _tracker = tracker ?? BallTracker(),
         referee = referee ?? RallyReferee(),
         engine = engine ?? ScoringEngine() {
@@ -59,6 +60,14 @@ class MatchController {
   /// does it rebuild [tracker] with that geometry and start scoring. This lets
   /// the user just place the phone table-side instead of hand-marking corners.
   final TableCalibrator? calibrator;
+
+  /// Whether to flip the referee's side→player mapping each time a game
+  /// completes, because the players change ends between games while the phone
+  /// (and the camera's left/right) stays put. Off by default so scripted
+  /// synthetic clips — which never physically switch ends — score unchanged;
+  /// the live-camera path enables it so a real multi-game match keeps
+  /// attributing bounces to the correct player after an end change.
+  final bool switchEndsBetweenGames;
 
   bool _calibrated = false;
 
@@ -211,6 +220,7 @@ class MatchController {
           server,
           gameIndex,
         );
+        _maybeSwitchEnds(gameIndex);
       } else {
         _undetermined.add(decision);
       }
@@ -258,13 +268,35 @@ class MatchController {
       final gameIndex = engine.state.gamesA + engine.state.gamesB;
       engine.awardPoint(winner);
       _record(winner, decision.reason, decision.timestampMs, server, gameIndex);
+      _maybeSwitchEnds(gameIndex);
+    }
+  }
+
+  /// After a point is awarded, flip the referee's side→player mapping if the
+  /// award just completed a game (and the match is still going) — the players
+  /// change ends between games. Opt-in via [switchEndsBetweenGames].
+  void _maybeSwitchEnds(int gamesBefore) {
+    if (!switchEndsBetweenGames) return;
+    final gamesAfter = engine.state.gamesA + engine.state.gamesB;
+    if (gamesAfter > gamesBefore && !engine.state.isMatchOver) {
+      referee.switchEnds();
     }
   }
 
   /// Undo the most recent scored point. Returns true if something was undone.
   bool undo() {
+    final gamesBefore = engine.state.gamesA + engine.state.gamesB;
+    final wasMatchOver = engine.state.isMatchOver;
     final undone = engine.undo();
-    if (undone && _points.isNotEmpty) _points.removeLast();
-    return undone;
+    if (!undone) return false;
+    if (_points.isNotEmpty) _points.removeLast();
+    // If undoing crosses a game boundary back down (and that game hadn't ended
+    // the match — a match-winning point never triggered a forward end change),
+    // flip the ends back so the referee mapping stays symmetric with [onFrame].
+    if (switchEndsBetweenGames) {
+      final gamesAfter = engine.state.gamesA + engine.state.gamesB;
+      if (gamesBefore > gamesAfter && !wasMatchOver) referee.switchEnds();
+    }
+    return true;
   }
 }

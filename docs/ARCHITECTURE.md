@@ -270,6 +270,17 @@ behind a `VisionService` interface. This lets us:
      geometry and starts scoring — so the self-calibration is actually in force
      on the live pipeline, not just an isolated component.
 4. Connect events → scoring engine → live scoreboard UI.
+   - **[done — iteration 61]** End changes between games. In table tennis the
+     players swap ends after every game while the phone stays put, so the
+     camera's physical left/right half maps to the *opposite* scoring `Player`
+     from the next game on. `RallyReferee.switchEnds()` flips its side→player
+     mapping (`leftPlayer`), and `MatchController` (opt-in
+     `switchEndsBetweenGames`, symmetric on `undo`) calls it whenever an awarded
+     point completes a game — so a real multi-game match keeps attributing
+     bounces to the correct player instead of mis-scoring every even game. Off
+     by default (scripted synthetic clips never physically switch ends); the
+     live-camera `CameraMatchScreen` enables it. Refinement still open: the
+     deciding game's mid-game switch at the first player to reach 5 points.
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
    clips, ready for SPIN/OpenTTGames conversion.

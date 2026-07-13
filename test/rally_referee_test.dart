@@ -107,6 +107,48 @@ void main() {
     });
   });
 
+  group('RallyReferee — end changes', () {
+    test('switchEnds flips the side→player mapping', () {
+      final ref = RallyReferee();
+      expect(ref.leftPlayer, Player.a);
+      expect(ref.playerOn(TableSide.left), Player.a);
+
+      ref.switchEnds();
+      expect(ref.leftPlayer, Player.b);
+      expect(ref.playerOn(TableSide.left), Player.b);
+      expect(ref.playerOn(TableSide.right), Player.a);
+
+      ref.switchEnds(); // back to the start
+      expect(ref.leftPlayer, Player.a);
+    });
+
+    test('a double bounce is attributed across an end change', () {
+      final ref = RallyReferee();
+      // Before the switch: left never returned it → the right player (B) wins.
+      final before = _run(ref, [
+        _bounce(0, TableSide.left),
+        _bounce(50, TableSide.left),
+      ]);
+      expect(before.single.winner, Player.b);
+
+      ref.switchEnds();
+      // After the switch the same physical left half is now player B, so an
+      // unreturned bounce there awards A instead.
+      final after = _run(ref, [
+        _bounce(100, TableSide.left),
+        _bounce(150, TableSide.left),
+      ]);
+      expect(after.single.winner, Player.a);
+    });
+
+    test('reset does not undo an end change', () {
+      final ref = RallyReferee();
+      ref.switchEnds();
+      ref.reset();
+      expect(ref.leftPlayer, Player.b);
+    });
+  });
+
   group('RallyReferee — rally reset', () {
     test('referee resets after a decision so the next rally is independent', () {
       final ref = RallyReferee();

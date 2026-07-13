@@ -92,6 +92,11 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     _controller = widget.matchControllerBuilder?.call() ??
         MatchController(
           calibrator: TableCalibrator(),
+          // A real match changes ends between games while the phone stays put,
+          // so flip the side→player mapping each completed game to keep
+          // attributing bounces to the right player. (Off for scripted demos,
+          // which never physically switch ends.)
+          switchEndsBetweenGames: true,
           // Real on-device detections carry false positives (a round object or
           // bright logo across the table). Gate them against the Kalman
           // prediction so a spurious detection can't teleport the trajectory and

@@ -112,6 +112,68 @@ void main() {
     });
   });
 
+  group('MatchController — end changes between games', () {
+    // Two unreturned double bounces on the right half (each a separate rally)
+    // award the left player two points — a 2-point game.
+    void winGameOnRight(MatchController mc, {required int startT}) {
+      for (final f in _doubleBounceOn(0.75, startT: startT)) {
+        mc.onFrame(f);
+      }
+      for (final f in _doubleBounceOn(0.75, startT: startT + 1000)) {
+        mc.onFrame(f);
+      }
+    }
+
+    test('flips side→player attribution after a completed game (opt-in)', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      winGameOnRight(mc, startT: 0);
+      expect(mc.score.gamesA, 1);
+      expect(mc.score.gamesB, 0);
+      // Players changed ends, so the referee now maps the left half to B.
+      expect(mc.referee.leftPlayer, Player.b);
+
+      // Game 2: the SAME physical right-side double bounce now awards B, because
+      // the player standing on the right is A after the end change.
+      for (final f in _doubleBounceOn(0.75, startT: 3000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsB, 1);
+      expect(mc.score.pointsA, 0);
+    });
+
+    test('is off by default so scripted clips score unchanged', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+      );
+      winGameOnRight(mc, startT: 0);
+      expect(mc.score.gamesA, 1);
+      expect(mc.referee.leftPlayer, Player.a); // never switched
+
+      // Game 2 right-side double bounce still awards the left player A.
+      for (final f in _doubleBounceOn(0.75, startT: 3000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+      expect(mc.score.pointsB, 0);
+    });
+
+    test('undo across a game boundary restores the pre-switch mapping', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      winGameOnRight(mc, startT: 0);
+      expect(mc.referee.leftPlayer, Player.b);
+
+      mc.undo(); // undo the game-winning point
+      expect(mc.score.gamesA, 0);
+      expect(mc.referee.leftPlayer, Player.a);
+    });
+  });
+
   group('MatchController — auto-calibration', () {
     test('defers scoring during warm-up, then infers the table geometry', () {
       final mc = MatchController(
