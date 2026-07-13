@@ -274,6 +274,20 @@ behind a `VisionService` interface. This lets us:
      painter just draws the curve. Surfaced in the Match screen's post-match
      summary panel above the rally/placement stats.
 
+   - **[done — iteration 25]** `buildMatchReport`
+     (`core/analysis/match_report.dart`): the unified, exportable text report.
+     Every prior analytics layer — the `MatchSummary` scoring breakdown,
+     `RallyStats` rally-length distribution, per-player `PlayerMovementStats`
+     footwork, and per-side `SidePlacementStats` bounce placement — was only ever
+     rendered piecemeal into its own summary-panel widget; there was no single
+     shareable artifact answering "how did this match go?", which the objective's
+     "produce summary" goal asks for. `buildMatchReport(controller)` folds all of
+     those live analytics into one deterministic, Flutter-free string (scoring →
+     rally → both players' movement → both sides' placement, with "not
+     tracked" / "no bounces" fallbacks). The Match screen's post-match summary
+     panel now has a **Copy report** action that writes it to the clipboard
+     (`Clipboard.setData`, no new dependency) with a confirmation snackbar.
+
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 20]** `CameraTrainingScreen`
      (`features/training/camera_training_screen.dart`): the live-camera

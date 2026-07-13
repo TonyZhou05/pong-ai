@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/bounce_placement.dart';
 import '../../core/analysis/match_controller.dart';
+import '../../core/analysis/match_report.dart';
 import '../../core/analysis/match_summary.dart';
 import '../../core/analysis/player_movement.dart';
 import '../../core/analysis/rally_analyzer.dart';
@@ -139,6 +141,7 @@ class _MatchScreenState extends State<MatchScreen> {
                   for (final s in TableSide.values)
                     s: _controller.placementFor(s),
                 },
+                reportText: buildMatchReport(_controller),
               )
             else
               _CallFeed(calls: _recentCalls, matchOver: state.isMatchOver),
@@ -392,6 +395,7 @@ class _SummaryPanel extends StatelessWidget {
     required this.positions,
     required this.netX,
     required this.placement,
+    required this.reportText,
   });
 
   final MatchSummary summary;
@@ -411,7 +415,19 @@ class _SummaryPanel extends StatelessWidget {
   /// Per-side bounce-placement / shot-map analytics from the tracker's bounces.
   final Map<TableSide, SidePlacementStats> placement;
 
+  /// The full, shareable text report composed from every analytics layer,
+  /// copied to the clipboard by the "Copy report" action.
+  final String reportText;
+
   static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
+
+  Future<void> _copyReport(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: reportText));
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Report copied to clipboard')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -486,6 +502,15 @@ class _SummaryPanel extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text('Copy report'),
+              onPressed: () => _copyReport(context),
+            ),
           ),
         ],
       ),
