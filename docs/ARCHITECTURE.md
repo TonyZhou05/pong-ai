@@ -473,6 +473,23 @@ behind a `VisionService` interface. This lets us:
      `dart:convert`. The Match screen's post-match panel gained an **Export JSON**
      action next to Copy report that writes the pretty-printed string to the
      clipboard.
+   - **[done — iteration 45]** `SessionHistoryStore`
+     (`core/history/session_history_store.dart`): the across-session *memory* the
+     structured exports were built for. Iterations 38/39 made the match and
+     training reports JSON-encodable specifically so they could be "stored as
+     match history, diffed across sessions" — but nothing actually kept them;
+     copy-to-clipboard was the only sink, so closing a screen lost the session
+     and the objective's "keep track of the scores … and produce summary" goal
+     had no persistence. `SessionHistoryStore` takes a target `Directory` (the
+     app passes the platform documents dir; a test passes a temp dir) and
+     `save(kind:, report:)` / `list()` / `load(id)` / `delete(id)` persist each
+     `buildMatchReportJson` / `buildTrainingReportJson` map as a small wrapped
+     (`{kind, savedAt, report}`) `<kind>-<millis>.json` file. Saves never
+     overwrite an earlier same-millisecond session (a `-2`/`-3` suffix is
+     appended), `list()` returns newest-first and silently skips corrupt/foreign
+     `*.json` files, and — like the rest of `core/` — it is pure Dart (`dart:io`
+     + `dart:convert`, no Flutter/plugin) so it is unit-tested end-to-end against
+     a temp dir with no device.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 44]** Training-mode tracking-quality / detection-health.
