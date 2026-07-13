@@ -28,6 +28,13 @@ MatchState _state({
 ScoredPoint _pt(Player winner, PointReason reason, int t) =>
     ScoredPoint(winner: winner, reason: reason, timestampMs: t);
 
+ScoredPoint _ptS(Player winner, Player server, int t) => ScoredPoint(
+      winner: winner,
+      reason: PointReason.notReturned,
+      timestampMs: t,
+      server: server,
+    );
+
 void main() {
   group('MatchSummary', () {
     test('counts points won per player', () {
@@ -108,6 +115,53 @@ void main() {
     });
   });
 
+  group('MatchSummary serve analytics', () {
+    test('splits serve-won, receive-won, and serve win rate', () {
+      // A serves points 0 and 1; B serves points 2 and 3.
+      final summary = MatchSummary(
+        points: [
+          _ptS(Player.a, Player.a, 0), // A holds serve
+          _ptS(Player.b, Player.a, 1), // A serves, B breaks
+          _ptS(Player.b, Player.b, 2), // B holds serve
+          _ptS(Player.a, Player.b, 3), // B serves, A breaks
+        ],
+        finalState: _state(pointsA: 2, pointsB: 2),
+      );
+
+      expect(summary.servePointsPlayedBy(Player.a), 2);
+      expect(summary.servePointsWonBy(Player.a), 1);
+      expect(summary.receivePointsWonBy(Player.a), 1); // won on B's serve
+      expect(summary.serveWinRateFor(Player.a), closeTo(0.5, 1e-9));
+
+      expect(summary.servePointsPlayedBy(Player.b), 2);
+      expect(summary.servePointsWonBy(Player.b), 1);
+      expect(summary.receivePointsWonBy(Player.b), 1);
+    });
+
+    test('serve win rate is null and no serve data when server unrecorded', () {
+      final summary = MatchSummary(
+        points: [
+          _pt(Player.a, PointReason.notReturned, 0),
+          _pt(Player.b, PointReason.notReturned, 1),
+        ],
+        finalState: _state(pointsA: 1, pointsB: 1),
+      );
+      expect(summary.hasServeData, isFalse);
+      expect(summary.serveWinRateFor(Player.a), isNull);
+      expect(summary.servePointsPlayedBy(Player.a), 0);
+      // No serve line in the report when the server was never recorded.
+      expect(summary.report(), isNot(contains('serve points won')));
+    });
+
+    test('report includes a serve line when serve data is present', () {
+      final summary = MatchSummary(
+        points: [_ptS(Player.a, Player.a, 0), _ptS(Player.a, Player.a, 1)],
+        finalState: _state(pointsA: 2),
+      );
+      expect(summary.report(), contains('serve points won: 2/2 (100%)'));
+    });
+  });
+
   group('MatchController point log', () {
     MatchController drivenController() {
       final controller = MatchController();
@@ -142,6 +196,22 @@ void main() {
         controller.score.pointsA + controller.score.pointsB,
         beforeTotal - 1,
       );
+    });
+
+    test('captures the serving player on each awarded point', () {
+      final controller = drivenController();
+      // Every awarded point records who served it (not the post-award server).
+      expect(controller.points.every((p) => p.server != null), isTrue);
+      final summary = controller.summary;
+      expect(summary.hasServeData, isTrue);
+      // Serve attributions partition the played points across both players.
+      expect(
+        summary.servePointsPlayedBy(Player.a) +
+            summary.servePointsPlayedBy(Player.b),
+        controller.points.length,
+      );
+      // First demo point is served by the default first server, Player A.
+      expect(controller.points.first.server, Player.a);
     });
 
     test('resolveUndetermined is a no-op for a non-pending decision', () {

@@ -274,6 +274,20 @@ behind a `VisionService` interface. This lets us:
      painter just draws the curve. Surfaced in the Match screen's post-match
      summary panel above the rally/placement stats.
 
+   - **[done — iteration 26]** Serve / receive point analytics
+     (`core/analysis/match_summary.dart`). The `ScoringEngine` tracks who serves
+     each point, but the durable `ScoredPoint` log never captured it, so the
+     server was lost to analytics. Each `ScoredPoint` now records the `server`
+     (captured in `MatchController` *before* `awardPoint`, since awarding
+     advances the serve rotation), and `MatchSummary` derives the headline
+     serve-effectiveness stats: `servePointsPlayedBy` / `servePointsWonBy` (the
+     serve-hold count), `receivePointsWonBy` (return-of-serve breaks), and
+     `serveWinRateFor` (own-serve win fraction, null when a player served no
+     recorded points). The `server` field is nullable/back-compatible, so
+     serve analytics count only points where it is known (`hasServeData`). The
+     per-player serve win rate is surfaced in the Match screen's post-match
+     summary and, via `summary.report()`, flows into the exported
+     `buildMatchReport`.
    - **[done — iteration 25]** `buildMatchReport`
      (`core/analysis/match_report.dart`): the unified, exportable text report.
      Every prior analytics layer — the `MatchSummary` scoring breakdown,

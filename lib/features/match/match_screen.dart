@@ -547,6 +547,12 @@ class _PlayerStatColumn extends StatelessWidget {
         Text('${summary.forcedErrorsWonBy(player)} forced errors'),
         Text('${summary.openPlayPointsWonBy(player)} open play'),
         Text('longest run: ${summary.longestStreakFor(player)}'),
+        if (summary.serveWinRateFor(player) case final rate?)
+          Text(
+            'serve won: ${summary.servePointsWonBy(player)}/'
+            '${summary.servePointsPlayedBy(player)} '
+            '(${(rate * 100).round()}%)',
+          ),
         if (m != null && m.wasTracked) ...[
           Text('moved: ${m.distanceTravelled.toStringAsFixed(2)}'),
           Text('mobility: ${m.mobilityPerSecond.toStringAsFixed(2)}/s'),

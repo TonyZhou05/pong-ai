@@ -24,14 +24,23 @@ class ScoredPoint {
     required this.winner,
     required this.reason,
     required this.timestampMs,
+    this.server,
   });
 
   final Player winner;
   final PointReason reason;
   final int timestampMs;
 
+  /// Who served this rally (the server *before* the point was awarded, since
+  /// serving the point precedes winning it). Null when the server was not
+  /// recorded — e.g. a [ScoredPoint] built by an older caller — so serve/receive
+  /// analytics count only points where it is known.
+  final Player? server;
+
   @override
-  String toString() => 'ScoredPoint($winner, $reason, @$timestampMs)';
+  String toString() =>
+      'ScoredPoint($winner, $reason, @$timestampMs'
+      '${server == null ? '' : ', serve $server'})';
 }
 
 /// Aggregated performance analysis over a match's [ScoredPoint] log.
@@ -75,6 +84,34 @@ class MatchSummary {
   /// user resolved manually, e.g. a smash winner or an out-of-play call).
   int openPlayPointsWonBy(Player p) =>
       reasonBreakdownFor(p)[PointReason.outOfPlay]!;
+
+  /// Points played on [p]'s own serve (rallies [p] served), among the points
+  /// whose server was recorded.
+  int servePointsPlayedBy(Player p) =>
+      points.where((point) => point.server == p).length;
+
+  /// Points [p] served *and* won — the serve-hold count. In table tennis the
+  /// server has the initiative, so this rate is a headline effectiveness stat.
+  int servePointsWonBy(Player p) =>
+      points.where((point) => point.server == p && point.winner == p).length;
+
+  /// Points [p] won while *receiving* (the opponent served). These are the
+  /// return-of-serve breaks.
+  int receivePointsWonBy(Player p) => points
+      .where((point) => point.server == p.other && point.winner == p)
+      .length;
+
+  /// Fraction of [p]'s own service points that [p] won, in `[0, 1]`, or null
+  /// when [p] served no recorded points.
+  double? serveWinRateFor(Player p) {
+    final served = servePointsPlayedBy(p);
+    if (served == 0) return null;
+    return servePointsWonBy(p) / served;
+  }
+
+  /// Whether any point carried a recorded server, i.e. serve analytics are
+  /// meaningful for this match.
+  bool get hasServeData => points.any((point) => point.server != null);
 
   /// The longest run of consecutive points won by [p].
   int longestStreakFor(Player p) {
@@ -136,6 +173,13 @@ class MatchSummary {
         ..add('  • ${forcedErrorsWonBy(player)} won on forced errors')
         ..add('  • ${openPlayPointsWonBy(player)} won in open play')
         ..add('  • longest run: ${longestStreakFor(player)}');
+      final serveRate = serveWinRateFor(player);
+      if (serveRate != null) {
+        lines.add(
+          '  • serve points won: ${servePointsWonBy(player)}/'
+          '${servePointsPlayedBy(player)} (${(serveRate * 100).round()}%)',
+        );
+      }
     }
 
     return lines.join('\n');

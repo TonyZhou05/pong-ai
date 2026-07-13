@@ -114,9 +114,19 @@ class MatchController {
   SidePlacementStats placementFor(TableSide side) =>
       _placement.statsFor(side);
 
-  void _record(Player winner, PointReason reason, int timestampMs) {
+  void _record(
+    Player winner,
+    PointReason reason,
+    int timestampMs,
+    Player server,
+  ) {
     _points.add(
-      ScoredPoint(winner: winner, reason: reason, timestampMs: timestampMs),
+      ScoredPoint(
+        winner: winner,
+        reason: reason,
+        timestampMs: timestampMs,
+        server: server,
+      ),
     );
   }
 
@@ -149,8 +159,17 @@ class MatchController {
       if (decision == null) continue;
 
       if (decision.isDecisive) {
+        // Capture who served *before* awarding — awardPoint advances the serve
+        // rotation, so state.server after the call is the next server, not this
+        // rally's.
+        final server = engine.state.server;
         engine.awardPoint(decision.winner!);
-        _record(decision.winner!, decision.reason, decision.timestampMs);
+        _record(
+          decision.winner!,
+          decision.reason,
+          decision.timestampMs,
+          server,
+        );
       } else {
         _undetermined.add(decision);
       }
@@ -190,8 +209,9 @@ class MatchController {
   /// applies it to the score. No-op if [decision] is not pending.
   void resolveUndetermined(PointDecision decision, Player winner) {
     if (_undetermined.remove(decision)) {
+      final server = engine.state.server;
       engine.awardPoint(winner);
-      _record(winner, decision.reason, decision.timestampMs);
+      _record(winner, decision.reason, decision.timestampMs, server);
     }
   }
 
