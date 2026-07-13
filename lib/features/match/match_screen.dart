@@ -7,6 +7,7 @@ import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/bounce_placement.dart';
 import '../../core/analysis/match_controller.dart';
 import '../../core/analysis/match_report.dart';
+import '../../core/analysis/match_report_json.dart';
 import '../../core/analysis/match_summary.dart';
 import '../../core/analysis/player_movement.dart';
 import '../../core/analysis/rally_analyzer.dart';
@@ -146,6 +147,7 @@ class _MatchScreenState extends State<MatchScreen> {
                     _controller.hasBallSpeedData ? _controller.maxBallSpeedKmh : null,
                 tracking: _controller.trackingQuality,
                 reportText: buildMatchReport(_controller),
+                reportJson: matchReportJsonString(_controller),
               )
             else
               _CallFeed(calls: _recentCalls, matchOver: state.isMatchOver),
@@ -402,6 +404,7 @@ class _SummaryPanel extends StatelessWidget {
     required this.maxBallSpeedKmh,
     required this.tracking,
     required this.reportText,
+    required this.reportJson,
   });
 
   final MatchSummary summary;
@@ -432,6 +435,10 @@ class _SummaryPanel extends StatelessWidget {
   /// copied to the clipboard by the "Copy report" action.
   final String reportText;
 
+  /// The same analytics as a machine-readable JSON string, copied to the
+  /// clipboard by the "Export JSON" action for storage / integration.
+  final String reportJson;
+
   static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
 
   Future<void> _copyReport(BuildContext context) async {
@@ -439,6 +446,14 @@ class _SummaryPanel extends StatelessWidget {
     await Clipboard.setData(ClipboardData(text: reportText));
     messenger.showSnackBar(
       const SnackBar(content: Text('Report copied to clipboard')),
+    );
+  }
+
+  Future<void> _copyJson(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: reportJson));
+    messenger.showSnackBar(
+      const SnackBar(content: Text('JSON summary copied to clipboard')),
     );
   }
 
@@ -547,10 +562,20 @@ class _SummaryPanel extends StatelessWidget {
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.copy, size: 18),
-              label: const Text('Copy report'),
-              onPressed: () => _copyReport(context),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.data_object, size: 18),
+                  label: const Text('Export JSON'),
+                  onPressed: () => _copyJson(context),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.copy, size: 18),
+                  label: const Text('Copy report'),
+                  onPressed: () => _copyReport(context),
+                ),
+              ],
             ),
           ),
         ],

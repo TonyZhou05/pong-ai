@@ -417,6 +417,20 @@ behind a `VisionService` interface. This lets us:
      tracked" / "no bounces" fallbacks). The Match screen's post-match summary
      panel now has a **Copy report** action that writes it to the clipboard
      (`Clipboard.setData`, no new dependency) with a confirmation snackbar.
+   - **[done — iteration 38]** `buildMatchReportJson` / `matchReportJsonString`
+     (`core/analysis/match_report_json.dart`): the *structured* (JSON) companion
+     to `buildMatchReport`. The text report is human-readable but can't be
+     re-parsed — it can't be stored as match history, diffed across sessions, or
+     fed to another tool/backend — so the same analytics are also emitted as a
+     versioned (`matchReportSchemaVersion`), JSON-encodable `Map`: score, the
+     `MatchSummary` breakdown (per-player points/serve/game-points/lead-tension),
+     rally-length + win distribution, ball speed, tracking quality, per-player
+     movement, and per-side placement. Optional sections are explicit `null`s
+     (not missing keys) so a reader can rely on the schema shape, and doubles are
+     rounded for compact, deterministic output that round-trips through
+     `dart:convert`. The Match screen's post-match panel gained an **Export JSON**
+     action next to Copy report that writes the pretty-printed string to the
+     clipboard.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 33]** Training real-world shot-speed (km/h)
