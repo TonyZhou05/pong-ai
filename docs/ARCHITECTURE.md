@@ -547,6 +547,23 @@ behind a `VisionService` interface. This lets us:
      line = improving) and a thin `_ProgressPainter`.
 
 7. Training mode: shot segmentation + quality grading.
+   - **[done — iteration 51]** Coaching feedback (`core/training/
+     training_feedback.dart`). Every prior training layer *measured* the drill
+     (depth, placement/lateral consistency, tempo/rhythm, pace) and surfaced each
+     number on its own, but nothing turned that wall of percentages into "what to
+     work on next" — the prioritization a coach provides. `TrackingQualityAnalyzer`
+     only advises on phone placement, not stroke technique.
+     `TrainingFeedback(summary, config:)` scores the coachable dimensions —
+     placement accuracy (average depth vs `targetDepth`, within `depthTolerance`),
+     depth consistency, lateral consistency, and rhythm (the last three only with
+     ≥2 shots) — into `[0,1]` `FeedbackDimension`s, then names the *weakest* as the
+     focus (`focusTip`, with a directional placement cue when the player is short
+     vs overshooting) and the *strongest* as a confirmed strength. When even the
+     weakest dimension clears the `_goodEnough` bar it returns encouragement
+     instead of a fix-it cue. Pure Dart, derived only from the `TrainingSummary`,
+     unit-tested. Both `TrainingScreen` (demo) and `CameraTrainingScreen` (live)
+     surface a "Focus next: …" line in the end-of-session report and append the
+     full coaching section to the Copy-report clipboard export.
    - **[done — iteration 44]** Training-mode tracking-quality / detection-health.
      Iteration 35 added `TrackingQualityAnalyzer` for the match path — the
      phone-placement health signal behind the objective's "place the phone

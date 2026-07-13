@@ -7,6 +7,7 @@ import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/tracking_quality.dart';
 import '../../core/training/shot_analyzer.dart';
+import '../../core/training/training_feedback.dart';
 import '../../core/training/training_report_json.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/vision_model_profile.dart';
@@ -367,9 +368,12 @@ class _SessionReport extends StatelessWidget {
 
   Future<void> _copyReport(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    final text = quality.hasData
-        ? '${summary.report()}\n\n${quality.report()}'
-        : summary.report();
+    final feedback = TrainingFeedback(summary, config: config);
+    final text = [
+      summary.report(),
+      if (feedback.hasData) feedback.report(),
+      if (quality.hasData) quality.report(),
+    ].join('\n\n');
     await Clipboard.setData(ClipboardData(text: text));
     messenger.showSnackBar(
       const SnackBar(content: Text('Report copied to clipboard')),
@@ -389,6 +393,7 @@ class _SessionReport extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final feedback = TrainingFeedback(summary, config: config);
     return Container(
       width: double.infinity,
       color: Colors.black87,
@@ -407,6 +412,16 @@ class _SessionReport extends StatelessWidget {
               style:
                   theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
             ),
+            if (feedback.focusTip != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Focus next: ${feedback.focusTip}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
             if (quality.hasData) ...[
               const SizedBox(height: 8),
               Text(
