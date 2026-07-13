@@ -103,6 +103,11 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
           // manufacture a bogus point. 0.4 (~40% of the frame) is conservative:
           // it clears normal play and gentle bounces, catching only gross jumps.
           tracker: BallTracker(maxJump: 0.4),
+          // A stationary player's detected feet wobble a few pixels each frame;
+          // summing that raw jitter across a match inflates the footwork
+          // distance. Ignore sub-~1%-of-frame per-frame drift so only real
+          // movement is counted. (Off for scripted demos with exact motions.)
+          movementJitterThreshold: 0.01,
         );
     _startVision();
   }

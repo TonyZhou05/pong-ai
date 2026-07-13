@@ -342,6 +342,18 @@ behind a `VisionService` interface. This lets us:
      (`movementFor(player)`), rebuilt on the calibrated geometry so
      side-assignment uses the inferred net line, and surfaced in the Match
      screen's post-match summary panel.
+     - **[done — iteration 68]** Jitter deadband. The `distanceTravelled` /
+       `mobilityPerSecond` footwork metric summed the raw frame-to-frame foot
+       displacement, so a stationary player's few-pixel pose/box jitter
+       accumulated across a match into a systematically inflated distance.
+       `PlayerMovementAnalyzer.minStep` now accumulates distance from the last
+       *counted* position only once the feet drift at least that far, so
+       in-deadband noise is ignored while genuine (even slow, steady) movement
+       still crosses the threshold — the footwork analog of the ball tracker's
+       `minBounceSpeed` jitter rejection. `MatchController.movementJitterThreshold`
+       plumbs it through (preserved across the calibration rebuild); `0` (the
+       default) keeps scripted synthetic clips' exact distances, and
+       `CameraMatchScreen` enables `0.01` on the live on-device path.
    - **[done — iteration 17]** `RallyAnalyzer`
      (`core/analysis/rally_analyzer.dart`): folds each rally's `BallTracker`
      events and the `RallyReferee`'s ending `PointDecision` into per-rally

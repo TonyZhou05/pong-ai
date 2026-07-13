@@ -345,6 +345,38 @@ void main() {
       expect(a.wasTracked, isTrue);
     });
 
+    test('movementJitterThreshold filters footwork jitter through the pipeline',
+        () {
+      final mc = MatchController(movementJitterThreshold: 0.02);
+      // Player A's foot only wobbles within the deadband; B makes a real move.
+      mc.onFrame(playersFrame(0, 0.200, 0.80));
+      mc.onFrame(playersFrame(33, 0.205, 0.70));
+      mc.onFrame(playersFrame(66, 0.198, 0.60));
+      // A's sub-deadband jitter is dropped; B's 0.10 steps are counted.
+      expect(mc.movementFor(Player.a).distanceTravelled, closeTo(0.0, 1e-9));
+      expect(mc.movementFor(Player.b).distanceTravelled, closeTo(0.20, 1e-9));
+    });
+
+    test('movementJitterThreshold survives the calibration tracker rebuild', () {
+      final mc = MatchController(
+        calibrator: TableCalibrator(minBallSamples: 8),
+        movementJitterThreshold: 0.02,
+      );
+      for (final f in _warmup()) {
+        mc.onFrame(f);
+      }
+      // Break continuity so the jitter frames below anchor on themselves rather
+      // than on the warmup foot position.
+      mc.onFrame(const FrameResult(timestampMs: 1000, people: []));
+      // After calibration the movement analyzer is rebuilt on the inferred
+      // geometry; the deadband must be preserved, so A's post-calibration
+      // jitter still logs no distance.
+      mc.onFrame(playersFrame(2000, 0.250, 0.75));
+      mc.onFrame(playersFrame(2033, 0.255, 0.75));
+      mc.onFrame(playersFrame(2066, 0.248, 0.75));
+      expect(mc.movementFor(Player.a).distanceTravelled, closeTo(0.0, 1e-9));
+    });
+
     test('movement side assignment follows the calibrated net line', () {
       final mc = MatchController(
         calibrator: TableCalibrator(minBallSamples: 8),

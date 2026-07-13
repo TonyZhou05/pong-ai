@@ -136,10 +136,26 @@ class PlayerMovementAnalyzer {
   PlayerMovementAnalyzer({
     this.geometry = const TableGeometry(),
     Player leftPlayer = Player.a,
-  }) : _leftPlayer = leftPlayer;
+    this.minStep = 0,
+  })  : assert(minStep >= 0, 'minStep must be non-negative'),
+        _leftPlayer = leftPlayer;
 
   /// Table geometry, whose [TableGeometry.netX] splits the two players' sides.
   final TableGeometry geometry;
+
+  /// Jitter deadband (normalized frame units) for accumulating
+  /// [PlayerMovementStats.distanceTravelled]. A stationary player's detected
+  /// feet (pose ankles or the box bottom) wobble a few pixels every frame, and
+  /// summing that raw per-frame displacement across a whole match at ~30fps
+  /// inflates the footwork distance with pure detection noise. Distance is
+  /// therefore accumulated from the last *counted* position only once the feet
+  /// drift at least [minStep] from it, so jitter within the deadband is ignored
+  /// while genuine (even slow, steady) movement still crosses the threshold and
+  /// is counted. `0` (the default) disables the deadband, preserving the prior
+  /// raw-sum behaviour; the live-camera path enables a small value to suppress
+  /// on-device detection noise. This is the footwork analog of the ball
+  /// tracker's `minBounceSpeed` jitter rejection.
+  final double minStep;
 
   /// Which player currently occupies the left half of the table (net-split).
   /// Mirrors [RallyReferee]'s live mapping so movement stats and scoring agree
@@ -166,9 +182,9 @@ class PlayerMovementAnalyzer {
     }
   }
 
-  final Map<Player, _Accumulator> _acc = {
-    Player.a: _Accumulator(),
-    Player.b: _Accumulator(),
+  late final Map<Player, _Accumulator> _acc = {
+    Player.a: _Accumulator(minStep: minStep),
+    Player.b: _Accumulator(minStep: minStep),
   };
 
   /// Every foot position sample recorded for each player, in frame order — the
@@ -222,6 +238,11 @@ class PlayerMovementAnalyzer {
 }
 
 class _Accumulator {
+  _Accumulator({this.minStep = 0});
+
+  /// Jitter deadband; see [PlayerMovementAnalyzer.minStep].
+  final double minStep;
+
   int frames = 0;
   double distance = 0;
   double sumX = 0;
@@ -230,6 +251,9 @@ class _Accumulator {
   int? firstMs, lastMs;
   double stanceSum = 0;
   int stanceCount = 0;
+  // The last *counted* foot position — the anchor the next step is measured
+  // from. It advances only when the feet drift at least [minStep], so jitter
+  // within the deadband around a stationary point isn't summed into [distance].
   FramePoint? _prev;
   bool _continuous = false;
 
@@ -244,9 +268,16 @@ class _Accumulator {
     if (_continuous && _prev != null) {
       final dx = foot.x - _prev!.x;
       final dy = foot.y - _prev!.y;
-      distance += math.sqrt(dx * dx + dy * dy);
+      final step = math.sqrt(dx * dx + dy * dy);
+      if (step >= minStep) {
+        distance += step;
+        _prev = foot;
+      }
+      // Otherwise the feet are still within the jitter deadband of the anchor —
+      // don't accumulate and keep the anchor so the noise doesn't drift it.
+    } else {
+      _prev = foot;
     }
-    _prev = foot;
     _continuous = true;
     firstMs ??= ms;
     lastMs = ms;

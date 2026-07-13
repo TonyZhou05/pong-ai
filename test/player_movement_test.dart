@@ -231,4 +231,51 @@ void main() {
       expect(a.leftPlayer, Player.a);
     });
   });
+
+  group('PlayerMovementAnalyzer jitter deadband (minStep)', () {
+    test('a stationary player wobbling within minStep logs no distance', () {
+      final a = PlayerMovementAnalyzer(minStep: 0.02);
+      // Feet jitter a few thousandths around 0.20 every frame — pure noise.
+      a.observe(frame(0, [person(0.200, 0.800)]));
+      a.observe(frame(33, [person(0.205, 0.798)]));
+      a.observe(frame(66, [person(0.198, 0.803)]));
+      a.observe(frame(99, [person(0.203, 0.799)]));
+      final s = a.statsFor(Player.a);
+      expect(s.framesTracked, 4);
+      // Every step stayed inside the 0.02 deadband, so nothing accumulates.
+      expect(s.distanceTravelled, closeTo(0.0, 1e-9));
+    });
+
+    test('without the deadband the same jitter inflates the distance', () {
+      final a = PlayerMovementAnalyzer(); // minStep defaults to 0
+      a.observe(frame(0, [person(0.200, 0.800)]));
+      a.observe(frame(33, [person(0.205, 0.798)]));
+      a.observe(frame(66, [person(0.198, 0.803)]));
+      a.observe(frame(99, [person(0.203, 0.799)]));
+      // Raw per-frame summing counts the noise as real movement.
+      expect(a.statsFor(Player.a).distanceTravelled, greaterThan(0.0));
+    });
+
+    test('real movement past the deadband is still counted in full', () {
+      final a = PlayerMovementAnalyzer(minStep: 0.02);
+      // Two genuine 0.10 steps, each well beyond the deadband → distance 0.20.
+      a.observe(frame(0, [person(0.20, 0.80)]));
+      a.observe(frame(33, [person(0.30, 0.80)]));
+      a.observe(frame(66, [person(0.40, 0.80)]));
+      expect(a.statsFor(Player.a).distanceTravelled, closeTo(0.20, 1e-9));
+    });
+
+    test('slow steady drift crosses the deadband and is not lost', () {
+      final a = PlayerMovementAnalyzer(minStep: 0.02);
+      // Each frame drifts 0.015 (< 0.02), but the anchor stays put until the
+      // cumulative drift crosses 0.02, so the real travel isn't silently dropped.
+      a.observe(frame(0, [person(0.200, 0.80)]));
+      a.observe(frame(33, [person(0.215, 0.80)])); // 0.015 from anchor — held
+      a.observe(frame(66, [person(0.230, 0.80)])); // 0.030 from anchor — counted
+      a.observe(frame(99, [person(0.245, 0.80)])); // 0.015 from new anchor — held
+      a.observe(frame(132, [person(0.260, 0.80)])); // 0.030 — counted
+      // Two counted 0.03 chunks; the total is close to the 0.06 truly travelled.
+      expect(a.statsFor(Player.a).distanceTravelled, closeTo(0.06, 1e-9));
+    });
+  });
 }

@@ -33,12 +33,14 @@ class MatchController {
     ScoringEngine? engine,
     this.calibrator,
     this.switchEndsBetweenGames = false,
+    this.movementJitterThreshold = 0,
   })  : _tracker = tracker ?? BallTracker(),
         referee = referee ?? RallyReferee(),
         engine = engine ?? ScoringEngine() {
     _movement = PlayerMovementAnalyzer(
       geometry: _tracker.geometry,
       leftPlayer: this.referee.leftPlayer,
+      minStep: movementJitterThreshold,
     );
     _placement = BouncePlacementAnalyzer(geometry: _tracker.geometry);
     _ballSpeed = BallSpeedEstimator(geometry: _tracker.geometry);
@@ -68,6 +70,13 @@ class MatchController {
   /// the live-camera path enables it so a real multi-game match keeps
   /// attributing bounces to the correct player after an end change.
   final bool switchEndsBetweenGames;
+
+  /// Jitter deadband (normalized frame units) applied to the per-player footwork
+  /// distance so on-device pose/box detection noise isn't summed into the
+  /// movement metrics. `0` (the default) disables it so scripted synthetic
+  /// clips score their exact hand-computed distances; the live-camera path
+  /// enables a small value. See [PlayerMovementAnalyzer.minStep].
+  final double movementJitterThreshold;
 
   bool _calibrated = false;
 
@@ -255,6 +264,7 @@ class MatchController {
     _movement = PlayerMovementAnalyzer(
       geometry: geometry,
       leftPlayer: referee.leftPlayer,
+      minStep: movementJitterThreshold,
     );
     // Rebuild placement analytics on the calibrated net/edges so bounce
     // depth-from-net and lateral coordinates are measured against the inferred
