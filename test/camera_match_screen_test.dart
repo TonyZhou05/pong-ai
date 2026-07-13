@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/core/analysis/match_controller.dart';
 import 'package:pong_ai/core/history/session_history_store.dart';
 import 'package:pong_ai/core/scoring/scoring_engine.dart';
+import 'package:pong_ai/core/vision/detection.dart';
 import 'package:pong_ai/core/vision/synthetic_frames.dart';
 import 'package:pong_ai/core/vision/yolo_vision_service.dart';
 import 'package:pong_ai/features/match/camera_match_screen.dart';
@@ -118,6 +119,63 @@ void main() {
       expect(store.saved, hasLength(1));
       expect(store.saved.single.kind, SessionKind.match);
       expect(store.saved.single.report['score'], isA<Map>());
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'live tracking overlay draws player boxes and the ball over the preview',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            matchControllerBuilder: MatchController.new,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Before any frame arrives the overlay draws nothing but the net line.
+      final overlayFinder = find.byWidgetPredicate(
+        (w) => w.runtimeType.toString() == '_LiveTrackingOverlay',
+      );
+      expect(overlayFinder, findsOneWidget);
+
+      // A frame with two players and a ball should render two player boxes plus
+      // the ball marker inside the overlay.
+      vision.onFrame(
+        const FrameResult(
+          timestampMs: 33,
+          ball: Detection(
+            label: 'ball',
+            confidence: 0.9,
+            box: BBox(0.49, 0.49, 0.02, 0.02),
+          ),
+          people: [
+            PersonPose(box: BBox(0.10, 0.30, 0.12, 0.50), keypoints: []),
+            PersonPose(box: BBox(0.75, 0.30, 0.12, 0.50), keypoints: []),
+          ],
+        ),
+      );
+      // One pump delivers the stream frame to _onFrame (setState), a second
+      // rebuilds the overlay with the new detections.
+      await tester.pump();
+      await tester.pump();
+
+      // The overlay renders two player boxes plus the ball marker as
+      // DecoratedBoxes (the net line is a plain ColoredBox), so three in total.
+      final decorated = find.descendant(
+        of: overlayFinder,
+        matching: find.byType(DecoratedBox),
+      );
+      expect(decorated, findsNWidgets(3));
 
       await tester.pumpWidget(const SizedBox());
     },

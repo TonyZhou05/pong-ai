@@ -229,6 +229,19 @@ behind a `VisionService` interface. This lets us:
      Match" card. Remaining: bundle/point at a fine-tuned ping-pong `.tflite` /
      `.mlpackage` for better ball recall (the COCO `sports ball` class is the
      default fallback).
+     - **[done — iteration 69]** Live tracking overlay. The demo `MatchScreen`
+       rendered a top-down `_TableView` of what the pipeline is following (player
+       boxes, tracked/predicted "ghost" ball, net line) since iterations 4/14,
+       but the *production* live-camera screen drew nothing of its own
+       interpretation on the preview — only the scoreboard and call feed — so the
+       user couldn't see whether the app was actually tracking the right players
+       and ball. `_LiveTrackingOverlay` now draws each frame's player bounding
+       boxes, the ball (or the dimmed Kalman-predicted ghost when the detector
+       loses it, via `tracker.estimateBallAt`), and the calibrated net line
+       (suppressed during calibration) coordinate-aligned over the camera preview,
+       in the same normalized `[0,1]` space the detections use. Wrapped in
+       `IgnorePointer` so the undetermined-point prompt and match-over panel below
+       it still receive taps — the live "Ball AI" view of what's being followed.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking

@@ -85,6 +85,16 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   StreamSubscription<FrameResult>? _sub;
   final List<PointDecision> _recentCalls = [];
 
+  /// The most recent frame's detections, drawn as a live tracking overlay on the
+  /// camera preview so the user can see what the pipeline is following.
+  FrameResult? _lastFrame;
+
+  /// Kalman-extrapolated ball position for a frame whose detector lost the ball,
+  /// so the overlay keeps drawing a dimmed "ghost" ball through motion-blur
+  /// dropouts instead of blinking out. Null when the ball is visible or the
+  /// trajectory has been dropped.
+  ({double x, double y})? _predictedBall;
+
   @override
   void initState() {
     super.initState();
@@ -122,6 +132,10 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     final decisions = _controller.onFrame(frame);
     if (!mounted) return;
     setState(() {
+      _lastFrame = frame;
+      _predictedBall = frame.ball == null
+          ? _controller.tracker.estimateBallAt(frame.timestampMs)
+          : null;
       _recentCalls.addAll(decisions);
       if (_recentCalls.length > 5) {
         _recentCalls.removeRange(0, _recentCalls.length - 5);
@@ -175,6 +189,21 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
           fit: StackFit.expand,
           children: [
             _buildCameraPreview(context),
+            // The live tracking overlay: player boxes, the tracked (or predicted)
+            // ball, and the calibrated net line drawn coordinate-aligned on top of
+            // the camera preview — the "Ball AI" live view of what's being
+            // followed. Non-interactive so overlays below (prompt/panel) still get
+            // taps.
+            Positioned.fill(
+              child: IgnorePointer(
+                child: _LiveTrackingOverlay(
+                  frame: _lastFrame,
+                  predictedBall: _predictedBall,
+                  netX: _controller.geometry.netX,
+                  showNet: !_controller.isCalibrating,
+                ),
+              ),
+            ),
             Positioned(
               top: 0,
               left: 0,
@@ -315,6 +344,94 @@ class _Side extends StatelessWidget {
           style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
         ),
       ],
+    );
+  }
+}
+
+/// Draws the pipeline's current detections over the live camera preview:
+/// each tracked player's bounding box, the ball (or a dimmed Kalman-predicted
+/// "ghost" ball when the detector lost it), and the calibrated net line. All
+/// coordinates are the same normalized `[0,1]` frame space the detections use,
+/// so the overlay lines up with the preview (the same normalized space the
+/// plugin's own boxes use). This is the live counterpart to the demo
+/// [MatchScreen]'s top-down `_TableView`.
+class _LiveTrackingOverlay extends StatelessWidget {
+  const _LiveTrackingOverlay({
+    required this.frame,
+    required this.predictedBall,
+    required this.netX,
+    required this.showNet,
+  });
+
+  final FrameResult? frame;
+  final ({double x, double y})? predictedBall;
+  final double netX;
+
+  /// Whether to draw the net line — suppressed during calibration when the net
+  /// position is still the un-inferred default.
+  final bool showNet;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final f = frame;
+    final ball = f?.ball;
+    final ghost = ball == null ? predictedBall : null;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        return Stack(
+          children: [
+            if (showNet)
+              Positioned(
+                left: netX * w - 1,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 2, color: Colors.white38),
+              ),
+            for (final p in f?.people ?? const [])
+              Positioned(
+                left: p.box.left * w,
+                top: p.box.top * h,
+                width: p.box.width * w,
+                height: p.box.height * h,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.colorScheme.tertiary),
+                  ),
+                ),
+              ),
+            if (ball != null)
+              Positioned(
+                left: ball.box.centerX * w - 6,
+                top: ball.box.centerY * h - 6,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFEB3B),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              )
+            else if (ghost != null)
+              Positioned(
+                left: ghost.x * w - 6,
+                top: ghost.y * h - 6,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: const Color(0x66FFEB3B),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xAAFFEB3B)),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
