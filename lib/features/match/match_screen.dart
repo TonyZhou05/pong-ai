@@ -11,6 +11,7 @@ import '../../core/analysis/match_summary.dart';
 import '../../core/analysis/player_movement.dart';
 import '../../core/analysis/rally_analyzer.dart';
 import '../../core/analysis/rally_referee.dart';
+import '../../core/analysis/tracking_quality.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/replay_vision_service.dart';
@@ -143,6 +144,7 @@ class _MatchScreenState extends State<MatchScreen> {
                 },
                 maxBallSpeedKmh:
                     _controller.hasBallSpeedData ? _controller.maxBallSpeedKmh : null,
+                tracking: _controller.trackingQuality,
                 reportText: buildMatchReport(_controller),
               )
             else
@@ -398,6 +400,7 @@ class _SummaryPanel extends StatelessWidget {
     required this.netX,
     required this.placement,
     required this.maxBallSpeedKmh,
+    required this.tracking,
     required this.reportText,
   });
 
@@ -420,6 +423,10 @@ class _SummaryPanel extends StatelessWidget {
 
   /// Fastest estimated ball speed (km/h), or null when no speed was measured.
   final double? maxBallSpeedKmh;
+
+  /// Detection-health analytics — how reliably the phone placement tracked the
+  /// ball and both players over the match.
+  final TrackingQualityAnalyzer tracking;
 
   /// The full, shareable text report composed from every analytics layer,
   /// copied to the clipboard by the "Copy report" action.
@@ -485,6 +492,13 @@ class _SummaryPanel extends StatelessWidget {
           if (maxBallSpeedKmh != null)
             Text(
               'Top ball speed: ${maxBallSpeedKmh!.toStringAsFixed(1)} km/h',
+              style: theme.textTheme.bodyMedium,
+            ),
+          if (tracking.hasData)
+            Text(
+              'Tracking quality: grade ${tracking.grade} '
+              '(ball ${(tracking.ballDetectionRate * 100).round()}%, '
+              'both players ${(tracking.twoPlayerRate * 100).round()}%)',
               style: theme.textTheme.bodyMedium,
             ),
           for (final side in TableSide.values)

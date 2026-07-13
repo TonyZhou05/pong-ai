@@ -48,6 +48,12 @@ void main() {
     // The demo frames carry only a ball (no people), so movement is untracked.
     expect(report, contains('not tracked'));
 
+    // The tracking-quality section is composed in, and since the demo frames
+    // carry a ball but never two players, it flags both players out of frame.
+    expect(report, contains('Tracking quality'));
+    expect(controller.trackingQuality.twoPlayerRate, 0.0);
+    expect(report, contains('Both players are often out of frame'));
+
     // The demo scores real points, so the scoring line reflects them.
     expect(controller.summary.totalPoints, greaterThan(0));
     expect(

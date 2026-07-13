@@ -85,6 +85,7 @@ String buildMatchReport(MatchController controller) {
     controller.summary.report(),
     controller.rallyStats.report(),
     _ballSpeedSection(controller),
+    controller.trackingQuality.report(),
   ];
 
   for (final player in Player.values) {

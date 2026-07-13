@@ -355,6 +355,25 @@ behind a `VisionService` interface. This lets us:
      analytics), surfaced as a "Top ball speed" line in the Match screen's
      post-match summary, and added as a "Ball speed" section to the exported
      `buildMatchReport`.
+   - **[done — iteration 35]** Tracking-quality / detection-health analytics
+     (`core/analysis/tracking_quality.dart`). The objective's deployment story —
+     "place the phone table-side and let the app keep score" — only holds if the
+     phone is positioned so the model can actually see the ball and both
+     players, yet every prior analytics layer *assumed* the detections were good
+     and none measured whether they were. The pipeline has carried a
+     per-detection `Detection.confidence` (and per-keypoint confidences) since
+     iteration 1, but they were only used to *select* the best detection, never
+     mined into a health signal. `TrackingQualityAnalyzer` folds every frame
+     (including calibration warm-up — detection health is scoring-independent)
+     into `ballDetectionRate`, `averageBallConfidence`, and `twoPlayerRate` (the
+     fraction of frames where *both* ends of the table are in view), rolls them
+     into a weighted `qualityScore` / A–F `grade`, and derives a plain-language
+     placement `hint` targeting the weakest signal ("Both players are often out
+     of frame — move the phone back…"). Wired live into `MatchController`
+     (`trackingQuality`, observed on every frame and never rebuilt on
+     calibration so it spans the whole session), surfaced as a "Tracking
+     quality: grade …" line in the Match screen's post-match summary, and added
+     as a "Tracking quality" section to the exported `buildMatchReport`.
    - **[done — iteration 25]** `buildMatchReport`
      (`core/analysis/match_report.dart`): the unified, exportable text report.
      Every prior analytics layer — the `MatchSummary` scoring breakdown,

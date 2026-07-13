@@ -24,6 +24,7 @@ import 'player_movement.dart';
 import 'rally_analyzer.dart';
 import 'rally_referee.dart';
 import 'table_calibrator.dart';
+import 'tracking_quality.dart';
 
 class MatchController {
   MatchController({
@@ -131,6 +132,17 @@ class MatchController {
   /// Whether any ball-speed reading has been accumulated.
   bool get hasBallSpeedData => _ballSpeed.hasData;
 
+  /// Tracking-quality / detection-health analytics accumulated over *every*
+  /// frame (including calibration warm-up — detection health is independent of
+  /// scoring). Unlike the geometry-dependent analytics it is never rebuilt on
+  /// calibration, so it captures how well the phone placement tracked the whole
+  /// session. Live-only like the movement/rally/placement analytics.
+  final TrackingQualityAnalyzer _tracking = TrackingQualityAnalyzer();
+
+  /// Detection-health metrics for the session so far — how reliably the ball
+  /// and both players were tracked, for a phone-placement quality read-out.
+  TrackingQualityAnalyzer get trackingQuality => _tracking;
+
   void _record(
     Player winner,
     PointReason reason,
@@ -155,6 +167,11 @@ class MatchController {
   /// most one per rally-ending event). Decisive decisions are applied to the
   /// [engine] automatically; undetermined ones are collected in [undetermined].
   List<PointDecision> onFrame(FrameResult frame) {
+    // Detection-health accounting runs on every frame, including calibration
+    // warm-up, since it measures how well the phone placement tracks the ball
+    // and players regardless of whether we are scoring yet.
+    _tracking.observe(frame);
+
     // Warm-up: accumulate observations and defer all scoring until the geometry
     // is trusted. Once it is, rebuild the tracker and score from here onward.
     final cal = calibrator;
