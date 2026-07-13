@@ -474,6 +474,10 @@ class _SummaryPanel extends StatelessWidget {
             Text('Momentum', style: theme.textTheme.labelLarge),
             const SizedBox(height: 4),
             MomentumChartView(points: summary.points),
+            Text(
+              'Lead changes: ${summary.leadChanges}',
+              style: theme.textTheme.bodyMedium,
+            ),
             const SizedBox(height: 8),
           ],
           if (rallies.rallyCount > 0)
@@ -584,6 +588,9 @@ class _PlayerStatColumn extends StatelessWidget {
         Text('${summary.forcedErrorsWonBy(player)} forced errors'),
         Text('${summary.openPlayPointsWonBy(player)} open play'),
         Text('longest run: ${summary.longestStreakFor(player)}'),
+        Text('biggest lead: ${summary.largestLeadBy(player)}'),
+        if (summary.largestDeficitOvercomeBy(player) case final d when d > 0)
+          Text('comeback from $d down'),
         if (summary.serveWinRateFor(player) case final rate?)
           Text(
             'serve won: ${summary.servePointsWonBy(player)}/'

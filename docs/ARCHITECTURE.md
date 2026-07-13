@@ -353,6 +353,19 @@ behind a `VisionService` interface. This lets us:
      indexing). `report()` gains a per-player "game points: converted X/Y, saved
      Z/W" line (flowing into the exported `buildMatchReport`), and the Match
      screen surfaces the same conversion/save split.
+   - **[done — iteration 37]** Match-tension analytics
+     (`core/analysis/match_summary.dart`). Iteration 23's `MomentumChartView`
+     *plotted* the running point differential (A−B after each rally) but no
+     numeric stat mined that same series — how close the match actually was was
+     only ever a picture. `MatchSummary` now derives the tension trio from the
+     point log: `leadChanges` (how many times the player who is ahead switched,
+     counting through ties), `largestLeadBy` (biggest lead each player ever
+     held), and `largestDeficitOvercomeBy` (the worst deficit a player trailed by
+     and then erased to at least level — for the winner, their comeback factor).
+     `report()` gains a "Lead changes: N" line (marked "wire-to-wire" at 0) plus
+     per-player "biggest lead" and "overcame an N-point deficit" lines (flowing
+     into `buildMatchReport`), and the Match screen surfaces lead changes under
+     the momentum chart and the biggest-lead/comeback split per player.
    - **[done — iteration 32]** Real-world ball-speed analytics
      (`core/analysis/ball_speed.dart`). Every prior analytics layer worked in the
      vision pipeline's *normalized* `[0,1]` coordinates, which carry no physical

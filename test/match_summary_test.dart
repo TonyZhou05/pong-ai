@@ -287,6 +287,94 @@ void main() {
     });
   });
 
+  group('MatchSummary match-tension analytics', () {
+    // A → B → A lead swing: A leads 1–0, B leads 1–2 then 2–3, A ties 3–3,
+    // then A pulls ahead 5–3. Differentials: +1,0,-1,-2,-1,0,+1,+2.
+    List<ScoredPoint> swingGame() {
+      var t = 0;
+      ScoredPoint next(Player w) => _pt(w, PointReason.notReturned, t += 1000);
+      return [
+        next(Player.a), // +1
+        next(Player.b), // 0
+        next(Player.b), // -1
+        next(Player.b), // -2  (B's biggest lead)
+        next(Player.a), // -1
+        next(Player.a), // 0
+        next(Player.a), // +1
+        next(Player.a), // +2
+      ];
+    }
+
+    test('counts lead changes through ties', () {
+      final summary = MatchSummary(
+        points: swingGame(),
+        finalState: _state(pointsA: 5, pointsB: 3),
+      );
+      // A ahead (start) → B ahead → A ahead = two lead changes.
+      expect(summary.leadChanges, 2);
+    });
+
+    test('biggest lead per player', () {
+      final summary = MatchSummary(
+        points: swingGame(),
+        finalState: _state(pointsA: 5, pointsB: 3),
+      );
+      expect(summary.largestLeadBy(Player.a), 2);
+      expect(summary.largestLeadBy(Player.b), 2);
+    });
+
+    test('largest deficit overcome tracks comebacks', () {
+      final summary = MatchSummary(
+        points: swingGame(),
+        finalState: _state(pointsA: 5, pointsB: 3),
+      );
+      // A trailed by 2 (1–3) and came back to win: comeback of 2.
+      expect(summary.largestDeficitOvercomeBy(Player.a), 2);
+      // B trailed 0–1 and recovered to 1–1 before pulling ahead: comeback of 1.
+      expect(summary.largestDeficitOvercomeBy(Player.b), 1);
+    });
+
+    test('wire-to-wire match has no lead changes and no comeback', () {
+      final summary = MatchSummary(
+        points: [
+          _pt(Player.a, PointReason.notReturned, 0),
+          _pt(Player.a, PointReason.notReturned, 1000),
+          _pt(Player.a, PointReason.notReturned, 2000),
+        ],
+        finalState: _state(pointsA: 3),
+      );
+      expect(summary.leadChanges, 0);
+      expect(summary.largestLeadBy(Player.a), 3);
+      expect(summary.largestDeficitOvercomeBy(Player.a), 0);
+      expect(summary.largestDeficitOvercomeBy(Player.b), 0);
+    });
+
+    test('report surfaces lead changes and comeback lines', () {
+      final report = MatchSummary(
+        points: swingGame(),
+        finalState: _state(pointsA: 5, pointsB: 3, over: false),
+      ).report();
+      expect(report, contains('Lead changes: 2'));
+      expect(report, contains('biggest lead: 2'));
+      expect(report, contains('overcame a 2-point deficit'));
+    });
+
+    test('report marks a wire-to-wire match', () {
+      final report = MatchSummary(
+        points: [_pt(Player.a, PointReason.notReturned, 0)],
+        finalState: _state(pointsA: 1),
+      ).report();
+      expect(report, contains('Lead changes: 0 (wire-to-wire)'));
+    });
+
+    test('empty match has zero tension stats', () {
+      final summary = MatchSummary(points: const [], finalState: _state());
+      expect(summary.leadChanges, 0);
+      expect(summary.largestLeadBy(Player.a), 0);
+      expect(summary.largestDeficitOvercomeBy(Player.a), 0);
+    });
+  });
+
   group('MatchController point log', () {
     MatchController drivenController() {
       final controller = MatchController();

@@ -253,6 +253,68 @@ class MatchSummary {
   bool get hasPressureData =>
       hasGameData && _gamePointOutcomes().any((e) => e.gamePointFor != null);
 
+  /// The running point differential (Player A − Player B) after each rally,
+  /// prefixed with a leading `0` for the 0–0 start, so it has
+  /// `totalPoints + 1` entries. Positive means A leads, negative means B leads.
+  /// This is the same series the momentum chart plots; the match-tension stats
+  /// below ([leadChanges], [largestLeadBy], [largestDeficitOvercomeBy]) are
+  /// derived from it.
+  List<int> get _leadSeries {
+    final series = <int>[0];
+    var differential = 0;
+    for (final point in points) {
+      differential += point.winner == Player.a ? 1 : -1;
+      series.add(differential);
+    }
+    return series;
+  }
+
+  /// How many times the lead changed hands over the match — the count of times
+  /// the player who is ahead switched from one to the other. Passing through a
+  /// tie does not itself count; only the next player to take the lead does. A
+  /// high number signals a tight, back-and-forth match. Zero for a wire-to-wire
+  /// (or unplayed) match.
+  int get leadChanges {
+    var changes = 0;
+    var lastLeaderSign = 0; // +1 A ahead, -1 B ahead, 0 nobody yet.
+    for (final differential in _leadSeries) {
+      if (differential == 0) continue;
+      final sign = differential > 0 ? 1 : -1;
+      if (lastLeaderSign != 0 && sign != lastLeaderSign) changes += 1;
+      lastLeaderSign = sign;
+    }
+    return changes;
+  }
+
+  /// The biggest point lead [p] held at any moment during the match (0 if [p]
+  /// was never ahead).
+  int largestLeadBy(Player p) {
+    var largest = 0;
+    for (final differential in _leadSeries) {
+      final lead = p == Player.a ? differential : -differential;
+      if (lead > largest) largest = lead;
+    }
+    return largest;
+  }
+
+  /// The largest deficit [p] trailed by and then erased to at least level — [p]'s
+  /// biggest comeback. Formally, the worst deficit [p] had faced before the last
+  /// moment [p] was level-or-ahead. 0 if [p] never trailed, or never recovered
+  /// from trailing. For the match winner this is their comeback factor.
+  int largestDeficitOvercomeBy(Player p) {
+    var worstDeficitSoFar = 0;
+    var overcome = 0;
+    for (final differential in _leadSeries) {
+      final deficit = p == Player.a ? -differential : differential;
+      if (deficit > worstDeficitSoFar) worstDeficitSoFar = deficit;
+      // Level-or-ahead: every deficit faced up to here has been overcome.
+      if (deficit <= 0 && worstDeficitSoFar > overcome) {
+        overcome = worstDeficitSoFar;
+      }
+    }
+    return overcome;
+  }
+
   /// The longest run of consecutive points won by [p].
   int longestStreakFor(Player p) {
     var longest = 0;
@@ -311,13 +373,25 @@ class MatchSummary {
       lines.add('Games: ${games.join(', ')}.');
     }
 
+    if (totalPoints > 0) {
+      lines.add(
+        'Lead changes: $leadChanges'
+        '${leadChanges == 0 ? ' (wire-to-wire)' : ''}.',
+      );
+    }
+
     for (final player in Player.values) {
       lines
         ..add('')
         ..add('${_name(player)} — ${pointsWonBy(player)} pts')
         ..add('  • ${forcedErrorsWonBy(player)} won on forced errors')
         ..add('  • ${openPlayPointsWonBy(player)} won in open play')
-        ..add('  • longest run: ${longestStreakFor(player)}');
+        ..add('  • longest run: ${longestStreakFor(player)}')
+        ..add('  • biggest lead: ${largestLeadBy(player)}');
+      final comeback = largestDeficitOvercomeBy(player);
+      if (comeback > 0) {
+        lines.add('  • overcame a $comeback-point deficit');
+      }
       final serveRate = serveWinRateFor(player);
       if (serveRate != null) {
         lines.add(
