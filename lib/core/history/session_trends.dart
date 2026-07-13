@@ -344,6 +344,21 @@ class SessionTrends {
     return series.last - series.first;
   }
 
+  /// Change in *typical* physical shot speed (km/h) from the first to the latest
+  /// session that recorded a scaled pace: returns `latest − first`, so a positive
+  /// value means the player's everyday pace has risen over the tracked history.
+  /// Distinct from [speedImprovement], which trends the session *peak* — a single
+  /// lucky smash can move the peak while leaving the typical pace flat, so this
+  /// mines each session's own average shot speed for a more representative power
+  /// progression (the trend twin of the static [averageShotSpeedKmh], mirroring
+  /// how [speedImprovement] trends the static [bestMaxSpeedKmh]). Null unless at
+  /// least two sessions carry an average km/h speed.
+  double? get typicalSpeedImprovement {
+    final series = _metricSeries((p) => p.averageSpeedKmh);
+    if (series.length < 2) return null;
+    return series.last - series.first;
+  }
+
   /// Change in landing-placement consistency (population stddev of shot depth)
   /// from the first to the latest session that recorded it. Depth stddev is
   /// *lower-is-tighter*, so this returns `first − latest`: a positive value
@@ -802,6 +817,16 @@ class SessionTrends {
               ? 'down ${speedTrend.abs().toStringAsFixed(1)} km/h'
               : 'flat');
       lines.add('Shot speed: $verb');
+    }
+
+    final typicalSpeedTrend = typicalSpeedImprovement;
+    if (typicalSpeedTrend != null) {
+      final verb = typicalSpeedTrend > 0.05
+          ? 'up ${typicalSpeedTrend.toStringAsFixed(1)} km/h'
+          : (typicalSpeedTrend < -0.05
+              ? 'down ${typicalSpeedTrend.abs().toStringAsFixed(1)} km/h'
+              : 'flat');
+      lines.add('Typical speed: $verb');
     }
 
     final depthTrend = depthConsistencyImprovement;

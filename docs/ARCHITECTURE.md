@@ -1120,6 +1120,15 @@ behind a `VisionService` interface. This lets us:
      sessions that scaled pace, positive = hitting harder), a "Shot speed: up N
      km/h" `report()` line, and a "Speed up N km/h" segment on the
      Training-progress card's trend line.
+   - **[done — iteration 128]** Typical shot-speed progression. Iteration 54's
+     `speedImprovement` trended only the session *peak* (`maxSpeedKmh`), which a
+     single lucky smash can move while the player's everyday pace stays flat;
+     the parsed `averageSpeedKmh` was surfaced only as the static
+     `averageShotSpeedKmh` with no over-time trend. Added
+     `SessionTrends.typicalSpeedImprovement` (latest − first of each session's own
+     average shot speed, positive = the whole game got faster — the trend twin of
+     the static `averageShotSpeedKmh`, mirroring how `speedImprovement` trends the
+     static `bestMaxSpeedKmh`) and a "Typical speed: up N km/h" `report()` line.
    - **[done — iteration 79]** On-table accuracy progression. Iteration 77 added
      `TrainingSummary.onTableRate` (fraction of strokes kept on the table) and
      persisted it to the training export as `session.onTableRate`, but

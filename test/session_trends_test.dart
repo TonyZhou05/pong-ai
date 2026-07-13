@@ -317,6 +317,33 @@ void main() {
       expect(trends.speedImprovement, isNull);
     });
 
+    test('typicalSpeedImprovement is latest minus first avg km/h, skipping '
+        'unscaled', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', averageSpeedKmh: 40.0),
+        _training('b', t1, averageScore: 0.6, grade: 'B'),
+        _training('c', t2, averageScore: 0.7, grade: 'A', averageSpeedKmh: 52.5),
+      ]);
+      // Skips the middle session with no avg km/h; first 40.0 → latest 52.5.
+      expect(trends.typicalSpeedImprovement, closeTo(12.5, 1e-9));
+    });
+
+    test('typicalSpeedImprovement is null without two scaled sessions', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', averageSpeedKmh: 44.0),
+        _training('b', t2, averageScore: 0.7, grade: 'A'),
+      ]);
+      expect(trends.typicalSpeedImprovement, isNull);
+    });
+
+    test('report surfaces the typical shot speed trend line', () {
+      final report = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', averageSpeedKmh: 45.0),
+        _training('b', t1, averageScore: 0.6, grade: 'B', averageSpeedKmh: 58.0),
+      ]).report();
+      expect(report, contains('Typical speed: up 13.0 km/h'));
+    });
+
     test('report reflects the improvement trend and best session', () {
       final trends = SessionTrends.fromSessions([
         _training('a', t0, averageScore: 0.50, grade: 'C'),
