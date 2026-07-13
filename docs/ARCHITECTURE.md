@@ -582,6 +582,17 @@ behind a `VisionService` interface. This lets us:
      focus: X (N of M drills)" `report()` line and a "Keep working on x" cue on
      the Training-progress card — turning per-session coaching into a
      cross-session *persistent weak point* callout.
+   - **[done — iteration 56]** Match career totals. Every prior `SessionTrends`
+     addition mined *training* history; saved matches were only ever counted
+     (`matchCount++`) because a match pits Player A vs B (no single tracked user
+     to trend). But the persisted match reports still carry cumulative "career"
+     data. Added a `MatchTrendPoint` parser (total points, longest rally, peak
+     ball km/h, winner — all nullable so a sparse/old report still counts) plus
+     `totalMatchPoints`, `fastestMatchBallSpeedKmh`, `longestMatchRallyStrokes`,
+     and a `hasMatchData` guard, surfaced as a "Matches: N played …" `report()`
+     section and a "Match record" card on the history screen — the match-side
+     analog of the training-progress card, turning the previously count-only
+     match history into cumulative bests.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 51]** Coaching feedback (`core/training/

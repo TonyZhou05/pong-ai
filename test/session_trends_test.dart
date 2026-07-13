@@ -32,12 +32,23 @@ StoredSession _training(
   );
 }
 
-StoredSession _match(String id, DateTime at) => StoredSession(
+StoredSession _match(
+  String id,
+  DateTime at, {
+  int? totalPoints,
+  int? longestStrokes,
+  double? maxKmh,
+  String? winner,
+}) =>
+    StoredSession(
       id: id,
       kind: SessionKind.match,
       savedAt: at,
-      report: const {
-        'score': {'gamesA': 3, 'gamesB': 1},
+      report: {
+        'score': {'gamesA': 3, 'gamesB': 1, 'winner': winner},
+        if (totalPoints != null) 'summary': {'totalPoints': totalPoints},
+        if (longestStrokes != null) 'rallies': {'longestStrokes': longestStrokes},
+        if (maxKmh != null) 'ballSpeed': {'maxKmh': maxKmh},
       },
     );
 
@@ -307,6 +318,84 @@ void main() {
         _training('b', t1, averageScore: 0.6, grade: 'B', focus: 'Rhythm'),
       ]);
       expect(trends.report(), contains('Recurring focus: Rhythm (2 of 2 drills)'));
+    });
+  });
+
+  group('SessionTrends match career totals', () {
+    test('parses cumulative metrics out of a match report', () {
+      final point = MatchTrendPoint.fromStored(
+        _match(
+          'm1',
+          t0,
+          totalPoints: 21,
+          longestStrokes: 8,
+          maxKmh: 74.5,
+          winner: 'A',
+        ),
+      );
+      expect(point, isNotNull);
+      expect(point!.totalPoints, 21);
+      expect(point.longestRallyStrokes, 8);
+      expect(point.maxBallSpeedKmh, closeTo(74.5, 1e-9));
+      expect(point.winner, 'A');
+    });
+
+    test('MatchTrendPoint.fromStored returns null for a training session', () {
+      final training = _training('t', t0, averageScore: 0.5, grade: 'C');
+      expect(MatchTrendPoint.fromStored(training), isNull);
+    });
+
+    test('a sparse match (score only) still parses with null metrics', () {
+      final point = MatchTrendPoint.fromStored(_match('m', t0));
+      expect(point, isNotNull);
+      expect(point!.totalPoints, isNull);
+      expect(point.maxBallSpeedKmh, isNull);
+    });
+
+    test('aggregates points, longest rally and fastest ball across matches', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, totalPoints: 19, longestStrokes: 5, maxKmh: 70.0),
+        _match('m2', t1, totalPoints: 25, longestStrokes: 11, maxKmh: 88.2),
+        _match('m3', t2, totalPoints: 21), // no rally/speed recorded
+      ]);
+      expect(trends.matchCount, 3);
+      expect(trends.hasMatchData, isTrue);
+      expect(trends.totalMatchPoints, 19 + 25 + 21);
+      expect(trends.longestMatchRallyStrokes, 11);
+      expect(trends.fastestMatchBallSpeedKmh, closeTo(88.2, 1e-9));
+    });
+
+    test('aggregates are null when no match recorded them', () {
+      final trends = SessionTrends.fromSessions([_match('m', t0)]);
+      expect(trends.totalMatchPoints, isNull);
+      expect(trends.longestMatchRallyStrokes, isNull);
+      expect(trends.fastestMatchBallSpeedKmh, isNull);
+    });
+
+    test('no match data leaves the aggregates empty', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C'),
+      ]);
+      expect(trends.hasMatchData, isFalse);
+      expect(trends.matchCount, 0);
+    });
+
+    test('report surfaces the match career section', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, totalPoints: 19, longestStrokes: 5, maxKmh: 70.0),
+        _match('m2', t1, totalPoints: 25, longestStrokes: 11, maxKmh: 88.2),
+      ]);
+      final report = trends.report();
+      expect(report, contains('Matches: 2 played'));
+      expect(report, contains('Points contested: 44'));
+      expect(report, contains('Longest rally: 11 strokes'));
+      expect(report, contains('Fastest ball: 88.2 km/h'));
+    });
+
+    test('report shows the match section even with no training drills', () {
+      final report = SessionTrends.fromSessions([_match('m', t0)]).report();
+      expect(report, contains('No training drills saved yet.'));
+      expect(report, contains('Matches: 1 played'));
     });
   });
 }

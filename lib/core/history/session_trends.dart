@@ -86,31 +86,89 @@ class TrainingTrendPoint {
   }
 }
 
+/// One saved match reduced to the cumulative-total metrics a "career" view
+/// needs, parsed out of its stored `buildMatchReportJson` map. Every field
+/// beyond id/time is nullable so a match saved before a given analytics layer
+/// existed (or one with no ball tracked) still parses and counts.
+class MatchTrendPoint {
+  const MatchTrendPoint({
+    required this.id,
+    required this.savedAt,
+    this.totalPoints,
+    this.durationMs,
+    this.maxBallSpeedKmh,
+    this.longestRallyStrokes,
+    this.winner,
+  });
+
+  final String id;
+  final DateTime savedAt;
+
+  /// Points played in the match, null if the report predates the summary block.
+  final int? totalPoints;
+
+  /// Match wall-clock duration in ms, null if unrecorded.
+  final int? durationMs;
+
+  /// Peak ball speed in km/h, null if the match tracked no scaled ball speed.
+  final double? maxBallSpeedKmh;
+
+  /// Longest rally in strokes, null if no rally data was recorded.
+  final int? longestRallyStrokes;
+
+  /// The match winner key (`A` / `B`), null if the match did not finish.
+  final String? winner;
+
+  /// Parse a stored match session, or null if it is not a match record.
+  static MatchTrendPoint? fromStored(StoredSession session) {
+    if (session.kind != SessionKind.match) return null;
+    final report = session.report;
+    final summary = report['summary'];
+    final ballSpeed = report['ballSpeed'];
+    final rallies = report['rallies'];
+    final score = report['score'];
+    final winner = score is Map ? score['winner'] : null;
+    return MatchTrendPoint(
+      id: session.id,
+      savedAt: session.savedAt,
+      totalPoints: summary is Map ? _asInt(summary['totalPoints']) : null,
+      durationMs: summary is Map ? _asInt(summary['durationMs']) : null,
+      maxBallSpeedKmh:
+          ballSpeed is Map ? _asDouble(ballSpeed['maxKmh']) : null,
+      longestRallyStrokes:
+          rallies is Map ? _asInt(rallies['longestStrokes']) : null,
+      winner: winner is String ? winner : null,
+    );
+  }
+}
+
 /// Cross-session progression over a saved-session history.
 class SessionTrends {
   const SessionTrends({
     required this.trainingSessions,
-    required this.matchCount,
+    required this.matchSessions,
   });
 
   /// Every parseable training session, oldest first (so index 0 is where the
   /// player started and the last is their most recent drill).
   final List<TrainingTrendPoint> trainingSessions;
 
-  /// How many stored sessions were matches. Matches pit Player A vs B rather
-  /// than a single tracked user, so there is no personal win-rate to trend;
-  /// the count still situates the training history in the whole record.
-  final int matchCount;
+  /// Every saved match, oldest first. Matches pit Player A vs B rather than a
+  /// single tracked user, so there is no personal win-rate to trend — but the
+  /// collection still holds meaningful cumulative "career" totals (points
+  /// played, fastest ball ever tracked, longest rally) worth surfacing.
+  final List<MatchTrendPoint> matchSessions;
 
-  /// Fold the store's records (in any order) into trends. Training sessions are
-  /// sorted oldest-first by save time (ties broken by id) so deltas read as
+  /// Fold the store's records (in any order) into trends. Sessions are sorted
+  /// oldest-first by save time (ties broken by id) so deltas read as
   /// first → latest.
   factory SessionTrends.fromSessions(Iterable<StoredSession> sessions) {
     final training = <TrainingTrendPoint>[];
-    var matches = 0;
+    final matches = <MatchTrendPoint>[];
     for (final session in sessions) {
       if (session.kind == SessionKind.match) {
-        matches++;
+        final m = MatchTrendPoint.fromStored(session);
+        if (m != null) matches.add(m);
         continue;
       }
       final point = TrainingTrendPoint.fromStored(session);
@@ -120,10 +178,21 @@ class SessionTrends {
       final byTime = a.savedAt.compareTo(b.savedAt);
       return byTime != 0 ? byTime : a.id.compareTo(b.id);
     });
-    return SessionTrends(trainingSessions: training, matchCount: matches);
+    matches.sort((a, b) {
+      final byTime = a.savedAt.compareTo(b.savedAt);
+      return byTime != 0 ? byTime : a.id.compareTo(b.id);
+    });
+    return SessionTrends(trainingSessions: training, matchSessions: matches);
   }
 
   int get trainingCount => trainingSessions.length;
+
+  /// How many stored sessions were matches.
+  int get matchCount => matchSessions.length;
+
+  /// Whether any match has been saved, so the cumulative match totals are worth
+  /// surfacing.
+  bool get hasMatchData => matchSessions.isNotEmpty;
 
   /// Whether there are enough training sessions (>= 2) for a first→latest
   /// improvement to be meaningful.
@@ -255,6 +324,44 @@ class SessionTrends {
   /// as a persistent weak point worth calling out rather than a one-off.
   bool get hasRecurringFocus => recurringFocusCount >= 2;
 
+  /// Total points played across every saved match that recorded a point total —
+  /// a cumulative "career" volume stat. Null if no match recorded one.
+  int? get totalMatchPoints {
+    var total = 0;
+    var any = false;
+    for (final m in matchSessions) {
+      final p = m.totalPoints;
+      if (p == null) continue;
+      total += p;
+      any = true;
+    }
+    return any ? total : null;
+  }
+
+  /// Fastest ball speed (km/h) tracked across every saved match — the match-side
+  /// personal-best radar number. Null if no match recorded a scaled speed.
+  double? get fastestMatchBallSpeedKmh {
+    double? best;
+    for (final m in matchSessions) {
+      final s = m.maxBallSpeedKmh;
+      if (s == null) continue;
+      if (best == null || s > best) best = s;
+    }
+    return best;
+  }
+
+  /// Longest rally (in strokes) tracked across every saved match. Null if no
+  /// match recorded rally data.
+  int? get longestMatchRallyStrokes {
+    int? best;
+    for (final m in matchSessions) {
+      final s = m.longestRallyStrokes;
+      if (s == null) continue;
+      if (best == null || s > best) best = s;
+    }
+    return best;
+  }
+
   /// The recorded values of a nullable per-session metric, in session order
   /// (oldest first), skipping sessions that did not record it.
   List<double> _metricSeries(double? Function(TrainingTrendPoint) select) {
@@ -276,6 +383,7 @@ class SessionTrends {
     );
     if (trainingSessions.isEmpty) {
       lines.add('No training drills saved yet.');
+      _appendMatchSection(lines);
       return lines.join('\n');
     }
 
@@ -338,7 +446,22 @@ class SessionTrends {
         '($recurringFocusCount of $trainingCount drills)',
       );
     }
+    _appendMatchSection(lines);
     return lines.join('\n');
+  }
+
+  /// Append the cumulative match "career" totals, if any match is saved.
+  void _appendMatchSection(List<String> lines) {
+    if (!hasMatchData) return;
+    lines.add('Matches: $matchCount played');
+    final points = totalMatchPoints;
+    if (points != null) lines.add('Points contested: $points');
+    final rally = longestMatchRallyStrokes;
+    if (rally != null) lines.add('Longest rally: $rally strokes');
+    final speed = fastestMatchBallSpeedKmh;
+    if (speed != null) {
+      lines.add('Fastest ball: ${speed.toStringAsFixed(1)} km/h');
+    }
   }
 
   static String _pct(double v) => '${(v * 100).round()}%';

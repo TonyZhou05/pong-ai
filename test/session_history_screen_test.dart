@@ -287,6 +287,34 @@ void main() {
       expect(find.byType(ListTile), findsOneWidget);
     });
 
+    testWidgets('shows a match-record card with cumulative totals',
+        (tester) async {
+      final store = FakeHistoryStore();
+      await store.save(
+        kind: SessionKind.match,
+        report: {
+          'score': {'gamesA': 3, 'gamesB': 1},
+          'summary': {'totalPoints': 19},
+          'rallies': {'longestStrokes': 7},
+          'ballSpeed': {'maxKmh': 82.4},
+        },
+        at: DateTime(2026, 1, 1, 9),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: store)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Match record'), findsOneWidget);
+      expect(find.text('1 match played'), findsOneWidget);
+      expect(
+        find.textContaining('longest rally 7'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('82.4 km/h'), findsOneWidget);
+    });
+
     testWidgets('delete removes a session from the list', (tester) async {
       final store = FakeHistoryStore();
       await store.save(

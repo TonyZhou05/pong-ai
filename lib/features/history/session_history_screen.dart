@@ -130,6 +130,7 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (trends.hasTrainingTrend) _TrendsHeader(trends: trends),
+        if (trends.hasMatchData) _MatchSummaryCard(trends: trends),
         Expanded(child: _sessionList(sessions)),
       ],
     );
@@ -276,6 +277,55 @@ class _TrendsHeader extends StatelessWidget {
       );
     }
     return parts.isEmpty ? null : parts.join(' · ');
+  }
+}
+
+/// Compact cumulative match "career" totals card, shown above the list once at
+/// least one match has been saved. Matches pit Player A vs B (no single tracked
+/// user to trend), so this surfaces cumulative bests instead of a progression.
+class _MatchSummaryCard extends StatelessWidget {
+  const _MatchSummaryCard({required this.trends});
+
+  final SessionTrends trends;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final chips = <String>[];
+    final points = trends.totalMatchPoints;
+    if (points != null) chips.add('$points points');
+    final rally = trends.longestMatchRallyStrokes;
+    if (rally != null) chips.add('longest rally $rally');
+    final speed = trends.fastestMatchBallSpeedKmh;
+    if (speed != null) chips.add('fastest ${speed.toStringAsFixed(1)} km/h');
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sports_tennis, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Match record', style: theme.textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${trends.matchCount} '
+              '${trends.matchCount == 1 ? 'match' : 'matches'} played',
+              style: theme.textTheme.titleLarge,
+            ),
+            if (chips.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(chips.join(' · '), style: theme.textTheme.bodyMedium),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
