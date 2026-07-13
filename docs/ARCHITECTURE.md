@@ -87,8 +87,14 @@ We will assemble an evaluation set and track metrics per iteration.
 | Scoring | Point-level accuracy vs. ground-truth scoreboard, rally-boundary F1 |
 | Latency | End-to-end FPS on reference devices |
 
-A `benchmark/` harness (added in a later iteration) will run the pipeline over
-clips and emit these numbers so we can compare model swaps objectively.
+A `benchmark/` harness runs the pipeline over labeled clips and emits these
+numbers so we can compare model swaps objectively. It is implemented (pure Dart,
+runs in `flutter test`): `lib/core/benchmark/` defines the JSON `ClipFixture`
+format and `BenchmarkRunner`; `benchmark/` holds the clip corpus and the format
+docs. So far it scores the **rally/scoring** stage (point-total and ordered
+point accuracy vs. ground truth); ball-detection and pose metrics land once the
+live model is wired and real annotated clips are converted in. See
+[`../benchmark/README.md`](../benchmark/README.md).
 
 ---
 
@@ -134,6 +140,8 @@ behind a `VisionService` interface. This lets us:
 2. Wire `ultralytics_yolo` `YOLOView`, render live pose + ball overlays.
 3. Ball Kalman tracker + rally/point event detection from detections.
 4. Connect events → scoring engine → live scoreboard UI.
-5. Benchmark harness over SPIN/OpenTTGames clips; iterate on ball model.
+5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
+   `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
+   clips, ready for SPIN/OpenTTGames conversion.
 6. Post-match summary + analytics charts.
 7. Training mode: shot segmentation + quality grading.
