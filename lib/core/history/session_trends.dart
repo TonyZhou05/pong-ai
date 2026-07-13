@@ -536,6 +536,72 @@ class SessionTrends {
     return n;
   }
 
+  /// The decided-match winner keys (`A` / `B`) in save order, skipping matches
+  /// that never finished — the sequence a win-streak is computed over.
+  List<String> get _decidedWinners {
+    final out = <String>[];
+    for (final m in matchSessions) {
+      if (m.winner == 'A' || m.winner == 'B') out.add(m.winner!);
+    }
+    return out;
+  }
+
+  /// The longest run of consecutive finished matches won by the *same* seat,
+  /// with which seat holds it — the head-to-head analog of the training-side
+  /// on-target streak ([bestOnTargetStreak]), computed over the decided-match
+  /// winner sequence rather than parsed from a field. Ties break toward the more
+  /// recent run (the streak currently in play wins), matching [recurringFocus].
+  /// `length` is 0 / `seat` null when no match has finished.
+  ({int length, String? seat}) get _longestMatchWinRun {
+    final winners = _decidedWinners;
+    var bestLen = 0;
+    String? bestSeat;
+    var runLen = 0;
+    String? runSeat;
+    for (final w in winners) {
+      if (w == runSeat) {
+        runLen++;
+      } else {
+        runSeat = w;
+        runLen = 1;
+      }
+      // `>=` so a later run of equal length wins the recency tie-break.
+      if (runLen >= bestLen) {
+        bestLen = runLen;
+        bestSeat = runSeat;
+      }
+    }
+    return (length: bestLen, seat: bestSeat);
+  }
+
+  /// The longest streak of consecutive decided matches won by one seat across
+  /// the saved series — the headline "won N in a row" number. 0 if no match has
+  /// finished.
+  int get longestMatchWinStreak => _longestMatchWinRun.length;
+
+  /// Which seat (`A` / `B`) holds [longestMatchWinStreak], or null if no match
+  /// has finished.
+  String? get longestMatchWinStreakSeat => _longestMatchWinRun.seat;
+
+  /// The trailing run of consecutive wins by the seat that won the most recent
+  /// finished match — the *current* streak the head-to-head is riding. 0 if no
+  /// match has finished.
+  int get currentMatchWinStreak {
+    final winners = _decidedWinners;
+    if (winners.isEmpty) return 0;
+    final seat = winners.last;
+    var run = 0;
+    for (var i = winners.length - 1; i >= 0 && winners[i] == seat; i--) {
+      run++;
+    }
+    return run;
+  }
+
+  /// Which seat (`A` / `B`) is on the [currentMatchWinStreak], or null if no
+  /// match has finished.
+  String? get currentMatchWinStreakSeat =>
+      _decidedWinners.isEmpty ? null : _decidedWinners.last;
+
   /// The recorded values of a nullable per-session metric, in session order
   /// (oldest first), skipping sessions that did not record it.
   List<double> _metricSeries(double? Function(TrainingTrendPoint) select) {
@@ -654,6 +720,12 @@ class SessionTrends {
       lines.add(
         'Head-to-head: A ${matchWinsBy('A')}–${matchWinsBy('B')} B',
       );
+      final streak = longestMatchWinStreak;
+      if (streak >= 2) {
+        lines.add(
+          'Best win streak: $longestMatchWinStreakSeat won $streak in a row',
+        );
+      }
     }
     final points = totalMatchPoints;
     if (points != null) lines.add('Points contested: $points');

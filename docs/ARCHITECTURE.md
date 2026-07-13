@@ -751,6 +751,17 @@ behind a `VisionService` interface. This lets us:
      `bestOnTargetStreak` (personal-best "in a row" across every session that
      tracked it), surfaced as a "Best on-target streak: N in a row" `report()`
      line and a "· streak N" segment on the Training-progress card's Best line.
+   - **[done — iteration 86]** Head-to-head win streak. `SessionTrends` tallied the
+     cumulative A-vs-B win record (`matchWinsBy`) but never looked at the *order* of
+     wins, so a run of consecutive same-seat wins was invisible. Added
+     `SessionTrends.longestMatchWinStreak` / `longestMatchWinStreakSeat` (longest run
+     of consecutive decided-match wins by one seat, recency tie-break) and
+     `currentMatchWinStreak` / `currentMatchWinStreakSeat` (the trailing run the
+     series is riding) — computed over the decided-match winner sequence (unfinished
+     matches skipped, not treated as a break) rather than parsed from a field, the
+     career analog of the training on-target streak (iterations 78/80). Surfaced as a
+     "Best win streak: A won N in a row" `report()` line (shown when ≥2) and a
+     "· streak A N" segment on the Match-record card's head-to-head line.
    - **[done — iteration 85]** Training career *typical* shot speed. `TrainingTrendPoint`
      parsed each drill's peak `pace.maxSpeedKmh` (surfaced as `bestMaxSpeedKmh`)
      but discarded the emitted `pace.averageSpeedKmh`. Added

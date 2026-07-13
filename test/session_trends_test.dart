@@ -691,4 +691,89 @@ void main() {
       expect(report, isNot(contains('Head-to-head')));
     });
   });
+
+  group('SessionTrends match win streak', () {
+    final d0 = DateTime(2026, 7, 1, 9);
+    final d1 = DateTime(2026, 7, 2, 9);
+    final d2 = DateTime(2026, 7, 3, 9);
+    final d3 = DateTime(2026, 7, 4, 9);
+    final d4 = DateTime(2026, 7, 5, 9);
+
+    test('finds the longest same-seat run and its seat', () {
+      // A, A, A, B, B  -> A holds the best run of 3.
+      final trends = SessionTrends.fromSessions([
+        _match('m1', d0, winner: 'A'),
+        _match('m2', d1, winner: 'A'),
+        _match('m3', d2, winner: 'A'),
+        _match('m4', d3, winner: 'B'),
+        _match('m5', d4, winner: 'B'),
+      ]);
+      expect(trends.longestMatchWinStreak, 3);
+      expect(trends.longestMatchWinStreakSeat, 'A');
+    });
+
+    test('ties break toward the more recent run', () {
+      // A, A, B, B -> both runs are length 2; the later (B) run wins the tie.
+      final trends = SessionTrends.fromSessions([
+        _match('m1', d0, winner: 'A'),
+        _match('m2', d1, winner: 'A'),
+        _match('m3', d2, winner: 'B'),
+        _match('m4', d3, winner: 'B'),
+      ]);
+      expect(trends.longestMatchWinStreak, 2);
+      expect(trends.longestMatchWinStreakSeat, 'B');
+    });
+
+    test('current streak is the trailing same-seat run', () {
+      // A, B, B -> currently on a 2-match B run.
+      final trends = SessionTrends.fromSessions([
+        _match('m1', d0, winner: 'A'),
+        _match('m2', d1, winner: 'B'),
+        _match('m3', d2, winner: 'B'),
+      ]);
+      expect(trends.currentMatchWinStreak, 2);
+      expect(trends.currentMatchWinStreakSeat, 'B');
+      // The best-ever run here is also the current one.
+      expect(trends.longestMatchWinStreak, 2);
+    });
+
+    test('unfinished matches are skipped, not counted as a break', () {
+      // A, (unfinished), A -> the two A wins are consecutive in the decided
+      // sequence, so the run is 2 despite the unfinished match between them.
+      final trends = SessionTrends.fromSessions([
+        _match('m1', d0, winner: 'A'),
+        _match('m2', d1), // unfinished
+        _match('m3', d2, winner: 'A'),
+      ]);
+      expect(trends.longestMatchWinStreak, 2);
+      expect(trends.currentMatchWinStreak, 2);
+      expect(trends.currentMatchWinStreakSeat, 'A');
+    });
+
+    test('zero / null when no match has finished', () {
+      final trends = SessionTrends.fromSessions([_match('m', d0)]);
+      expect(trends.longestMatchWinStreak, 0);
+      expect(trends.longestMatchWinStreakSeat, isNull);
+      expect(trends.currentMatchWinStreak, 0);
+      expect(trends.currentMatchWinStreakSeat, isNull);
+    });
+
+    test('report surfaces the best win streak when it reaches two', () {
+      final report = SessionTrends.fromSessions([
+        _match('m1', d0, winner: 'B'),
+        _match('m2', d1, winner: 'B'),
+        _match('m3', d2, winner: 'A'),
+      ]).report();
+      expect(report, contains('Best win streak: B won 2 in a row'));
+    });
+
+    test('report omits the streak line for a lone win', () {
+      final report = SessionTrends.fromSessions([
+        _match('m1', d0, winner: 'A'),
+        _match('m2', d1, winner: 'B'),
+      ]).report();
+      expect(report, contains('Head-to-head: A 1–1 B'));
+      expect(report, isNot(contains('Best win streak')));
+    });
+  });
 }

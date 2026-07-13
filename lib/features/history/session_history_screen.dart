@@ -342,7 +342,10 @@ class _MatchSummaryCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 "Head-to-head · A ${trends.matchWinsBy('A')}–"
-                "${trends.matchWinsBy('B')} B",
+                "${trends.matchWinsBy('B')} B"
+                "${trends.longestMatchWinStreak >= 2 ? ' · streak '
+                    '${trends.longestMatchWinStreakSeat} '
+                    '${trends.longestMatchWinStreak}' : ''}",
                 style: theme.textTheme.bodyMedium,
               ),
             ],
