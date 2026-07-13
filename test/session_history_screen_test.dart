@@ -235,6 +235,35 @@ void main() {
       expect(find.byType(ProgressChartView), findsOneWidget);
     });
 
+    testWidgets('surfaces a recurring coaching focus in the trends card',
+        (tester) async {
+      final store = FakeHistoryStore();
+      for (var i = 0; i < 2; i++) {
+        await store.save(
+          kind: SessionKind.training,
+          report: {
+            'session': {
+              'overallGrade': 'C',
+              'shotCount': 6,
+              'averageScore': 0.50 + i * 0.1,
+            },
+            'coaching': {'focus': 'Rhythm'},
+          },
+          at: DateTime(2026, 1, 1 + i, 9),
+        );
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: store)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Keep working on rhythm (2/2 drills)'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('no trends header with a single saved drill', (tester) async {
       final store = FakeHistoryStore();
       await store.save(

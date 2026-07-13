@@ -225,6 +225,26 @@ class _TrendsHeader extends StatelessWidget {
               const SizedBox(height: 4),
               Text(line, style: theme.textTheme.bodyMedium),
             ],
+            if (trends.hasRecurringFocus) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.center_focus_strong,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Keep working on ${trends.recurringFocus!.toLowerCase()} '
+                      '(${trends.recurringFocusCount}/${trends.trainingCount} drills)',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
             ProgressChartView(sessions: trends.trainingSessions),
           ],

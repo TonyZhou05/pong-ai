@@ -29,6 +29,7 @@ class TrainingTrendPoint {
     this.depthConsistency,
     this.maxSpeedKmh,
     this.rhythmConsistency,
+    this.focusArea,
   });
 
   final String id;
@@ -48,6 +49,11 @@ class TrainingTrendPoint {
   /// Metronome rhythm score in [0,1]; null if the drill had < 2 shots.
   final double? rhythmConsistency;
 
+  /// The coaching *focus* the session flagged as its weakest dimension (e.g.
+  /// `Placement accuracy`), from the persisted `coaching.focus` field. Null if
+  /// the report recorded no coachable data (no shots) or predates the field.
+  final String? focusArea;
+
   /// Parse a stored training session, or null if the report shape is not a
   /// recognizable training export (so a corrupt / foreign record is skipped).
   static TrainingTrendPoint? fromStored(StoredSession session) {
@@ -62,6 +68,8 @@ class TrainingTrendPoint {
     final placement = session.report['placement'];
     final pace = session.report['pace'];
     final tempo = session.report['tempo'];
+    final coaching = session.report['coaching'];
+    final focus = coaching is Map ? coaching['focus'] : null;
     return TrainingTrendPoint(
       id: session.id,
       savedAt: session.savedAt,
@@ -73,6 +81,7 @@ class TrainingTrendPoint {
       maxSpeedKmh: pace is Map ? _asDouble(pace['maxSpeedKmh']) : null,
       rhythmConsistency:
           tempo is Map ? _asDouble(tempo['rhythmConsistency']) : null,
+      focusArea: focus is String ? focus : null,
     );
   }
 }
@@ -195,6 +204,57 @@ class SessionTrends {
     return series.last - series.first;
   }
 
+  /// How many training sessions across the history flagged each coaching focus
+  /// area as their weakest dimension, e.g. `{Placement accuracy: 3, Rhythm: 1}`.
+  /// Sessions with no recorded focus (no shots / older report) are excluded.
+  Map<String, int> get focusCounts {
+    final counts = <String, int>{};
+    for (final p in trainingSessions) {
+      final focus = p.focusArea;
+      if (focus == null) continue;
+      counts[focus] = (counts[focus] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /// The coaching focus area that comes up most often across the saved drills —
+  /// the player's *persistent* weak point. Ties break toward the area whose most
+  /// recent session is newer (so the current struggle wins). Null if no session
+  /// recorded a focus.
+  String? get recurringFocus {
+    final counts = focusCounts;
+    if (counts.isEmpty) return null;
+    // Latest occurrence index per focus, for deterministic recency tie-breaking.
+    final latestIndex = <String, int>{};
+    for (var i = 0; i < trainingSessions.length; i++) {
+      final focus = trainingSessions[i].focusArea;
+      if (focus != null) latestIndex[focus] = i;
+    }
+    String? best;
+    var bestCount = 0;
+    var bestRecency = -1;
+    counts.forEach((focus, count) {
+      final recency = latestIndex[focus] ?? -1;
+      if (count > bestCount ||
+          (count == bestCount && recency > bestRecency)) {
+        best = focus;
+        bestCount = count;
+        bestRecency = recency;
+      }
+    });
+    return best;
+  }
+
+  /// How many sessions flagged [recurringFocus] as their weak point (0 if none).
+  int get recurringFocusCount {
+    final focus = recurringFocus;
+    return focus == null ? 0 : (focusCounts[focus] ?? 0);
+  }
+
+  /// Whether a coaching focus recurs across at least two drills — enough to read
+  /// as a persistent weak point worth calling out rather than a one-off.
+  bool get hasRecurringFocus => recurringFocusCount >= 2;
+
   /// The recorded values of a nullable per-session metric, in session order
   /// (oldest first), skipping sessions that did not record it.
   List<double> _metricSeries(double? Function(TrainingTrendPoint) select) {
@@ -270,6 +330,13 @@ class SessionTrends {
           ? 'up ${_signedPct(rhythmTrend)}'
           : (rhythmTrend < -0.0005 ? 'down ${_signedPct(rhythmTrend)}' : 'flat');
       lines.add('Rhythm consistency: $verb');
+    }
+
+    if (hasRecurringFocus) {
+      lines.add(
+        'Recurring focus: $recurringFocus '
+        '($recurringFocusCount of $trainingCount drills)',
+      );
     }
     return lines.join('\n');
   }

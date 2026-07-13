@@ -572,6 +572,16 @@ behind a `VisionService` interface. This lets us:
      sessions that scaled pace, positive = hitting harder), a "Shot speed: up N
      km/h" `report()` line, and a "Speed up N km/h" segment on the
      Training-progress card's trend line.
+   - **[done — iteration 55]** Recurring coaching focus. Iteration 53 persisted
+     each training session's coaching `focus` (its weakest dimension) into the
+     structured export, but `SessionTrends` only ever mined numeric metrics —
+     the persisted focus was captured-but-unconsumed. Added `focusArea` parsing
+     to `TrainingTrendPoint` plus `focusCounts`, `recurringFocus` (most common
+     focus, ties broken toward the more recent session), `recurringFocusCount`,
+     and a `hasRecurringFocus` (>=2 drills) guard, surfaced as a "Recurring
+     focus: X (N of M drills)" `report()` line and a "Keep working on x" cue on
+     the Training-progress card — turning per-session coaching into a
+     cross-session *persistent weak point* callout.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 51]** Coaching feedback (`core/training/

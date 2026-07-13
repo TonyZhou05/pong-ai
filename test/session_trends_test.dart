@@ -12,6 +12,7 @@ StoredSession _training(
   double? depthConsistency,
   double? maxSpeedKmh,
   double? rhythmConsistency,
+  String? focus,
 }) {
   return StoredSession(
     id: id,
@@ -26,6 +27,7 @@ StoredSession _training(
       'placement': {'depthConsistency': depthConsistency},
       'pace': {'maxSpeedKmh': maxSpeedKmh},
       'tempo': {'rhythmConsistency': rhythmConsistency},
+      if (focus != null) 'coaching': {'focus': focus},
     },
   );
 }
@@ -245,6 +247,66 @@ void main() {
     test('report handles an empty history', () {
       final report = SessionTrends.fromSessions(const []).report();
       expect(report, contains('No training drills saved yet.'));
+    });
+  });
+
+  group('SessionTrends recurring focus', () {
+    final t3 = DateTime(2026, 7, 15, 9);
+
+    test('parses coaching focus out of a training report', () {
+      final point = TrainingTrendPoint.fromStored(
+        _training('a', t0, averageScore: 0.6, grade: 'B', focus: 'Rhythm'),
+      );
+      expect(point!.focusArea, 'Rhythm');
+    });
+
+    test('leaves focusArea null when no coaching section was recorded', () {
+      final point = TrainingTrendPoint.fromStored(
+        _training('a', t0, averageScore: 0.6, grade: 'B'),
+      );
+      expect(point!.focusArea, isNull);
+    });
+
+    test('tallies the most common focus and its count', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', focus: 'Placement accuracy'),
+        _training('b', t1, averageScore: 0.6, grade: 'B', focus: 'Rhythm'),
+        _training('c', t2, averageScore: 0.7, grade: 'B', focus: 'Placement accuracy'),
+      ]);
+      expect(trends.focusCounts['Placement accuracy'], 2);
+      expect(trends.focusCounts['Rhythm'], 1);
+      expect(trends.recurringFocus, 'Placement accuracy');
+      expect(trends.recurringFocusCount, 2);
+      expect(trends.hasRecurringFocus, isTrue);
+    });
+
+    test('breaks count ties toward the more recent focus', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', focus: 'Rhythm'),
+        _training('b', t1, averageScore: 0.6, grade: 'B', focus: 'Placement accuracy'),
+        _training('c', t2, averageScore: 0.7, grade: 'B', focus: 'Rhythm'),
+        _training('d', t3, averageScore: 0.8, grade: 'A', focus: 'Placement accuracy'),
+      ]);
+      // Both appear twice; Placement accuracy's latest session (d) is newest.
+      expect(trends.recurringFocus, 'Placement accuracy');
+      expect(trends.recurringFocusCount, 2);
+    });
+
+    test('a one-off focus does not count as recurring', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', focus: 'Rhythm'),
+        _training('b', t1, averageScore: 0.6, grade: 'B', focus: 'Placement accuracy'),
+      ]);
+      expect(trends.hasRecurringFocus, isFalse);
+      expect(trends.recurringFocusCount, 1);
+    });
+
+    test('report surfaces a recurring focus', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', focus: 'Rhythm'),
+        _training('b', t1, averageScore: 0.6, grade: 'B', focus: 'Rhythm'),
+      ]);
+      expect(trends.report(), contains('Recurring focus: Rhythm (2 of 2 drills)'));
     });
   });
 }
