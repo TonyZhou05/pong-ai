@@ -192,6 +192,96 @@ void main() {
       expect(a.grade, '–');
     });
 
+    test('head-to-head names the decisive dimension and reports it', () {
+      // A holds 3 of 4 serves (0.75) and breaks 3 of 4 receives (0.75);
+      // B holds 1 of 4 serves (0.25) and breaks 1 of 4 receives (0.25).
+      final summary = MatchSummary(
+        points: [
+          _ptS(Player.a, Player.a, 0),
+          _ptS(Player.a, Player.a, 1),
+          _ptS(Player.a, Player.a, 2),
+          _ptS(Player.b, Player.a, 3),
+          _ptS(Player.b, Player.b, 4),
+          _ptS(Player.a, Player.b, 5),
+          _ptS(Player.a, Player.b, 6),
+          _ptS(Player.a, Player.b, 7),
+        ],
+        finalState: _state(pointsA: 6, pointsB: 2),
+      );
+      final insights = MatchInsights(summary);
+
+      final comps = insights.comparisons;
+      expect(comps.map((c) => c.name), ['Serve effectiveness', 'Return of serve']);
+      final serve = comps.first;
+      expect(serve.scoreA, closeTo(0.75, 1e-9));
+      expect(serve.scoreB, closeTo(0.25, 1e-9));
+      expect(serve.leader, Player.a);
+      expect(serve.gap, closeTo(0.5, 1e-9));
+      expect(serve.scoreFor(Player.b), closeTo(0.25, 1e-9));
+
+      // Serve and return gaps are equal (coupled), so the decisive one is the
+      // earlier dimension, serve effectiveness.
+      final decisive = insights.decisiveDimension;
+      expect(decisive!.name, 'Serve effectiveness');
+
+      expect(
+        insights.report(),
+        contains(
+          'Match difference: Player A won the serve effectiveness battle '
+          '(75% vs 25%).',
+        ),
+      );
+    });
+
+    test('a symmetric match has no decisive dimension', () {
+      // Both players hold 1 of 4 serves and break 3 of 4 receives -> every
+      // shared dimension ties, so there is no separating difference.
+      final summary = MatchSummary(
+        points: [
+          _ptS(Player.a, Player.a, 0),
+          _ptS(Player.b, Player.a, 1),
+          _ptS(Player.b, Player.a, 2),
+          _ptS(Player.b, Player.a, 3),
+          _ptS(Player.a, Player.b, 4),
+          _ptS(Player.a, Player.b, 5),
+          _ptS(Player.a, Player.b, 6),
+          _ptS(Player.b, Player.b, 7),
+        ],
+        finalState: _state(pointsA: 4, pointsB: 4),
+      );
+      final insights = MatchInsights(summary);
+
+      expect(insights.comparisons.every((c) => c.leader == null), isTrue);
+      expect(insights.decisiveDimension, isNull);
+      expect(insights.report(), isNot(contains('Match difference')));
+    });
+
+    test('no shared dimension yields an empty comparison list', () {
+      // Only A serves, so A has a serve dimension and B has a return dimension —
+      // no dimension is shared by both players.
+      final summary = MatchSummary(
+        points: [
+          _ptS(Player.a, Player.a, 0),
+          _ptS(Player.a, Player.a, 1),
+          _ptS(Player.b, Player.a, 2),
+          _ptS(Player.a, Player.a, 3),
+        ],
+        finalState: _state(pointsA: 3, pointsB: 1),
+      );
+      final insights = MatchInsights(summary);
+
+      expect(
+        insights.insightsFor(Player.a).dimensions.map((d) => d.name),
+        ['Serve effectiveness'],
+      );
+      expect(
+        insights.insightsFor(Player.b).dimensions.map((d) => d.name),
+        ['Return of serve'],
+      );
+      expect(insights.comparisons, isEmpty);
+      expect(insights.decisiveDimension, isNull);
+    });
+
     test('report includes each player grade alongside the focus line', () {
       final summary = MatchSummary(
         points: [

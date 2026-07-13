@@ -950,6 +950,15 @@ class _MatchOverPanel extends StatelessWidget {
                 'Coaching',
                 style: theme.textTheme.labelLarge?.copyWith(color: Colors.white),
               ),
+              if (MatchInsights(summary).decisiveDimension case final d?)
+                Text(
+                  'Match difference: ${_name(d.leader!)} won the '
+                  '${d.name.toLowerCase()} battle '
+                  '(${(d.scoreFor(d.leader!) * 100).round()}% vs '
+                  '${(d.scoreFor(d.leader!.other) * 100).round()}%).',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: Colors.white70),
+                ),
               for (final player in Player.values)
                 if (MatchInsights(summary).insightsFor(player) case final pi
                     when pi.focusTip != null)

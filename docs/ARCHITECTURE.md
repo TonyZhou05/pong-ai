@@ -573,6 +573,19 @@ behind a `VisionService` interface. This lets us:
      section (flowing into `buildMatchReport`) and a "Coaching" block in the
      Match summary panel surface each player's focus cue. Pure Dart, unit-tested
      from a synthetic `MatchSummary`.
+     Since iteration 98 `MatchInsights` also does a **head-to-head** read across
+     the two players: `comparisons` returns a `DimensionComparison` (scoreA,
+     scoreB, leader, gap) for every dimension *both* players were assessed on,
+     and `decisiveDimension` names the shared dimension with the largest non-tied
+     gap — "who won which battle" rather than each player's stats in isolation.
+     The `report()` "Coaching insights" section leads with a "Match difference:
+     Player X won the <dimension> battle (72% vs 45%)." line (flowing into
+     `buildMatchReport`), and both the demo and live-camera Coaching panels show
+     it. Note serve-effectiveness and return-of-serve gaps are algebraically
+     equal in a two-player match (each side's return win-rate is `1 −` the
+     opponent's serve win-rate), so with only those two dimensions the decisive
+     one is always serve effectiveness (the earlier); the game-point dimensions
+     can break that.
    - **[done — iteration 37]** Match-tension analytics
      (`core/analysis/match_summary.dart`). Iteration 23's `MomentumChartView`
      *plotted* the running point differential (A−B after each rally) but no

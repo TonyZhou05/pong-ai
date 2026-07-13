@@ -650,6 +650,14 @@ class _SummaryPanel extends StatelessWidget {
           if (MatchInsights(summary).hasData) ...[
             const SizedBox(height: 8),
             Text('Coaching', style: theme.textTheme.labelLarge),
+            if (MatchInsights(summary).decisiveDimension case final d?)
+              Text(
+                'Match difference: ${_name(d.leader!)} won the '
+                '${d.name.toLowerCase()} battle '
+                '(${(d.scoreFor(d.leader!) * 100).round()}% vs '
+                '${(d.scoreFor(d.leader!.other) * 100).round()}%).',
+                style: theme.textTheme.bodyMedium,
+              ),
             for (final player in Player.values)
               if (MatchInsights(summary).insightsFor(player) case final pi
                   when pi.focusTip != null)

@@ -114,6 +114,33 @@ class PlayerInsights {
   }
 }
 
+/// A head-to-head comparison of one coachable dimension both players were
+/// assessed on — who was better in this match, and by how much.
+class DimensionComparison {
+  const DimensionComparison({
+    required this.name,
+    required this.scoreA,
+    required this.scoreB,
+    required this.leader,
+    required this.gap,
+  });
+
+  /// The shared dimension label, e.g. `Serve effectiveness`.
+  final String name;
+
+  /// Player A's and Player B's score on this dimension, each in `[0, 1]`.
+  final double scoreA;
+  final double scoreB;
+
+  /// The player who was stronger on this dimension, or null if it was a tie.
+  final Player? leader;
+
+  /// The absolute score difference between the two players (`>= 0`).
+  final double gap;
+
+  double scoreFor(Player p) => p == Player.a ? scoreA : scoreB;
+}
+
 /// Turns a match's per-player aggregate metrics into prioritized coaching cues.
 class MatchInsights {
   MatchInsights(this.summary);
@@ -127,6 +154,51 @@ class MatchInsights {
   /// The coaching read for [p], computed from the summary's per-player metrics.
   PlayerInsights insightsFor(Player p) =>
       PlayerInsights(p, _score(summary, p));
+
+  /// A tie is any per-dimension gap smaller than this — smaller differences are
+  /// noise, not a meaningful edge either way.
+  static const double _tieEpsilon = 1e-9;
+
+  /// The head-to-head comparison across every dimension *both* players were
+  /// assessed on, in the fixed dimension order. Each entry names who was
+  /// stronger and by how much. Empty when the players share no dimension (e.g.
+  /// only one side served).
+  List<DimensionComparison> get comparisons {
+    final a = {for (final d in insightsFor(Player.a).dimensions) d.name: d.score};
+    final b = {for (final d in insightsFor(Player.b).dimensions) d.name: d.score};
+    final result = <DimensionComparison>[];
+    // Preserve the fixed order that _score emits dimensions in.
+    for (final name in a.keys) {
+      if (!b.containsKey(name)) continue;
+      final sa = a[name]!;
+      final sb = b[name]!;
+      final gap = (sa - sb).abs();
+      result.add(
+        DimensionComparison(
+          name: name,
+          scoreA: sa,
+          scoreB: sb,
+          leader: gap < _tieEpsilon
+              ? null
+              : (sa > sb ? Player.a : Player.b),
+          gap: gap,
+        ),
+      );
+    }
+    return result;
+  }
+
+  /// The single dimension that most separated the two players — the shared
+  /// comparison with the largest non-tied gap (ties resolve to the earlier
+  /// dimension). Null when nothing was shared or every shared dimension tied.
+  DimensionComparison? get decisiveDimension {
+    DimensionComparison? best;
+    for (final c in comparisons) {
+      if (c.leader == null) continue;
+      if (best == null || c.gap > best.gap) best = c;
+    }
+    return best;
+  }
 
   static List<InsightDimension> _score(MatchSummary summary, Player p) {
     final dims = <InsightDimension>[];
@@ -194,6 +266,17 @@ class MatchInsights {
     if (!hasData) {
       lines.add('  • not enough data yet');
       return lines.join('\n');
+    }
+    // Lead with the single dimension that most separated the two players, so the
+    // report opens with the decisive difference before the per-player breakdown.
+    final decisive = decisiveDimension;
+    if (decisive != null) {
+      final winner = decisive.leader == Player.a ? 'Player A' : 'Player B';
+      lines.add(
+        'Match difference: $winner won the ${decisive.name.toLowerCase()} '
+        'battle (${(decisive.scoreA * 100).round()}% vs '
+        '${(decisive.scoreB * 100).round()}%).',
+      );
     }
     for (final p in Player.values) {
       final insights = insightsFor(p);
