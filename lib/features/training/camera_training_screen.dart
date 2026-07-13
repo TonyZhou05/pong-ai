@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 import '../../core/analysis/ball_tracker.dart';
+import '../../core/analysis/table_calibrator.dart';
 import '../../core/analysis/tracking_quality.dart';
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
@@ -43,6 +44,7 @@ class CameraTrainingScreen extends StatefulWidget {
     this.config = const TrainingConfig(),
     this.model = defaultVisionModel,
     this.historyStoreLoader = defaultSessionHistoryStore,
+    this.autoCalibrate = true,
   });
 
   /// The camera-backed frame source. Defaults to one whose adapter decodes
@@ -66,6 +68,13 @@ class CameraTrainingScreen extends StatefulWidget {
   /// Resolves the store the "Save to history" action writes to. Defaults to the
   /// on-device documents-directory store; tests inject an in-memory fake.
   final Future<SessionHistoryStore> Function() historyStoreLoader;
+
+  /// Whether to auto-calibrate the table geometry from a warm-up of live frames
+  /// before grading (the match-path parity — with the phone on the side the
+  /// table fills only a band of the frame, so grading against the whole frame
+  /// mis-places the net and mis-scales depth). Defaults to `true`; widget tests
+  /// that feed a scripted stroke set it `false` so grading starts immediately.
+  final bool autoCalibrate;
 
   @override
   State<CameraTrainingScreen> createState() => _CameraTrainingScreenState();
@@ -112,9 +121,19 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
     super.initState();
     _vision = widget.visionService ?? widget.model.createVisionService();
     _config = widget.config;
-    _analyzer = ShotAnalyzer(config: _config);
+    _analyzer = _buildAnalyzer();
     _startVision();
   }
+
+  /// Builds a fresh [ShotAnalyzer] on the current [_config], wiring an auto
+  /// table-[TableCalibrator] when [CameraTrainingScreen.autoCalibrate] is set so
+  /// depth/lateral/km-h grade against the real table. A new calibrator is made
+  /// each time (they accumulate state) so a pre-shot player-side switch restarts
+  /// the warm-up cleanly.
+  ShotAnalyzer _buildAnalyzer() => ShotAnalyzer(
+        config: _config,
+        calibrator: widget.autoCalibrate ? TableCalibrator() : null,
+      );
 
   Future<void> _startVision() async {
     await _vision.load();
@@ -153,7 +172,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
     if (_analyzer.summary.shotCount > 0 || _config.playerSide == side) return;
     setState(() {
       _config = _config.copyWith(playerSide: side);
-      _analyzer = ShotAnalyzer(config: _config);
+      _analyzer = _buildAnalyzer();
       _recentShots.clear();
       _predictedBall = null;
       _currentSpeedKmh = null;
@@ -246,7 +265,9 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
               frame: _lastFrame,
               predictedBall: _predictedBall,
               currentSpeedKmh: _currentSpeedKmh,
-              config: _config,
+              // Use the analyzer's live config so the net line and target band
+              // follow the auto-calibrated table once warm-up completes.
+              config: _analyzer.config,
             ),
             // A break in play: show a clear "PAUSED" cue over the frozen preview
             // so it's unmistakable the drill isn't grading rather than lost.
@@ -262,6 +283,11 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _LiveSummaryHeader(summary: summary),
+                  // While auto-calibration warms up, tell the player to keep
+                  // rallying so the app can learn where the table/net are before
+                  // it starts grading.
+                  if (!_finished && !_paused && _analyzer.isCalibrating)
+                    const _CalibrationBanner(),
                   if (!_finished && summary.shotCount == 0)
                     _PlayerSidePicker(
                       playerSide: _config.playerSide,
@@ -277,7 +303,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
               child: _finished
                   ? _SessionReport(
                       summary: summary,
-                      config: _config,
+                      config: _analyzer.config,
                       quality: _quality,
                       historyStoreLoader: widget.historyStoreLoader,
                     )
@@ -381,6 +407,39 @@ class _PausedBanner extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shown while the auto-[TableCalibrator] warm-up is still learning the table
+/// geometry from the live ball path, before any stroke is graded. The
+/// training-mode analog of the match screen's calibration hint.
+class _CalibrationBanner extends StatelessWidget {
+  const _CalibrationBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      color: Colors.black45,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              'Calibrating… keep rallying so the app can find the table.',
+              style: theme.textTheme.bodySmall?.copyWith(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
   }

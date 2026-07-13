@@ -67,6 +67,8 @@ void main() {
           home: CameraTrainingScreen(
             visionService: vision,
             // Headless stand-in for the real YOLOView platform view.
+            // Grade the scripted stroke immediately (no calibration warm-up).
+            autoCalibrate: false,
             cameraPreviewBuilder: (_, __) => const ColoredBox(
               color: Colors.black,
               child: SizedBox.expand(),
@@ -109,6 +111,8 @@ void main() {
           home: CameraTrainingScreen(
             visionService: vision,
             historyStoreLoader: () async => store,
+            // Grade the scripted stroke immediately (no calibration warm-up).
+            autoCalibrate: false,
             cameraPreviewBuilder: (_, __) => const ColoredBox(
               color: Colors.black,
               child: SizedBox.expand(),
@@ -149,6 +153,8 @@ void main() {
         MaterialApp(
           home: CameraTrainingScreen(
             visionService: vision,
+            // Grade the scripted stroke immediately (no calibration warm-up).
+            autoCalibrate: false,
             cameraPreviewBuilder: (_, __) => const ColoredBox(
               color: Colors.black,
               child: SizedBox.expand(),
@@ -185,6 +191,8 @@ void main() {
         MaterialApp(
           home: CameraTrainingScreen(
             visionService: vision,
+            // Grade the scripted stroke immediately (no calibration warm-up).
+            autoCalibrate: false,
             cameraPreviewBuilder: (_, __) => const ColoredBox(
               color: Colors.black,
               child: SizedBox.expand(),
@@ -221,6 +229,8 @@ void main() {
         MaterialApp(
           home: CameraTrainingScreen(
             visionService: vision,
+            // Grade the scripted stroke immediately (no calibration warm-up).
+            autoCalibrate: false,
             cameraPreviewBuilder: (_, __) => const ColoredBox(
               color: Colors.black,
               child: SizedBox.expand(),
@@ -267,6 +277,8 @@ void main() {
         MaterialApp(
           home: CameraTrainingScreen(
             visionService: vision,
+            // Grade the scripted stroke immediately (no calibration warm-up).
+            autoCalibrate: false,
             cameraPreviewBuilder: (_, __) => const ColoredBox(
               color: Colors.black,
               child: SizedBox.expand(),
@@ -326,6 +338,57 @@ void main() {
   );
 
   testWidgets(
+    'auto-calibration shows a hint and defers grading until the table is learned',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          // Default autoCalibrate: true — warm up on the live ball path first.
+          home: CameraTrainingScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Before enough ball samples, the calibration hint is shown and nothing
+      // is graded even when a full scripted stroke is fed.
+      expect(find.textContaining('Calibrating…'), findsOneWidget);
+      for (final frame in trainingSessionFrames().take(6)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      expect(find.text('0 shots'), findsOneWidget);
+
+      // A full warm-up drill (spanning the table with varied ball height) lets
+      // the calibrator infer the geometry; the hint then clears.
+      var t = 100000;
+      for (var i = 0; i < 24; i++) {
+        final x = 0.10 + (i % 6) * 0.16; // sweep 0.10 .. 0.90 across the table
+        final y = 0.35 + (i % 4) * 0.06; // vary height so the band isn't a line
+        vision.onFrame(
+          FrameResult(
+            timestampMs: t += 33,
+            ball: Detection(
+              label: 'ball',
+              confidence: 0.9,
+              box: BBox(x - 0.01, y - 0.01, 0.02, 0.02),
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+      expect(find.textContaining('Calibrating…'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'live training overlay flashes a km/h readout on the moving ball',
     (tester) async {
       final vision = YoloVisionService();
@@ -333,6 +396,8 @@ void main() {
         MaterialApp(
           home: CameraTrainingScreen(
             visionService: vision,
+            // Grade the scripted stroke immediately (no calibration warm-up).
+            autoCalibrate: false,
             cameraPreviewBuilder: (_, __) => const ColoredBox(
               color: Colors.black,
               child: SizedBox.expand(),

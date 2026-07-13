@@ -20,6 +20,7 @@ import 'dart:math' as math;
 
 import '../analysis/ball_speed.dart' show kTableLengthMeters;
 import '../analysis/ball_tracker.dart';
+import '../analysis/table_calibrator.dart';
 import '../vision/detection.dart';
 
 /// How good a single stroke was, bucketed from its [Shot.score].
@@ -408,12 +409,44 @@ class TrainingSummary {
 /// spot net-crosses and target-side bounces, and measures the peak horizontal
 /// speed of each outgoing flight for pace scoring.
 class ShotAnalyzer {
-  ShotAnalyzer({TrainingConfig config = const TrainingConfig()})
-      : config = config,
-        _tracker = BallTracker(geometry: config.geometry);
+  ShotAnalyzer({
+    TrainingConfig config = const TrainingConfig(),
+    this.calibrator,
+  })  : _config = config,
+        _tracker = BallTracker(geometry: config.geometry),
+        _calibrated = calibrator == null;
 
-  final TrainingConfig config;
-  final BallTracker _tracker;
+  /// Optional auto-calibrator. When supplied, the analyzer spends a short
+  /// warm-up phase observing frames (grading nothing) until it infers a
+  /// trustworthy [TableGeometry] from where the ball actually travels, then
+  /// rebuilds its tracker and [config] on that geometry so landing depth,
+  /// lateral placement and km/h pace are measured against the *real* table
+  /// rather than the full-frame default. This mirrors the match path's
+  /// [MatchController] calibration warm-up: with the phone on the side of the
+  /// table the surface only fills a band of the frame, so grading against the
+  /// whole frame mis-places the net and mis-scales depth. Null (the default)
+  /// keeps the supplied [TrainingConfig.geometry] and grades from the first
+  /// stroke — preserving the pure-synthetic-frame behaviour every existing test
+  /// relies on.
+  final TableCalibrator? calibrator;
+
+  TrainingConfig _config;
+
+  /// The active drill definition. Its [TrainingConfig.geometry] is the
+  /// full-frame default (or the injected geometry) until an auto-[calibrator]
+  /// infers the real table, after which this reflects the calibrated geometry —
+  /// so a live overlay can draw the net/target band where the table actually is.
+  TrainingConfig get config => _config;
+
+  BallTracker _tracker;
+
+  /// True once scoring is live: either no [calibrator] was supplied, or one was
+  /// and it has produced a trustworthy geometry.
+  bool _calibrated;
+
+  /// Whether the analyzer is still in the calibration warm-up (no strokes are
+  /// graded yet). Always false when no [calibrator] was supplied.
+  bool get isCalibrating => calibrator != null && !_calibrated;
 
   /// The internal ball tracker, exposed so a live overlay can draw the
   /// Kalman-predicted "ghost" ball ([BallTracker.estimateBallAt]) through
@@ -451,6 +484,18 @@ class ShotAnalyzer {
 
   /// Feed one frame; returns the shot completed on it, if any.
   Shot? onFrame(FrameResult frame) {
+    // Warm-up: while an auto-calibrator hasn't yet inferred the table, feed it
+    // observations and grade nothing. Once it produces a geometry, rebuild the
+    // tracker/config on it and let the completing frame fall through to be
+    // graded normally (the same pass-through the match controller uses).
+    final cal = calibrator;
+    if (cal != null && !_calibrated) {
+      cal.observe(frame);
+      final geometry = cal.calibrate();
+      if (geometry == null) return null;
+      _applyCalibration(geometry);
+    }
+
     final events = _tracker.update(frame);
 
     // Track our own peak horizontal speed for the current outgoing flight.
@@ -541,6 +586,20 @@ class ShotAnalyzer {
     final span = geo.bottom - geo.top;
     if (span <= 0) return 0.5;
     return ((y - geo.top) / span).clamp(0.0, 1.0);
+  }
+
+  /// Swap in a tracker built on the calibrated [geometry] (preserving the
+  /// original tracker's tuning) and rebuild [config] on it so depth / lateral /
+  /// km/h are measured against the inferred table, then mark calibration done.
+  void _applyCalibration(TableGeometry geometry) {
+    _config = _config.copyWith(geometry: geometry);
+    _tracker = BallTracker(
+      geometry: geometry,
+      minBounceSpeed: _tracker.minBounceSpeed,
+      maxGapFrames: _tracker.maxGapFrames,
+      maxJump: _tracker.maxJump,
+    );
+    _calibrated = true;
   }
 
   /// Forget the in-flight trajectory and stroke-in-progress state while keeping

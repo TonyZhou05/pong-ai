@@ -270,6 +270,24 @@ behind a `VisionService` interface. This lets us:
        `_peakSpeed`) while keeping every recorded `Shot` — so a ball that was
        mid-flight before the break can't bleed into the next graded stroke. Finish
        and Restart both clear the paused state.
+     - **[done — iteration 106]** Auto table calibration (training). The live
+       match path self-calibrates the table geometry from a warm-up of the ball
+       path (`MatchController` + `TableCalibrator`, iterations 12/13), but the
+       training path graded landing **depth**, **lateral** placement and **km/h**
+       pace against a hardcoded full-frame `TableGeometry` — so with the phone on
+       the side of the table (where the surface fills only a band of the frame)
+       the net was placed at frame-centre and depth mis-scaled. `ShotAnalyzer`
+       now takes an optional `calibrator`: while it hasn't inferred a trustworthy
+       geometry `onFrame` feeds observations and grades nothing (`isCalibrating`
+       is true), then `_applyCalibration` rebuilds the tracker (preserving tuning)
+       and `config` on the inferred `TableGeometry` and grading begins — the exact
+       warm-up-then-rebuild the match controller uses. Passing no `calibrator`
+       (the default, and every pure-synthetic-frame test) keeps the supplied
+       geometry and grades from the first stroke, so the change is behaviour-free
+       off the live path. `CameraTrainingScreen` injects a `TableCalibrator` by
+       default (`autoCalibrate`, off in the scripted widget tests), shows a
+       "Calibrating…" hint during warm-up, and draws the net line / target band /
+       report from `_analyzer.config` so they follow the calibrated table.
      - **[done — iteration 91]** Live game-point / match-point cue.
        `core/scoring/match_situation.dart` (`MatchSituation`) derives, from a
        `MatchState` snapshot alone, whether a side is one point from winning the

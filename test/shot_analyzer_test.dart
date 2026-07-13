@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/core/analysis/ball_tracker.dart';
+import 'package:pong_ai/core/analysis/table_calibrator.dart';
 import 'package:pong_ai/core/training/shot_analyzer.dart';
 import 'package:pong_ai/core/vision/detection.dart';
 
@@ -482,5 +483,73 @@ void main() {
     // A fresh stroke after reset is tracked from a clean slate.
     _run(analyzer, _arc([0.30, 0.60, 0.875, 0.95, 0.98], startT: 10000));
     expect(analyzer.shots, hasLength(1));
+  });
+
+  group('ShotAnalyzer — auto table calibration', () {
+    // Warm-up ball positions spanning the whole width the drill will use (so the
+    // inferred surface covers where shots land) with varied y (a degenerate,
+    // constant-y band is rejected by the calibrator).
+    const warmXs = <double>[0.10, 0.30, 0.50, 0.70, 0.90, 0.98];
+    const warmYs = <double>[0.30, 0.40, 0.50, 0.60, 0.50, 0.40];
+    List<FrameResult> warmUp() =>
+        [for (var i = 0; i < warmXs.length; i++) _frame(i * 33, warmXs[i], warmYs[i])];
+
+    test('grades nothing until the table geometry is inferred', () {
+      final analyzer =
+          ShotAnalyzer(calibrator: TableCalibrator(minBallSamples: 6));
+      expect(analyzer.isCalibrating, isTrue);
+      // Still the full-frame default before calibration completes.
+      expect(analyzer.config.geometry.left, 0.0);
+
+      // Below the sample threshold: no geometry, nothing graded.
+      for (var i = 0; i < 5; i++) {
+        expect(analyzer.onFrame(_frame(i * 33, warmXs[i], warmYs[i])), isNull);
+      }
+      expect(analyzer.isCalibrating, isTrue);
+
+      // The sixth frame reaches the threshold and calibration completes.
+      analyzer.onFrame(_frame(5 * 33, warmXs[5], warmYs[5]));
+      expect(analyzer.isCalibrating, isFalse);
+      final geo = analyzer.config.geometry;
+      expect(geo.left, greaterThan(0.0));
+      expect(geo.right, lessThan(1.0));
+      expect(geo.right, greaterThan(geo.left));
+      expect(geo.bottom, greaterThan(geo.top));
+    });
+
+    test('grades a stroke against the inferred geometry', () {
+      final analyzer =
+          ShotAnalyzer(calibrator: TableCalibrator(minBallSamples: 6));
+      _run(analyzer, warmUp());
+      expect(analyzer.isCalibrating, isFalse);
+
+      // Separate the warm-up trajectory, then drive one clean target-side stroke
+      // whose bounce (x=0.875) lands inside the inferred surface.
+      _run(analyzer, _gap(6 * 33));
+      final shots =
+          _run(analyzer, _arc([0.30, 0.60, 0.875, 0.95, 0.98], startT: 5000));
+      expect(shots, hasLength(1));
+    });
+
+    test('a no-calibrator analyzer never calibrates (backward compatible)', () {
+      final analyzer = ShotAnalyzer();
+      expect(analyzer.isCalibrating, isFalse);
+      // Grades from the very first stroke with the full-frame default geometry.
+      final shots = _run(analyzer, _arc([0.30, 0.60, 0.875, 0.95, 0.98]));
+      expect(shots, hasLength(1));
+      expect(analyzer.config.geometry.left, 0.0);
+    });
+
+    test('reset keeps the calibrated geometry (no second warm-up)', () {
+      final analyzer =
+          ShotAnalyzer(calibrator: TableCalibrator(minBallSamples: 6));
+      _run(analyzer, warmUp());
+      final calibratedLeft = analyzer.config.geometry.left;
+      expect(analyzer.isCalibrating, isFalse);
+
+      analyzer.reset();
+      expect(analyzer.isCalibrating, isFalse);
+      expect(analyzer.config.geometry.left, calibratedLeft);
+    });
   });
 }
