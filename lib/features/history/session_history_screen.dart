@@ -309,6 +309,10 @@ class _MatchSummaryCard extends StatelessWidget {
     }
     final rally = trends.longestMatchRallyStrokes;
     if (rally != null) chips.add('longest rally $rally');
+    final avgRally = trends.averageMatchRallyStrokes;
+    if (avgRally != null) {
+      chips.add('avg rally ${avgRally.toStringAsFixed(1)}');
+    }
     final speed = trends.fastestMatchBallSpeedKmh;
     if (speed != null) chips.add('fastest ${speed.toStringAsFixed(1)} km/h');
     return Card(

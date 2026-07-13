@@ -751,6 +751,15 @@ behind a `VisionService` interface. This lets us:
      `bestOnTargetStreak` (personal-best "in a row" across every session that
      tracked it), surfaced as a "Best on-target streak: N in a row" `report()`
      line and a "· streak N" segment on the Training-progress card's Best line.
+   - **[done — iteration 83]** Match career *typical* rally length. `MatchTrendPoint`
+     parsed each match's peak `rallies.longestStrokes` (surfaced as
+     `longestMatchRallyStrokes`) but discarded the emitted `rallies.averageStrokes`.
+     Added `MatchTrendPoint.averageRallyStrokes` parsing plus
+     `SessionTrends.averageMatchRallyStrokes` (unweighted mean of each match's own
+     average rally over the tracked history — the "how long a rally usually runs"
+     complement to the peak longest-rally), surfaced as an "Average rally: N.N
+     strokes" `report()` line and an "avg rally N.N" chip on the history screen's
+     Match-record card.
    - **[done — iteration 82]** Match career play-time total. `MatchTrendPoint`
      had parsed each match's `summary.durationMs` since iteration 56 but no
      `SessionTrends` getter or report line ever referenced it — a

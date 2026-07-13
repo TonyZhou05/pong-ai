@@ -112,6 +112,7 @@ class MatchTrendPoint {
     this.durationMs,
     this.maxBallSpeedKmh,
     this.longestRallyStrokes,
+    this.averageRallyStrokes,
     this.winner,
   });
 
@@ -129,6 +130,11 @@ class MatchTrendPoint {
 
   /// Longest rally in strokes, null if no rally data was recorded.
   final int? longestRallyStrokes;
+
+  /// Mean rally length (strokes) in the match, null if no rally data was
+  /// recorded — the per-match *typical* rally, complementing the peak
+  /// [longestRallyStrokes].
+  final double? averageRallyStrokes;
 
   /// The match winner key (`A` / `B`), null if the match did not finish.
   final String? winner;
@@ -151,6 +157,8 @@ class MatchTrendPoint {
           ballSpeed is Map ? _asDouble(ballSpeed['maxKmh']) : null,
       longestRallyStrokes:
           rallies is Map ? _asInt(rallies['longestStrokes']) : null,
+      averageRallyStrokes:
+          rallies is Map ? _asDouble(rallies['averageStrokes']) : null,
       winner: winner is String ? winner : null,
     );
   }
@@ -437,6 +445,22 @@ class SessionTrends {
     return best;
   }
 
+  /// Typical rally length (strokes) across saved matches — the unweighted mean
+  /// of each match's own average rally, so it reads as "how long a rally usually
+  /// runs" over the tracked history, complementing the peak
+  /// [longestMatchRallyStrokes]. Null if no match recorded rally data.
+  double? get averageMatchRallyStrokes {
+    var total = 0.0;
+    var n = 0;
+    for (final m in matchSessions) {
+      final a = m.averageRallyStrokes;
+      if (a == null) continue;
+      total += a;
+      n++;
+    }
+    return n == 0 ? null : total / n;
+  }
+
   /// How many saved matches finished with a recorded winner (an in-progress or
   /// pre-winner-field match contributes nothing to the head-to-head record).
   int get decidedMatchCount {
@@ -584,6 +608,10 @@ class SessionTrends {
     if (playtime != null) lines.add('Total play time: ${_fmtDuration(playtime)}');
     final rally = longestMatchRallyStrokes;
     if (rally != null) lines.add('Longest rally: $rally strokes');
+    final avgRally = averageMatchRallyStrokes;
+    if (avgRally != null) {
+      lines.add('Average rally: ${avgRally.toStringAsFixed(1)} strokes');
+    }
     final speed = fastestMatchBallSpeedKmh;
     if (speed != null) {
       lines.add('Fastest ball: ${speed.toStringAsFixed(1)} km/h');

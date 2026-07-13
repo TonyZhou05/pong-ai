@@ -42,6 +42,7 @@ StoredSession _match(
   DateTime at, {
   int? totalPoints,
   int? longestStrokes,
+  double? averageStrokes,
   double? maxKmh,
   String? winner,
   int? durationMs,
@@ -57,7 +58,11 @@ StoredSession _match(
             if (totalPoints != null) 'totalPoints': totalPoints,
             if (durationMs != null) 'durationMs': durationMs,
           },
-        if (longestStrokes != null) 'rallies': {'longestStrokes': longestStrokes},
+        if (longestStrokes != null || averageStrokes != null)
+          'rallies': {
+            if (longestStrokes != null) 'longestStrokes': longestStrokes,
+            if (averageStrokes != null) 'averageStrokes': averageStrokes,
+          },
         if (maxKmh != null) 'ballSpeed': {'maxKmh': maxKmh},
       },
     );
@@ -553,6 +558,32 @@ void main() {
       final report = SessionTrends.fromSessions([_match('m', t0)]).report();
       expect(report, contains('No training drills saved yet.'));
       expect(report, contains('Matches: 1 played'));
+    });
+
+    test('averages the per-match typical rally length across matches', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, averageStrokes: 3.0),
+        _match('m2', t1, averageStrokes: 6.0),
+        _match('m3', t2), // no rally data recorded
+      ]);
+      // Unweighted mean of the two matches that recorded a rally average.
+      expect(trends.averageMatchRallyStrokes, closeTo(4.5, 1e-9));
+    });
+
+    test('averageMatchRallyStrokes is null when no match recorded rallies', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, totalPoints: 12),
+        _match('m2', t1, winner: 'A'),
+      ]);
+      expect(trends.averageMatchRallyStrokes, isNull);
+    });
+
+    test('report surfaces the typical rally length', () {
+      final report = SessionTrends.fromSessions([
+        _match('m1', t0, averageStrokes: 4.0),
+        _match('m2', t1, averageStrokes: 5.0),
+      ]).report();
+      expect(report, contains('Average rally: 4.5 strokes'));
     });
   });
 
