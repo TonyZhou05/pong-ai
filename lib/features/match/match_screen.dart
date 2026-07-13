@@ -475,6 +475,13 @@ class _SummaryPanel extends StatelessWidget {
               'strokes, longest ${rallies.longestStrokes}',
               style: theme.textTheme.bodyMedium,
             ),
+          if (rallies.hasWinData)
+            Text(
+              'Long-rally wins: '
+              'A ${rallies.ralliesWonByLength(Player.a, RallyLength.long)} / '
+              'B ${rallies.ralliesWonByLength(Player.b, RallyLength.long)}',
+              style: theme.textTheme.bodyMedium,
+            ),
           if (maxBallSpeedKmh != null)
             Text(
               'Top ball speed: ${maxBallSpeedKmh!.toStringAsFixed(1)} km/h',

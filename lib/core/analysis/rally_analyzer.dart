@@ -44,6 +44,25 @@ class Rally {
       'Rally($strokeCount strokes, ${durationMs}ms, ${winner ?? 'undetermined'})';
 }
 
+/// A rally's length category, used for the win-breakdown analytics.
+enum RallyLength {
+  /// Decided in at most 2 strokes (serve / first-strike points).
+  short,
+
+  /// 3–5 strokes.
+  medium,
+
+  /// 6 or more strokes (long, grinding exchanges).
+  long,
+}
+
+/// Which length bucket a rally's stroke count falls into.
+RallyLength rallyLengthOf(int strokeCount) {
+  if (strokeCount <= 2) return RallyLength.short;
+  if (strokeCount <= 5) return RallyLength.medium;
+  return RallyLength.long;
+}
+
 /// Aggregated rally-length feedback over a match's [Rally]s.
 class RallyStats {
   const RallyStats(this.rallies);
@@ -76,6 +95,26 @@ class RallyStats {
   /// Rallies of 6 or more strokes (long, grinding exchanges).
   int get longRallies => rallies.where((r) => r.strokeCount >= 6).length;
 
+  /// Rallies with a decided winner ([Rally.winner] non-null). A rally the
+  /// referee left undetermined ([PointReason.outOfPlay]) is excluded from the
+  /// win-breakdown denominators.
+  int get decidedRallies => rallies.where((r) => r.winner != null).length;
+
+  /// Rallies [p] won (across all lengths). Mines [Rally.winner], which the
+  /// aggregate previously never consumed.
+  int ralliesWonBy(Player p) => rallies.where((r) => r.winner == p).length;
+
+  /// Rallies of [length] that [p] won — the "who thrives in short first-strike
+  /// vs long grinding exchanges" breakdown. Long-rally dominance in particular
+  /// is a headline endurance/consistency signal.
+  int ralliesWonByLength(Player p, RallyLength length) => rallies
+      .where((r) => r.winner == p && rallyLengthOf(r.strokeCount) == length)
+      .length;
+
+  /// Whether any rally carried a decided winner, i.e. the win breakdown is
+  /// meaningful for this match.
+  bool get hasWinData => rallies.any((r) => r.winner != null);
+
   static int _max(int a, int b) => a > b ? a : b;
 
   /// A deterministic, human-readable rally-length report.
@@ -83,7 +122,7 @@ class RallyStats {
     if (rallies.isEmpty) {
       return 'Rally analysis\nNo rallies recorded yet.';
     }
-    return [
+    final lines = [
       'Rally analysis',
       '$rallyCount rallies — avg ${averageStrokes.toStringAsFixed(1)} strokes, '
           'longest $longestStrokes.',
@@ -91,7 +130,16 @@ class RallyStats {
       '  • $shortRallies short (≤2)',
       '  • $mediumRallies medium (3–5)',
       '  • $longRallies long (≥6)',
-    ].join('\n');
+    ];
+    if (hasWinData) {
+      lines
+        ..add('Rally wins — '
+            'A: ${ralliesWonBy(Player.a)}, B: ${ralliesWonBy(Player.b)}.')
+        ..add('  • long (≥6) wins — '
+            'A: ${ralliesWonByLength(Player.a, RallyLength.long)}, '
+            'B: ${ralliesWonByLength(Player.b, RallyLength.long)}');
+    }
+    return lines.join('\n');
   }
 }
 

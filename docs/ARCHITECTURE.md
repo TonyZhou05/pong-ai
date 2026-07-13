@@ -253,6 +253,14 @@ behind a `VisionService` interface. This lets us:
      rally-length breakdown match apps headline. Wired live into
      `MatchController` (`rallyStats`, live-only like the movement analytics — not
      rewound by `undo`) and surfaced in the Match screen's post-match summary.
+     **Iteration 34** mined the previously-unused `Rally.winner` field into a
+     rally-length *win* breakdown: `RallyStats.ralliesWonBy(player)` and
+     `ralliesWonByLength(player, RallyLength)` (with the `rallyLengthOf(strokes)`
+     short/medium/long classifier and a `hasWinData` guard) answer "who thrives
+     in short first-strike vs long grinding exchanges" — long-rally dominance
+     being a headline endurance/consistency signal. `report()` gains a "Rally
+     wins" and "long (≥6) wins" line (flowing into `buildMatchReport`), and the
+     Match screen surfaces the long-rally win split.
    - **[done — iteration 18]** `BouncePlacementAnalyzer`
      (`core/analysis/bounce_placement.dart`): the shot-map / placement layer.
      `BallTracker` already emits a `BounceEvent` (table-relative x/y + side) on

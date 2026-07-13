@@ -129,6 +129,69 @@ void main() {
     });
   });
 
+  group('RallyStats win breakdown', () {
+    Rally rally(int strokes, Player? winner) => Rally(
+          strokeCount: strokes,
+          durationMs: 1000,
+          winner: winner,
+          reason: winner == null
+              ? PointReason.outOfPlay
+              : PointReason.notReturned,
+        );
+
+    test('rallyLengthOf buckets by stroke count', () {
+      expect(rallyLengthOf(0), RallyLength.short);
+      expect(rallyLengthOf(2), RallyLength.short);
+      expect(rallyLengthOf(3), RallyLength.medium);
+      expect(rallyLengthOf(5), RallyLength.medium);
+      expect(rallyLengthOf(6), RallyLength.long);
+      expect(rallyLengthOf(20), RallyLength.long);
+    });
+
+    test('ralliesWonBy tallies each player and excludes undetermined', () {
+      final stats = RallyStats([
+        rally(2, Player.a),
+        rally(4, Player.b),
+        rally(8, Player.a),
+        rally(3, null), // out-of-play, no winner
+      ]);
+      expect(stats.ralliesWonBy(Player.a), 2);
+      expect(stats.ralliesWonBy(Player.b), 1);
+      expect(stats.decidedRallies, 3);
+      expect(stats.hasWinData, isTrue);
+    });
+
+    test('ralliesWonByLength splits wins by rally length', () {
+      final stats = RallyStats([
+        rally(2, Player.a), // short A
+        rally(9, Player.a), // long A
+        rally(7, Player.a), // long A
+        rally(8, Player.b), // long B
+        rally(4, Player.b), // medium B
+      ]);
+      expect(stats.ralliesWonByLength(Player.a, RallyLength.short), 1);
+      expect(stats.ralliesWonByLength(Player.a, RallyLength.long), 2);
+      expect(stats.ralliesWonByLength(Player.b, RallyLength.long), 1);
+      expect(stats.ralliesWonByLength(Player.b, RallyLength.medium), 1);
+    });
+
+    test('hasWinData is false when no rally was decided', () {
+      final stats = RallyStats([rally(3, null), rally(5, null)]);
+      expect(stats.hasWinData, isFalse);
+      expect(stats.report(), isNot(contains('Rally wins')));
+    });
+
+    test('report includes win + long-rally breakdown when decided', () {
+      final report = RallyStats([
+        rally(9, Player.a),
+        rally(8, Player.b),
+        rally(2, Player.a),
+      ]).report();
+      expect(report, contains('Rally wins — A: 2, B: 1.'));
+      expect(report, contains('long (≥6) wins — A: 1, B: 1'));
+    });
+  });
+
   group('reset', () {
     test('forgets all rallies', () {
       final a = RallyAnalyzer();
