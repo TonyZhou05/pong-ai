@@ -8,6 +8,8 @@ import 'package:pong_ai/core/scoring/scoring_engine.dart';
 import 'package:pong_ai/core/vision/synthetic_frames.dart';
 import 'package:pong_ai/core/vision/yolo_vision_service.dart';
 import 'package:pong_ai/features/match/camera_match_screen.dart';
+import 'package:pong_ai/features/summary/momentum_chart.dart';
+import 'package:pong_ai/features/summary/shot_map.dart';
 
 /// An in-memory [SessionHistoryStore] with no real file I/O, so the widget test
 /// can pump/settle normally. The on-disk store is covered by its own unit tests.
@@ -104,6 +106,10 @@ void main() {
       }
 
       expect(find.textContaining('wins the match'), findsOneWidget);
+      // The live match-over panel now surfaces the headline visual analytics
+      // (momentum timeline + shot map), matching the demo MatchScreen panel.
+      expect(find.byType(MomentumChartView), findsOneWidget);
+      expect(find.byType(ShotMapView), findsOneWidget);
       await tester.ensureVisible(find.text('Save to history'));
       await tester.tap(find.text('Save to history'));
       await tester.pumpAndSettle();

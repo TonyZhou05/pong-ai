@@ -556,6 +556,15 @@ behind a `VisionService` interface. This lets us:
      `defaultSessionHistoryStore`; reports composed via `buildMatchReport` /
      `matchReportJsonString` / `buildMatchReportJson`), reaching demo-vs-live
      parity for the match path.
+   - **[done — iteration 59]** Live-camera visual analytics. Iteration 58's
+     `_MatchOverPanel` surfaced only *text* stats — the demo `MatchScreen`'s
+     `_SummaryPanel` also renders the headline "Ball AI"-style visual charts
+     (`MomentumChartView`, `ShotMapView`, `PlayerPositionMapView`) which the live
+     production match path still lacked. The `_MatchOverPanel` now renders the
+     momentum lead-timeline, the bounce-placement shot map, and the player
+     coverage heatmap (each guarded by its own data-present check, derived from
+     `controller.summary.points` / `placementFor` / `positionsFor` +
+     `geometry.netX`), completing visual demo-vs-live parity for the match path.
    - **[done — iteration 48]** Across-session progression / trends. Iterations
      45–47 persisted each session and listed them one-by-one, but nothing mined
      the *collection* — yet both JSON exporters name "diff pace/placement/rhythm

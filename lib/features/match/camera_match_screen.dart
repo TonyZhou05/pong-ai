@@ -16,6 +16,9 @@ import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/vision_model_profile.dart';
 import '../../core/vision/yolo_vision_service.dart';
+import '../summary/momentum_chart.dart';
+import '../summary/player_map.dart';
+import '../summary/shot_map.dart';
 
 /// The **live camera** match screen: runs on-device `ultralytics_yolo`
 /// inference over the phone's camera and drives the real
@@ -449,6 +452,47 @@ class _MatchOverPanel extends StatelessWidget {
                 style:
                     theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
               ),
+            if (summary.totalPoints > 0) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Momentum',
+                style:
+                    theme.textTheme.labelLarge?.copyWith(color: Colors.white),
+              ),
+              const SizedBox(height: 4),
+              MomentumChartView(points: summary.points),
+            ],
+            if (controller.placementFor(TableSide.left).count +
+                    controller.placementFor(TableSide.right).count >
+                0) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Shot map',
+                style:
+                    theme.textTheme.labelLarge?.copyWith(color: Colors.white),
+              ),
+              const SizedBox(height: 4),
+              ShotMapView(
+                left: controller.placementFor(TableSide.left),
+                right: controller.placementFor(TableSide.right),
+              ),
+            ],
+            if (Player.values
+                .any((p) => controller.positionsFor(p).isNotEmpty)) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Player coverage',
+                style:
+                    theme.textTheme.labelLarge?.copyWith(color: Colors.white),
+              ),
+              const SizedBox(height: 4),
+              PlayerPositionMapView(
+                positions: {
+                  for (final p in Player.values) p: controller.positionsFor(p),
+                },
+                netX: controller.geometry.netX,
+              ),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [
