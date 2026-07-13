@@ -364,5 +364,31 @@ void main() {
       expect(mc.movementFor(Player.b).framesTracked, 2);
       expect(mc.movementFor(Player.a).averageX, closeTo((0.245 + 0.25) / 2, 1e-9));
     });
+
+    test('movement attribution flips with a between-games end change', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      // Game 1: A stands on the left (0.20), B on the right (0.80).
+      mc.onFrame(playersFrame(0, 0.20, 0.80));
+      for (final f in _doubleBounceOn(0.75, startT: 100)) {
+        mc.onFrame(f);
+      }
+      for (final f in _doubleBounceOn(0.75, startT: 1100)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.gamesA, 1);
+      expect(mc.referee.leftPlayer, Player.b); // ends switched
+
+      // Game 2: the players changed ends. The same physical positions now map to
+      // the OTHER player — the person on the right (0.80) is A.
+      mc.onFrame(playersFrame(3000, 0.20, 0.80));
+
+      // A was seen once on the left (game 1) and once on the right (game 2), so
+      // its coverage spans the whole table rather than pinning to one half.
+      expect(mc.movementFor(Player.a).averageX, closeTo(0.50, 1e-9));
+      expect(mc.movementFor(Player.b).averageX, closeTo(0.50, 1e-9));
+    });
   });
 }

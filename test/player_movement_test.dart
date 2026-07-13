@@ -194,5 +194,41 @@ void main() {
       expect(s.coverageDepth, closeTo(0.2, 1e-9));
       expect(s.coverageArea, closeTo(0.04, 1e-9));
     });
+
+    test('switchEnds flips which player each half is attributed to', () {
+      final a = PlayerMovementAnalyzer(); // A on left, B on right
+      a.observe(frame(0, [person(0.20, 0.80), person(0.80, 0.80)]));
+      expect(a.leftPlayer, Player.a);
+      expect(a.statsFor(Player.a).averageX, closeTo(0.20, 1e-9));
+
+      // The players change ends: the person now on the left is B.
+      a.switchEnds();
+      expect(a.leftPlayer, Player.b);
+      a.observe(frame(33, [person(0.20, 0.80), person(0.80, 0.80)]));
+
+      // A was seen once on the left (0.20) and once on the right (0.80).
+      expect(a.statsFor(Player.a).framesTracked, 2);
+      expect(a.statsFor(Player.a).averageX, closeTo(0.50, 1e-9));
+      expect(a.statsFor(Player.b).averageX, closeTo(0.50, 1e-9));
+    });
+
+    test('switchEnds breaks distance continuity so the cross-court walk is not '
+        'a teleport jump', () {
+      final a = PlayerMovementAnalyzer();
+      a.observe(frame(0, [person(0.20, 0.80)])); // A on left
+      a.switchEnds(); // A walks to the right end
+      a.observe(frame(33, [person(0.80, 0.80)])); // A now on the right
+      // Without the continuity break this 0.20→0.80 move would log a 0.60 jump.
+      expect(a.statsFor(Player.a).framesTracked, 2);
+      expect(a.statsFor(Player.a).distanceTravelled, closeTo(0.0, 1e-9));
+      expect(a.statsFor(Player.a).coverageWidth, closeTo(0.60, 1e-9));
+    });
+
+    test('an even number of switchEnds restores the original mapping', () {
+      final a = PlayerMovementAnalyzer();
+      a.switchEnds();
+      a.switchEnds();
+      expect(a.leftPlayer, Player.a);
+    });
   });
 }

@@ -294,7 +294,7 @@ class MatchController {
     if (gamesAfter > gamesBefore) {
       // A game just completed. Change ends for the next game (unless the match
       // is over), and clear the mid-game latch for the fresh game.
-      if (!state.isMatchOver) referee.switchEnds();
+      if (!state.isMatchOver) _switchEnds();
       _midGameEndsSwitched = false;
       return;
     }
@@ -303,9 +303,19 @@ class MatchController {
     if (!_midGameEndsSwitched &&
         _isDecidingGame(state) &&
         _reachedDecidingMidpoint(state)) {
-      referee.switchEnds();
+      _switchEnds();
       _midGameEndsSwitched = true;
     }
+  }
+
+  /// Flip the side→player mapping on both the referee (so scoring stays correct)
+  /// and the movement analyzer (so footwork/coverage samples stay attributed to
+  /// the right player after the players change ends). Keeping the two in lock
+  /// step means every downstream identity — the score and the per-player
+  /// analytics — agrees on which physical half each player now occupies.
+  void _switchEnds() {
+    referee.switchEnds();
+    _movement.switchEnds();
   }
 
   /// Whether [s] is the last possible ("deciding") game of the match — both
@@ -339,13 +349,13 @@ class MatchController {
       if (gamesBefore > gamesAfter && !wasMatchOver) {
         // Undo crossed a game boundary back down (a match-winning point never
         // triggered a forward end change): reverse the between-games switch.
-        referee.switchEnds();
+        _switchEnds();
       } else if (_midGameEndsSwitched &&
           _isDecidingGame(state) &&
           !_reachedDecidingMidpoint(state)) {
         // Undo dropped the deciding game back below the mid-game threshold:
         // reverse the mid-game switch.
-        referee.switchEnds();
+        _switchEnds();
         _midGameEndsSwitched = false;
       }
     }

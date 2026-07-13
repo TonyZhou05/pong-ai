@@ -287,9 +287,15 @@ behind a `VisionService` interface. This lets us:
      once-per-decider mid-game `switchEnds()` (latched, reversed symmetrically on
      `undo`) when an awarded point puts a player at/over `pointsPerGame ~/ 2` in
      the 1–1-games (best-of-N) deciding game — gated behind the same
-     `switchEndsBetweenGames` flag so scripted clips stay unchanged. Movement
-     analytics still using the game-1 `leftPlayer` across end changes remains a
-     follow-up.
+     `switchEndsBetweenGames` flag so scripted clips stay unchanged.
+   - **[done — iteration 63]** Movement analytics follow the end change too.
+     `PlayerMovementAnalyzer.switchEnds()` flips its side→player mapping (and
+     breaks distance continuity so the one-off cross-court walk isn't logged as a
+     teleport jump), and `MatchController._switchEnds()` calls it in lock step
+     with `RallyReferee.switchEnds()` on every between-games and mid-decider end
+     change (and their `undo` reversals). Footwork/coverage samples now stay
+     attributed to the correct player after the players change ends, closing the
+     iteration-61/62 follow-up.
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
    clips, ready for SPIN/OpenTTGames conversion.

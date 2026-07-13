@@ -141,9 +141,30 @@ class PlayerMovementAnalyzer {
   /// Table geometry, whose [TableGeometry.netX] splits the two players' sides.
   final TableGeometry geometry;
 
-  /// Which player occupies the left half of the table (net-split). Mirrors
-  /// [RallyReferee]'s mapping so movement stats and scoring agree on identities.
-  final Player _leftPlayer;
+  /// Which player currently occupies the left half of the table (net-split).
+  /// Mirrors [RallyReferee]'s live mapping so movement stats and scoring agree
+  /// on identities; flipped by [switchEnds] when the players change ends.
+  Player _leftPlayer;
+
+  /// The player currently on the left half of the table. The other player is on
+  /// the right. Reflects any [switchEnds] end changes.
+  Player get leftPlayer => _leftPlayer;
+
+  /// Swap which scoring [Player] each physical half of the table belongs to,
+  /// mirroring [RallyReferee.switchEnds]. In table tennis the players change
+  /// ends between games (and mid deciding game) while the phone — and thus the
+  /// camera's left/right — stays put, so afterwards the person now on the left
+  /// is the *other* [Player]. Future frames are attributed under the new
+  /// mapping while already-accumulated per-player stats are kept intact.
+  ///
+  /// Distance continuity is broken for both players so the one-off cross-court
+  /// walk to the opposite end isn't logged as a single giant footwork jump.
+  void switchEnds() {
+    _leftPlayer = _leftPlayer.other;
+    for (final a in _acc.values) {
+      a.breakContinuity();
+    }
+  }
 
   final Map<Player, _Accumulator> _acc = {
     Player.a: _Accumulator(),
