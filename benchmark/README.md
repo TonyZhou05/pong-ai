@@ -1,7 +1,7 @@
 # pong-ai benchmark harness
 
 This directory holds the offline evaluation promised in
-[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §2, in two stages:
+[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §2, in three stages:
 
 - **Scoring accuracy** — replays labeled clips through the exact same
   `BallTracker → RallyReferee → ScoringEngine` pipeline the live camera drives
@@ -10,6 +10,12 @@ This directory holds the offline evaluation promised in
   detections to per-frame ground truth: **ball** precision/recall/F1 (loose IoU
   0.3) and **player pose** detection rate + PCK. This is the metric that answers
   the objective's priority — "how well does the model track the players/ball."
+- **Event-detection accuracy** — replays a clip's frames through a real
+  `BallTracker` and matches its emitted `BounceEvent`/`NetCrossEvent`s to
+  ground-truth event timings (per-type precision/recall/F1 + mean timing error,
+  greedy nearest-in-time within a temporal tolerance). Scoring measures the final
+  number and perception measures the raw detections; this isolates whether the
+  bounce/net-cross analysis that *awards* each point fires at the right instant.
 
 It is pure Dart — no camera, no plugin — so it all runs in `flutter test`.
 
@@ -22,9 +28,11 @@ It is pure Dart — no camera, no plugin — so it all runs in `flutter test`.
   `BenchmarkResult` / `BenchmarkSuiteResult`: scoring-accuracy metrics.
 - `lib/core/benchmark/detection_metrics.dart` — `DetectionBenchmark` /
   `BallDetectionMetrics` / `PoseDetectionMetrics`: per-frame perception metrics.
+- `lib/core/benchmark/event_metrics.dart` — `EventDetectionBenchmark` /
+  `EventTypeMetrics` / `GroundTruthEvent`: tracker event-detection metrics.
 - `clips/` — the fixture corpus (start with `synthetic_demo.json`).
-- `test/benchmark_test.dart`, `test/detection_metrics_test.dart` — regression
-  tests over the harness.
+- `test/benchmark_test.dart`, `test/detection_metrics_test.dart`,
+  `test/event_metrics_test.dart` — regression tests over the harness.
 
 ## Fixture format (`clips/*.json`)
 
@@ -99,6 +107,14 @@ small ball box, and emits the labeled positions as `groundTruthFrames`. Pass you
 model's per-frame output as `predictedFrames` to score detection
 precision/recall against that ground truth (or omit it for a perfect-detector
 baseline). It is pure Dart, so it runs in `flutter test`.
+
+OpenTTGames also ships a per-game `events_markup.json` (frame index →
+`bounce`/`net`/`empty`). `openTtGamesBounceEvents(eventsMarkup:, fps:)` converts
+its `bounce` frames into `GroundTruthEvent`s on the same ms clock, which
+`EventDetectionBenchmark.evaluate(...)` scores against the `BounceEvent`s a
+`BallTracker` emits over the clip's frames. (The `net` label — ball *hitting* the
+net — is a different event from the tracker's over-the-net crossing, so it is not
+mapped.)
 
 To convert any other public dataset or a side-angle match video into a fixture
 by hand:

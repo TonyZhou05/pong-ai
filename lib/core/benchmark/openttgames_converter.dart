@@ -26,6 +26,7 @@ library;
 import '../scoring/scoring_engine.dart';
 import '../vision/detection.dart';
 import 'clip_fixture.dart';
+import 'event_metrics.dart';
 
 /// Default normalized side length of the synthesized ball box. OpenTTGames only
 /// labels the ball *centre*, so the benchmark's IoU needs a nominal box; a real
@@ -125,6 +126,46 @@ ClipFixture clipFixtureFromOpenTtGames({
     groundTruthFrames: gtFrames,
     groundTruth: groundTruth,
   );
+}
+
+/// Builds ground-truth **bounce** events from an OpenTTGames
+/// `events_markup.json` map for the [EventDetectionBenchmark].
+///
+/// OpenTTGames ships, per game, an `events_markup.json` mapping a frame-index
+/// string to the event that occurred on that frame:
+///
+/// ```jsonc
+/// { "260": "bounce", "417": "net", "590": "empty", ... }
+/// ```
+///
+/// Only `"bounce"` frames are convertible to a [BallTracker] event: the
+/// tracker's [BounceEvent] is a table bounce, matching the dataset's `bounce`
+/// label. The dataset's `"net"` label is the ball *hitting* the net (a fault),
+/// which is a different physical event from the tracker's `NetCrossEvent` (the
+/// ball passing *over* the net), so it is intentionally not mapped here.
+/// `"empty"` (a non-event marker) is skipped. Frame indices are converted to the
+/// same millisecond clock [openTtGamesGroundTruthFrames] uses ([fps]), so the
+/// two converters' outputs line up for a combined perception + event benchmark.
+List<GroundTruthEvent> openTtGamesBounceEvents({
+  required Map<String, dynamic> eventsMarkup,
+  required double fps,
+}) {
+  assert(fps > 0, 'fps must be positive');
+
+  final events = <GroundTruthEvent>[];
+  for (final entry in eventsMarkup.entries) {
+    final idx = int.tryParse(entry.key);
+    if (idx == null) continue;
+    if (entry.value != 'bounce') continue;
+    events.add(
+      GroundTruthEvent(
+        (idx * 1000 / fps).round(),
+        TrackedEventType.bounce,
+      ),
+    );
+  }
+  events.sort((a, b) => a.timestampMs.compareTo(b.timestampMs));
+  return events;
 }
 
 /// A normalized ball [Detection] centred on ([cx], [cy]) with a [size]-wide box,

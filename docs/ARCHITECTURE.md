@@ -91,7 +91,7 @@ A `benchmark/` harness runs the pipeline over labeled clips and emits these
 numbers so we can compare model swaps objectively. It is implemented (pure Dart,
 runs in `flutter test`): `lib/core/benchmark/` defines the JSON `ClipFixture`
 format and `BenchmarkRunner`; `benchmark/` holds the clip corpus and the format
-docs. Two evaluation stages exist:
+docs. Three evaluation stages exist:
 
 - **Scoring** (`BenchmarkRunner`) — point-total and ordered point accuracy of
   the tracker→referee→scoring pipeline vs. ground truth.
@@ -103,6 +103,15 @@ docs. Two evaluation stages exist:
   does the model track the players/ball," the objective's stated priority. It
   runs the moment an annotated clip carries ground-truth frames — no camera
   needed.
+- **Event detection** (`EventDetectionBenchmark`, iteration 40) — the middle
+  layer the other two brackets skip: does `BallTracker` fire a **bounce** (or
+  net-crossing) at the right *instant*? It replays a clip's frames through a real
+  tracker and matches its emitted `BounceEvent`/`NetCrossEvent`s to a list of
+  ground-truth `GroundTruthEvent`s (greedy nearest-in-time within a temporal
+  tolerance), yielding per-type precision / recall / F1 and the mean timing
+  error. Perception scores whether the model *saw* the ball; scoring scores the
+  *final* number; this isolates whether the analysis layer that turns detections
+  into rally events — the core of every awarded point — is correct.
 
 - **OpenTTGames converter** (`lib/core/benchmark/openttgames_converter.dart`,
   iteration 31) — the concrete conversion path the plan named. OpenTTGames ships
@@ -110,7 +119,12 @@ docs. Two evaluation stages exist:
   `clipFixtureFromOpenTtGames(...)` normalizes it to `[0,1]`, synthesizes a small
   ball box, and emits the labeled positions as a fixture's `groundTruthFrames`,
   so a real dataset folder feeds the perception benchmark with no hand-authored
-  JSON. Model predictions plug in as `predictedFrames`.
+  JSON. Model predictions plug in as `predictedFrames`. OpenTTGames also ships an
+  `events_markup.json` (frame index → `bounce`/`net`/`empty`);
+  `openTtGamesBounceEvents(...)` (iteration 40) converts its `bounce` labels into
+  `GroundTruthEvent`s on the same ms clock, feeding the event-detection
+  benchmark. (`net` = ball *hitting* the net, a different event from the
+  tracker's over-the-net crossing, so it is intentionally not mapped.)
 
 See [`../benchmark/README.md`](../benchmark/README.md).
 
