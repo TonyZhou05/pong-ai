@@ -10,6 +10,7 @@ import '../../core/analysis/tracking_quality.dart';
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
 import '../../core/training/shot_analyzer.dart';
+import '../../core/training/shot_announcer.dart';
 import '../../core/training/training_feedback.dart';
 import '../../core/training/training_report_json.dart';
 import '../../core/vision/detection.dart';
@@ -46,6 +47,7 @@ class CameraTrainingScreen extends StatefulWidget {
     this.historyStoreLoader = defaultSessionHistoryStore,
     this.autoCalibrate = true,
     this.calibrationStallFrames = 150,
+    this.onAnnounce,
   });
 
   /// The camera-backed frame source. Defaults to one whose adapter decodes
@@ -82,6 +84,13 @@ class CameraTrainingScreen extends StatefulWidget {
   /// "reposition the phone" prompt. See [ShotAnalyzer.isCalibrationStalled].
   final int calibrationStallFrames;
 
+  /// Sink for the spoken coach-style call emitted on each graded shot (see
+  /// [ShotAnnouncer]). Defaults to a haptic + system-click cue so a table-side
+  /// phone signals a graded stroke even though the player isn't watching the
+  /// screen; inject a no-op (or a capturing) sink in tests, or a TTS engine in
+  /// production.
+  final void Function(String call)? onAnnounce;
+
   @override
   State<CameraTrainingScreen> createState() => _CameraTrainingScreenState();
 }
@@ -89,6 +98,11 @@ class CameraTrainingScreen extends StatefulWidget {
 class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   late final YoloVisionService _vision;
   late ShotAnalyzer _analyzer;
+  final ShotAnnouncer _announcer = ShotAnnouncer();
+
+  /// The most recent spoken shot call, captioned in the recent-shots feed. Null
+  /// until the first shot is graded.
+  String? _lastCall;
 
   /// The active drill config. Starts from [CameraTrainingScreen.config] and can
   /// have its [TrainingConfig.playerSide] flipped by the pre-session picker
@@ -170,6 +184,26 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
         }
       }
     });
+    // Speak the coach-style call for the completed stroke (outside setState so
+    // the sink runs once per shot); the caption is set inside setState above via
+    // _announce.
+    if (shot != null) _announce(shot);
+  }
+
+  /// Emit the spoken coach call for a freshly graded [shot] through the
+  /// injectable sink and caption it in the recent-shots feed.
+  void _announce(Shot shot) {
+    final call = _announcer.onShot(shot);
+    (widget.onAnnounce ?? _defaultAnnounce)(call);
+    if (mounted) setState(() => _lastCall = call);
+  }
+
+  /// Default spoken-call sink: a tactile + audible cue so a table-side phone
+  /// signals that a stroke was graded even though the player isn't watching the
+  /// screen.
+  void _defaultAnnounce(String call) {
+    HapticFeedback.selectionClick();
+    SystemSound.play(SystemSoundType.click);
   }
 
   /// Switches which half the player is hitting *from* (and thus the target
@@ -180,6 +214,8 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
     setState(() {
       _config = _config.copyWith(playerSide: side);
       _analyzer = _buildAnalyzer();
+      _announcer.reset();
+      _lastCall = null;
       _recentShots.clear();
       _predictedBall = null;
       _currentSpeedKmh = null;
@@ -213,8 +249,10 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   void _restart() {
     _analyzer.reset();
     _quality.reset();
+    _announcer.reset();
     setState(() {
       _recentShots.clear();
+      _lastCall = null;
       _finished = false;
       _paused = false;
       _lastFrame = null;
@@ -317,7 +355,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
                       quality: _quality,
                       historyStoreLoader: widget.historyStoreLoader,
                     )
-                  : _ShotFeed(shots: _recentShots),
+                  : _ShotFeed(shots: _recentShots, announcement: _lastCall),
             ),
           ],
         ),
@@ -643,9 +681,14 @@ class _TargetOverlay extends StatelessWidget {
 
 /// Rolling list of the most recent graded strokes overlaid on the camera.
 class _ShotFeed extends StatelessWidget {
-  const _ShotFeed({required this.shots});
+  const _ShotFeed({required this.shots, this.announcement});
 
   final List<Shot> shots;
+
+  /// The most recent spoken coach call (see [ShotAnnouncer]), captioned above
+  /// the feed so it's readable if the audio was missed. Null before the first
+  /// shot.
+  final String? announcement;
 
   static String _describe(Shot s) {
     final depth = (s.depth * 100).round();
@@ -663,9 +706,28 @@ class _ShotFeed extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Recent shots',
-            style: theme.textTheme.titleSmall?.copyWith(color: Colors.white),
+          Row(
+            children: [
+              Text(
+                'Recent shots',
+                style: theme.textTheme.titleSmall?.copyWith(color: Colors.white),
+              ),
+              if (announcement != null) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.volume_up, size: 16, color: Colors.white70),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    announcement!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 4),
           if (shots.isEmpty)

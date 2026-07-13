@@ -301,6 +301,20 @@ behind a `VisionService` interface. This lets us:
        the phone so the whole table and the ball are in view" prompt (mirroring
        the match scoreboard). `calibrationStallFrames` is injectable so the stall
        prompt is widget-testable headlessly.
+     - **[done — iteration 109]** Spoken shot-grade announcer — the training
+       parity of iteration 108's match score announcer. A lone player drilling
+       against a rebound net stands across the table and can't read the
+       recent-shots feed, so a graded stroke was surfaced only *visually*.
+       `ShotAnnouncer` (`core/training/shot_announcer.dart`) is the pure, testable
+       half: fed each completed `Shot` it returns the coach-style call the stroke
+       warrants — a grade phrase ("Excellent shot!", "Good.", "Fair — a bit off.",
+       "Off target.") plus an encouraging streak call-out once `streakThreshold`
+       (default 3) on-target (`good`+) shots land in a row ("Good. 3 in a row!"),
+       with a below-target shot resetting the streak. It is Flutter- and
+       audio-free; `CameraTrainingScreen` feeds it on each graded shot and routes
+       the call through an injectable `onAnnounce` sink (default: a
+       `HapticFeedback.selectionClick` + `SystemSound` click cue, the drop-in seam
+       for a TTS engine) and captions the latest call in the recent-shots feed.
      - **[done — iteration 91]** Live game-point / match-point cue.
        `core/scoring/match_situation.dart` (`MatchSituation`) derives, from a
        `MatchState` snapshot alone, whether a side is one point from winning the

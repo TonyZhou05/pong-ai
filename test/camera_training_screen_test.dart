@@ -102,6 +102,40 @@ void main() {
   );
 
   testWidgets(
+    'live training speaks + captions a coach call on each graded shot',
+    (tester) async {
+      final vision = YoloVisionService();
+      final calls = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            autoCalibrate: false,
+            onAnnounce: calls.add,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Feed the first scripted stroke (depth 0.75 → excellent).
+      for (final frame in trainingSessionFrames().take(6)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      // The grade call was spoken through the injected sink and captioned.
+      expect(calls, ['Excellent shot!']);
+      expect(find.text('Excellent shot!'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'live training Save to history persists the graded session',
     (tester) async {
       final vision = YoloVisionService();
