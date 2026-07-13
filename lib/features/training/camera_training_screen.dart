@@ -81,6 +81,13 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
 
   StreamSubscription<FrameResult>? _sub;
   FrameResult? _lastFrame;
+
+  /// Kalman-extrapolated ball position for a frame whose detector lost the ball,
+  /// so the overlay keeps drawing a dimmed "ghost" ball through motion-blur
+  /// dropouts instead of blinking out. Null when the ball is visible or the
+  /// trajectory has been dropped. Mirrors the live match overlay.
+  ({double x, double y})? _predictedBall;
+
   bool _finished = false;
   final List<Shot> _recentShots = [];
 
@@ -104,6 +111,9 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
     if (!mounted) return;
     setState(() {
       _lastFrame = frame;
+      _predictedBall = frame.ball == null
+          ? _analyzer.tracker.estimateBallAt(frame.timestampMs)
+          : null;
       if (shot != null) {
         _recentShots.add(shot);
         if (_recentShots.length > 5) {
@@ -125,6 +135,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
       _recentShots.clear();
       _finished = false;
       _lastFrame = null;
+      _predictedBall = null;
     });
     _vision.start();
   }
@@ -165,7 +176,11 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
           fit: StackFit.expand,
           children: [
             _buildCameraPreview(context),
-            _TargetOverlay(frame: _lastFrame, config: widget.config),
+            _TargetOverlay(
+              frame: _lastFrame,
+              predictedBall: _predictedBall,
+              config: widget.config,
+            ),
             Positioned(
               top: 0,
               left: 0,
@@ -248,17 +263,27 @@ class _LiveSummaryHeader extends StatelessWidget {
   }
 }
 
-/// Draws the net line, the target landing band and the tracked ball on top of
-/// the camera preview so the player can see where shots should land.
+/// Draws the net line, the target landing band, the tracked player box(es) and
+/// the tracked ball (or a dimmed Kalman-predicted "ghost" ball when the detector
+/// lost it) on top of the camera preview so the player can see where shots
+/// should land and what the pipeline is following. The live-training counterpart
+/// to the match screen's `_LiveTrackingOverlay`.
 class _TargetOverlay extends StatelessWidget {
-  const _TargetOverlay({required this.frame, required this.config});
+  const _TargetOverlay({
+    required this.frame,
+    required this.predictedBall,
+    required this.config,
+  });
 
   final FrameResult? frame;
+  final ({double x, double y})? predictedBall;
   final TrainingConfig config;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final ball = frame?.ball;
+    final ghost = ball == null ? predictedBall : null;
     // The target band spans [targetDepth ± tolerance] on the far half, mapped
     // back to normalized x. Depth d on the right half is x = netX + d·(1−netX);
     // on the left half it mirrors to x = netX − d·netX.
@@ -295,6 +320,19 @@ class _TargetOverlay extends StatelessWidget {
                 alignment: Alignment(netX * 2 - 1, 0),
                 child: Container(width: 2, color: Colors.white54),
               ),
+              // Tracked player bounding box(es).
+              for (final p in frame?.people ?? const [])
+                Positioned(
+                  left: p.box.left * w,
+                  top: p.box.top * h,
+                  width: p.box.width * w,
+                  height: p.box.height * h,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: theme.colorScheme.tertiary),
+                    ),
+                  ),
+                ),
               if (ball != null)
                 Positioned(
                   left: ball.box.centerX * w - 7,
@@ -306,6 +344,21 @@ class _TargetOverlay extends StatelessWidget {
                       color: const Color(0xFFFFEB3B),
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.black54),
+                    ),
+                  ),
+                )
+              // A dimmed "ghost" ball extrapolated through a detector dropout.
+              else if (ghost != null)
+                Positioned(
+                  left: ghost.x * w - 7,
+                  top: ghost.y * h - 7,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: const Color(0x66FFEB3B),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xAAFFEB3B)),
                     ),
                   ),
                 ),

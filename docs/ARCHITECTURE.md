@@ -242,6 +242,14 @@ behind a `VisionService` interface. This lets us:
        in the same normalized `[0,1]` space the detections use. Wrapped in
        `IgnorePointer` so the undetermined-point prompt and match-over panel below
        it still receive taps — the live "Ball AI" view of what's being followed.
+     - **[done — iteration 71]** Live-training tracking parity. The live
+       `CameraTrainingScreen` overlay had drawn only the raw detected ball (plus
+       target band + net line) — no player box and no ghost ball through
+       dropouts — so it lagged the iteration-69 match overlay. `_TargetOverlay`
+       now also draws each frame's player bounding box(es) and, when the detector
+       loses the ball, the dimmed Kalman-predicted "ghost" ball via a new
+       `ShotAnalyzer.tracker` getter (`tracker.estimateBallAt`), reaching
+       tracking-overlay parity with the match path.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking

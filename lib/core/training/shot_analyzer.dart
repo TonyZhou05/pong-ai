@@ -281,6 +281,11 @@ class ShotAnalyzer {
   final TrainingConfig config;
   final BallTracker _tracker;
 
+  /// The internal ball tracker, exposed so a live overlay can draw the
+  /// Kalman-predicted "ghost" ball ([BallTracker.estimateBallAt]) through
+  /// detector dropouts — the same seam the match controller's tracker exposes.
+  BallTracker get tracker => _tracker;
+
   final List<Shot> _shots = [];
 
   BallSample? _prev;

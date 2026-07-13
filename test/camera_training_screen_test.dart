@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/core/history/session_history_store.dart';
+import 'package:pong_ai/core/vision/detection.dart';
 import 'package:pong_ai/core/vision/synthetic_frames.dart';
 import 'package:pong_ai/core/vision/yolo_vision_service.dart';
 import 'package:pong_ai/features/training/camera_training_screen.dart';
@@ -111,6 +112,72 @@ void main() {
       final session = store.saved.single.report['session'] as Map;
       expect(session['shotCount'], 1);
       expect(find.text('Saved to history'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'live training overlay draws the player box, ball, then a ghost ball',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final overlayFinder = find.byWidgetPredicate(
+        (w) => w.runtimeType.toString() == '_TargetOverlay',
+      );
+      expect(overlayFinder, findsOneWidget);
+
+      // Feed two ball frames (with a player) to establish a trajectory the
+      // Kalman filter can extrapolate from.
+      for (var i = 1; i <= 2; i++) {
+        vision.onFrame(
+          FrameResult(
+            timestampMs: i * 33,
+            ball: Detection(
+              label: 'ball',
+              confidence: 0.9,
+              box: BBox(0.40 + i * 0.05, 0.50, 0.02, 0.02),
+            ),
+            people: const [
+              PersonPose(box: BBox(0.10, 0.30, 0.12, 0.50), keypoints: []),
+            ],
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+      }
+
+      // Target band + player box + real ball marker are DecoratedBoxes (the net
+      // line is a plain ColoredBox), so three inside the overlay.
+      final decorated = find.descendant(
+        of: overlayFinder,
+        matching: find.byType(DecoratedBox),
+      );
+      expect(decorated, findsNWidgets(3));
+
+      // A frame with no ball detection should keep drawing a ghost ball
+      // extrapolated from the trajectory (still three DecoratedBoxes).
+      vision.onFrame(
+        const FrameResult(
+          timestampMs: 99,
+          people: [PersonPose(box: BBox(0.10, 0.30, 0.12, 0.50), keypoints: [])],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(decorated, findsNWidgets(3));
 
       await tester.pumpWidget(const SizedBox());
     },
