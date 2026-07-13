@@ -89,8 +89,19 @@ present):
 
 ## Adding real clips
 
-The objective calls for benchmarking against real footage. To convert a public
-dataset or a side-angle match video into a fixture:
+**OpenTTGames converter (implemented).** OpenTTGames ships a per-game
+`ball_markup.json` mapping a frame index to the ball centre in pixels
+(`{"144": {"x": 921, "y": 507}, ...}`).
+`lib/core/benchmark/openttgames_converter.dart` turns that map directly into a
+fixture — `clipFixtureFromOpenTtGames(name:, ballMarkup:, frameWidth:,
+frameHeight:, fps:, ...)` normalizes every ball centre to `[0,1]`, synthesizes a
+small ball box, and emits the labeled positions as `groundTruthFrames`. Pass your
+model's per-frame output as `predictedFrames` to score detection
+precision/recall against that ground truth (or omit it for a perfect-detector
+baseline). It is pure Dart, so it runs in `flutter test`.
+
+To convert any other public dataset or a side-angle match video into a fixture
+by hand:
 
 1. **Run detection** (the fine-tuned ball detector + pose model, or the dataset's
    own labels) per frame; normalize every box/keypoint to `[0,1]`.

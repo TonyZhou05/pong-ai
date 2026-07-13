@@ -104,6 +104,14 @@ docs. Two evaluation stages exist:
   runs the moment an annotated clip carries ground-truth frames — no camera
   needed.
 
+- **OpenTTGames converter** (`lib/core/benchmark/openttgames_converter.dart`,
+  iteration 31) — the concrete conversion path the plan named. OpenTTGames ships
+  a per-game `ball_markup.json` (frame index → ball centre in pixels);
+  `clipFixtureFromOpenTtGames(...)` normalizes it to `[0,1]`, synthesizes a small
+  ball box, and emits the labeled positions as a fixture's `groundTruthFrames`,
+  so a real dataset folder feeds the perception benchmark with no hand-authored
+  JSON. Model predictions plug in as `predictedFrames`.
+
 See [`../benchmark/README.md`](../benchmark/README.md).
 
 ---
