@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/core/analysis/match_announcer.dart';
+import 'package:pong_ai/core/analysis/match_summary.dart';
+import 'package:pong_ai/core/analysis/rally_referee.dart';
 import 'package:pong_ai/core/scoring/scoring_engine.dart';
 
 MatchState _state({
@@ -198,6 +200,78 @@ void main() {
       // 10 point calls then a game call.
       expect(calls.first, 'Player A, 1–0.');
       expect(calls.last, contains('Game to Player A'));
+    });
+  });
+
+  group('spokenMatchSummary', () {
+    MatchSummary summary({
+      required int points,
+      required Player winner,
+      int gamesA = 3,
+      int gamesB = 1,
+    }) {
+      return MatchSummary(
+        points: List.generate(
+          points,
+          (i) => ScoredPoint(
+            winner: Player.a,
+            reason: PointReason.doubleBounce,
+            timestampMs: i * 1000,
+          ),
+        ),
+        finalState: _state(
+          gamesA: gamesA,
+          gamesB: gamesB,
+          over: true,
+        ),
+      );
+    }
+
+    test('voices the winner, games score, and points played', () {
+      expect(
+        spokenMatchSummary(summary(points: 47, winner: Player.a)),
+        'Match complete. Player A wins 3 games to 1. 47 points played.',
+      );
+    });
+
+    test('names Player B when B holds the games lead', () {
+      expect(
+        spokenMatchSummary(
+          summary(points: 30, winner: Player.b, gamesA: 1, gamesB: 3),
+        ),
+        'Match complete. Player B wins 3 games to 1. 30 points played.',
+      );
+    });
+
+    test('singularises a one-point match', () {
+      expect(
+        spokenMatchSummary(summary(points: 1, winner: Player.a)),
+        contains('1 point played.'),
+      );
+    });
+
+    test('appends the top ball speed when a physical scale is available', () {
+      expect(
+        spokenMatchSummary(
+          summary(points: 20, winner: Player.a),
+          topBallSpeedKmh: 78.4,
+        ),
+        endsWith('Top ball speed 78 kilometres per hour.'),
+      );
+    });
+
+    test('omits the ball speed when no scale is available (0)', () {
+      final call = spokenMatchSummary(summary(points: 20, winner: Player.a));
+      expect(call, isNot(contains('km')));
+      expect(call, isNot(contains('ball speed')));
+    });
+
+    test('returns a bare note when the match is not decided', () {
+      final undecided = MatchSummary(
+        points: const [],
+        finalState: _state(),
+      );
+      expect(spokenMatchSummary(undecided), 'Match complete.');
     });
   });
 }

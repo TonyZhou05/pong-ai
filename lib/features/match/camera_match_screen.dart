@@ -125,6 +125,12 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   /// while the flag stays raised). Cleared once the change is no longer pending.
   bool _changeEndsSpoken = false;
 
+  /// Whether the one-time spoken end-of-match summary has been voiced, so the
+  /// hands-free stats wrap-up (winner, games score, points played, top ball
+  /// speed) is read out exactly once when the match ends rather than on every
+  /// subsequent frame. Re-armed on Play again for the next match.
+  bool _summarySpoken = false;
+
   /// How many undetermined points have already been announced, so a spoken
   /// "point needs review" cue fires exactly once when a *new* rally the referee
   /// couldn't attribute lands in the pending queue — not on every frame while it
@@ -196,6 +202,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     _maybeAnnounce();
     _maybeAnnounceChangeEnds();
     _maybeAnnounceUndetermined();
+    _maybeAnnounceMatchSummary();
   }
 
   /// Speak the one-time "ready to play" cue the moment scoring becomes possible
@@ -224,6 +231,25 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   void _maybeAnnounce() {
     final call = _announcer.onState(_controller.score);
     if (call == null) return;
+    _speak(call);
+    if (mounted) setState(() => _lastCall = call);
+  }
+
+  /// Speak the one-time hands-free stats wrap-up when the match ends — the
+  /// match-mode parity of the training screen's spoken end-of-session summary.
+  /// The winning point's [MatchAnnouncer] call already voiced the bare result;
+  /// this follows it with the headline recap (points played, top ball speed)
+  /// the post-match panel shows visually, so players walking off the table hear
+  /// how the match went without reading the screen. Fires exactly once per match
+  /// (re-armed on Play again).
+  void _maybeAnnounceMatchSummary() {
+    if (_summarySpoken) return;
+    if (!_controller.score.isMatchOver) return;
+    _summarySpoken = true;
+    final call = spokenMatchSummary(
+      _controller.summary,
+      topBallSpeedKmh: _controller.maxBallSpeedKmh,
+    );
     _speak(call);
     if (mounted) setState(() => _lastCall = call);
   }
@@ -295,6 +321,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     // Resolving shrinks the pending queue; re-sync the baseline so the next
     // ambiguous rally re-arms the cue.
     _maybeAnnounceUndetermined();
+    _maybeAnnounceMatchSummary();
   }
 
   void _undo() {
@@ -310,6 +337,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     if (_controller.score.isMatchOver) _vision.stop();
     _maybeAnnounce();
     _maybeAnnounceChangeEnds();
+    _maybeAnnounceMatchSummary();
   }
 
   /// Start a fresh match on the same (already-calibrated) table without leaving
@@ -328,6 +356,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       _startAnnounced = false;
       _changeEndsSpoken = false;
       _undeterminedSpokenCount = 0;
+      _summarySpoken = false;
       _lastCall = null;
     });
     _vision.start();

@@ -33,6 +33,7 @@ library;
 
 import '../scoring/match_situation.dart';
 import '../scoring/scoring_engine.dart';
+import 'match_summary.dart';
 
 /// Turns a stream of [MatchState] snapshots into umpire-style spoken calls.
 ///
@@ -163,4 +164,42 @@ class MatchAnnouncer {
   }
 
   static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
+}
+
+/// A short spoken end-of-match summary, voiced when the match ends so a
+/// table-side phone reads back the result hands-free — the match-mode parity of
+/// training's `spokenSessionSummary`.
+///
+/// The per-point [MatchAnnouncer] closes the "who won that rally?" loop during
+/// play, and the winning point's call already voices the bare result ("Match to
+/// Player A, 3 games to 2."). But the moment the match ends the players are
+/// typically walking off to shake hands or collect balls — across the table
+/// from the phone, unable to read the post-match panel of headline stats. A
+/// concise spoken wrap-up (the winner and games score, how many points were
+/// played, and the top ball speed when a physical scale is available) gives
+/// that final feedback without a trip to the screen, exactly mirroring the
+/// training path's climactic session wrap-up.
+///
+/// Returns a bare "Match complete." when no winner is decided yet. Kept Flutter-
+/// and audio-free like [MatchAnnouncer] so it is unit-testable and the actual
+/// speaking stays behind the UI layer's injectable sink. [topBallSpeedKmh] (the
+/// match's fastest tracked ball, 0 before a table ruler is calibrated) is passed
+/// in because it lives on the controller, not the [MatchSummary].
+String spokenMatchSummary(MatchSummary summary, {double topBallSpeedKmh = 0}) {
+  final winner = summary.matchWinner;
+  if (winner == null) return 'Match complete.';
+  final name = winner == Player.a ? 'Player A' : 'Player B';
+  final hi = summary.finalState.gamesFor(winner);
+  final lo = summary.finalState.gamesFor(winner.other);
+  final pointWord = summary.totalPoints == 1 ? 'point' : 'points';
+  final parts = <String>[
+    'Match complete. $name wins $hi games to $lo.',
+    '${summary.totalPoints} $pointWord played.',
+  ];
+  if (topBallSpeedKmh > 0) {
+    parts.add(
+      'Top ball speed ${topBallSpeedKmh.round()} kilometres per hour.',
+    );
+  }
+  return parts.join(' ');
 }

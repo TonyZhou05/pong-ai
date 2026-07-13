@@ -892,6 +892,45 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets(
+    'a completed match speaks a hands-free stats wrap-up exactly once',
+    (tester) async {
+      final vision = YoloVisionService();
+      final spoken = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // Short best-of-one, 3-point game so the demo rallies end the match.
+            matchControllerBuilder: () =>
+                MatchController(engine: ScoringEngine(pointsPerGame: 3, bestOf: 1)),
+            onAnnounce: spoken.add,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      for (final frame in demoMatchFrames()) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      expect(find.textContaining('wins the match'), findsOneWidget);
+
+      // The end-of-match wrap-up was spoken through the injected sink, once,
+      // after the bare "Match to …" result call.
+      final wrapUp =
+          spoken.where((c) => c.startsWith('Match complete.')).toList();
+      expect(wrapUp, hasLength(1));
+      expect(wrapUp.single, contains('points played.'));
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }
 
 /// A rally that ends in an in-flight ball loss the referee can't attribute: the

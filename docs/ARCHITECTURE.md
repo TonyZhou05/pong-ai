@@ -492,6 +492,21 @@ behind a `VisionService` interface. This lets us:
          call is actually spoken, so injected-sink tests never touch the channel),
          stopped on dispose. The mute toggle (iterations 114/115) still silences
          it, since it gates the whole default sink.
+       - **[done — iteration 120]** Spoken end-of-match summary. The winning
+         point's `MatchAnnouncer` call voices only the *bare* result ("Match to
+         Player A, 3 games to 2."), but the moment the match ends the players are
+         typically walking off to shake hands or collect balls — across the table
+         from the phone, unable to read the post-match panel of headline stats.
+         `spokenMatchSummary(MatchSummary, {topBallSpeedKmh})`
+         (`core/analysis/match_announcer.dart`, pure and unit-tested) composes a
+         concise hands-free wrap-up — the winner and games score, points played,
+         and the top ball speed when a table ruler is calibrated ("Match
+         complete. Player A wins 3 games to 1. 47 points played. Top ball speed
+         78 kilometres per hour.") — the match-mode parity of the training path's
+         iteration-119 `spokenSessionSummary`. `CameraMatchScreen._maybeAnnounceMatchSummary`
+         speaks it exactly once when the match becomes over (after the result
+         call), through the same mute-gated `_speak` sink, and re-arms on Play
+         again for the next match.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking
