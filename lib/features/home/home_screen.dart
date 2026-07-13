@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../match/match_screen.dart';
+import '../training/training_screen.dart';
 
 /// Landing screen: pick between refereeing a live match and training mode.
 class HomeScreen extends StatelessWidget {
@@ -41,7 +42,11 @@ class HomeScreen extends StatelessWidget {
                 icon: Icons.fitness_center,
                 title: 'Training',
                 subtitle: 'Practise vs. a net and grade your shots.',
-                onTap: () {},
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const TrainingScreen(),
+                  ),
+                ),
               ),
               const Spacer(),
             ],

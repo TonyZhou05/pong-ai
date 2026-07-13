@@ -79,3 +79,62 @@ List<FrameResult> demoMatchFrames() {
   }
   return frames;
 }
+
+/// Appends one scripted **training stroke** to [frames].
+///
+/// The player stands on the left half and drives the ball across the net to the
+/// right (target) half, where it bounces at [bounceX]. This produces exactly the
+/// events the [ShotAnalyzer] segments a stroke from: a left→right
+/// [NetCrossEvent] that arms the outgoing flight, then a right-side
+/// [BounceEvent] at the apex of the arc that completes and grades the shot. The
+/// trailing empty frames drop the ball (a [BallLostEvent]) so the next stroke
+/// starts from a clean trajectory.
+int _appendTrainingStroke(
+  List<FrameResult> frames,
+  int startMs,
+  double bounceX,
+) {
+  var t = startMs;
+  // x crosses the net between the first two frames (0.48 -> 0.52), then jumps to
+  // the target-side landing spot; y traces a down-up arc whose apex (0.65) is
+  // the reported bounce. See BallTracker for the apex-detection convention.
+  const xs = <double>[0.48, 0.52];
+  const ys = <double>[0.45, 0.48, 0.55, 0.65, 0.55, 0.45];
+  for (var i = 0; i < ys.length; i++) {
+    final x = i < xs.length ? xs[i] : bounceX;
+    frames.add(_ballFrame(t, x, ys[i]));
+    t += kSyntheticFrameStepMs;
+  }
+  // Ball lost between strokes so the analyzer's outgoing flight resets.
+  for (var i = 0; i < 8; i++) {
+    frames.add(_emptyFrame(t));
+    t += kSyntheticFrameStepMs;
+  }
+  return t;
+}
+
+/// A scripted training session: six drives landing at varying depths on the
+/// far (right) half, exercising the real [ShotAnalyzer] path to a deterministic
+/// mix of excellent/good/fair shots (pace saturates, so placement depth grades
+/// them — see the iteration-6 notes).
+///
+/// Depth of a landing at x is `2·(x − 0.5)` with the net at 0.5; against the
+/// default [TrainingConfig] (target depth 0.75) these land, in order:
+/// excellent, excellent, good, good, fair, excellent.
+List<FrameResult> trainingSessionFrames() {
+  const bounceXs = <double>[
+    0.875, // depth 0.75 — on target
+    0.850, // depth 0.70
+    0.775, // depth 0.55 — short
+    0.800, // depth 0.60
+    0.710, // depth 0.42 — well short
+    0.900, // depth 0.80 — deep
+  ];
+
+  final frames = <FrameResult>[];
+  var t = 0;
+  for (final x in bounceXs) {
+    t = _appendTrainingStroke(frames, t, x);
+  }
+  return frames;
+}
