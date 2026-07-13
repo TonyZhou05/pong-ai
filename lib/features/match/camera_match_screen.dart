@@ -104,6 +104,13 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   /// The most recent spoken call, shown as a caption under the scoreboard.
   String? _lastCall;
 
+  /// Whether the audible/tactile score cue is muted. The always-on announcer
+  /// (points/game/match/pressure/serve/change-ends) is helpful table-side but a
+  /// player who finds the constant beeping intrusive — or is in a quiet venue —
+  /// needs to silence it. Muting suppresses only the audio sink; the on-screen
+  /// caption still updates so the visual score readout is unaffected.
+  bool _muted = false;
+
   /// Whether the current pending end-change has already been spoken, so a
   /// player is told to swap sides exactly once when the app flips its
   /// side→player mapping (rather than re-announcing on every subsequent frame
@@ -181,8 +188,16 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   void _maybeAnnounce() {
     final call = _announcer.onState(_controller.score);
     if (call == null) return;
-    (widget.onAnnounce ?? _defaultAnnounce)(call);
+    _speak(call);
     if (mounted) setState(() => _lastCall = call);
+  }
+
+  /// Route a call to the audio/haptic sink unless muted. Kept separate from the
+  /// caption update so muting silences the sound without hiding the on-screen
+  /// readout — a table-side player can still glance at the caption.
+  void _speak(String call) {
+    if (_muted) return;
+    (widget.onAnnounce ?? _defaultAnnounce)(call);
   }
 
   /// Speak the "change ends" cue once when the app flips its side→player
@@ -200,7 +215,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     if (_changeEndsSpoken) return;
     _changeEndsSpoken = true;
     const call = 'Change ends.';
-    (widget.onAnnounce ?? _defaultAnnounce)(call);
+    _speak(call);
     if (mounted) setState(() => _lastCall = call);
   }
 
@@ -302,6 +317,14 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       appBar: AppBar(
         title: const Text('Live Match'),
         actions: [
+          // Mute the spoken score cues for a quiet venue (or a player who finds
+          // the constant announcements intrusive) without losing the on-screen
+          // caption.
+          IconButton(
+            icon: Icon(_muted ? Icons.volume_off : Icons.volume_up),
+            tooltip: _muted ? 'Unmute score calls' : 'Mute score calls',
+            onPressed: () => setState(() => _muted = !_muted),
+          ),
           // Pause auto-scoring for a break in play so the always-on camera can't
           // manufacture phantom points while nobody's actually rallying.
           if (!state.isMatchOver)

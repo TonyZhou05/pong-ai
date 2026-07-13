@@ -747,4 +747,46 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets(
+    'muting silences the audio cue but still captions the score',
+    (tester) async {
+      final vision = YoloVisionService();
+      final spoken = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // No calibrator so the first scripted rally scores immediately.
+            matchControllerBuilder: MatchController.new,
+            onAnnounce: spoken.add,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Mute the score calls via the AppBar control.
+      expect(find.byTooltip('Mute score calls'), findsOneWidget);
+      await tester.tap(find.byTooltip('Mute score calls'));
+      await tester.pump();
+      expect(find.byTooltip('Unmute score calls'), findsOneWidget);
+
+      // The first scripted rally awards Player A a point.
+      for (final frame in demoMatchFrames().take(13)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      // No audio cue fired through the sink while muted…
+      expect(spoken, isEmpty);
+      // …but the on-screen caption still updated so the score is visible.
+      expect(find.text('Player A, 1–0.'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

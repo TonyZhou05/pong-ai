@@ -410,6 +410,15 @@ behind a `VisionService` interface. This lets us:
          rather than duplicated in `MatchAnnouncer`, so it stays in lock-step with
          the visual banner and covers both the between-games and mid-decider
          end-change paths.
+       - **[done — iteration 114]** Mute toggle. Every announcer cue (points,
+         game/match, pressure, serve, change-ends) defaults to a haptic + system
+         click, but there was no way to silence it — intrusive in a quiet venue or
+         for a player who finds the constant beeping distracting.
+         `CameraMatchScreen` gains an AppBar volume toggle (`volume_up` /
+         `volume_off`) that flips a `_muted` flag; a new `_speak` helper gates the
+         `onAnnounce` sink on it, so muting suppresses only the audio/haptic cue —
+         the under-scoreboard caption still updates so the visual readout is
+         unaffected.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking
