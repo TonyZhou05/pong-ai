@@ -134,6 +134,11 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   /// during the break aren't graded as shots. Mirrors the live match pause.
   bool _paused = false;
 
+  /// True while the spoken/haptic shot-grade cues are silenced. The graded
+  /// shot is still captioned in the recent-shots feed — muting only stops the
+  /// sound/vibration, not the visual readout. Mirrors the live match mute.
+  bool _muted = false;
+
   final List<Shot> _recentShots = [];
 
   @override
@@ -194,8 +199,16 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   /// injectable sink and caption it in the recent-shots feed.
   void _announce(Shot shot) {
     final call = _announcer.onShot(shot);
-    (widget.onAnnounce ?? _defaultAnnounce)(call);
+    _speak(call);
     if (mounted) setState(() => _lastCall = call);
+  }
+
+  /// Route a coach call to the audio/haptic sink unless muted. Kept separate
+  /// from the caption update so muting silences the sound without hiding the
+  /// on-screen readout — a drilling player can still glance at the feed.
+  void _speak(String call) {
+    if (_muted) return;
+    (widget.onAnnounce ?? _defaultAnnounce)(call);
   }
 
   /// Default spoken-call sink: a tactile + audible cue so a table-side phone
@@ -294,6 +307,13 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
               tooltip: _paused ? 'Resume drill' : 'Pause drill',
               onPressed: _togglePause,
             ),
+          // Mute the spoken shot-grade cues for a quiet venue (or a player who
+          // finds them distracting); the recent-shots caption keeps updating.
+          IconButton(
+            icon: Icon(_muted ? Icons.volume_off : Icons.volume_up),
+            tooltip: _muted ? 'Unmute shot calls' : 'Mute shot calls',
+            onPressed: () => setState(() => _muted = !_muted),
+          ),
           IconButton(
             icon: Icon(_finished ? Icons.play_arrow : Icons.stop),
             tooltip: _finished ? 'Restart drill' : 'Finish session',

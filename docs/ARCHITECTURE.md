@@ -324,6 +324,14 @@ behind a `VisionService` interface. This lets us:
          speed-bearing shot silently sets the baseline (so it isn't trivially a
          milestone), and the cue stays silent when `speedKmh == 0` (no table ruler
          yet, before calibration); `reset()` clears the best for a fresh session.
+       - **[done — iteration 115]** Mute toggle — the training-mode parity of the
+         match screen's iteration-114 mute. The shot-grade cues (grade, streak,
+         pace milestone) defaulted to a haptic + system click with no way to
+         silence them. `CameraTrainingScreen` gains an AppBar volume toggle
+         (`volume_up` / `volume_off`) that flips a `_muted` flag; a new `_speak`
+         helper gates the `onAnnounce` sink on it, so muting suppresses only the
+         audio/haptic cue — the recent-shots caption still updates so the visual
+         readout is unaffected.
      - **[done — iteration 91]** Live game-point / match-point cue.
        `core/scoring/match_situation.dart` (`MatchSituation`) derives, from a
        `MatchState` snapshot alone, whether a side is one point from winning the

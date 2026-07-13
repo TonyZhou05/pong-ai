@@ -136,6 +136,46 @@ void main() {
   );
 
   testWidgets(
+    'muting silences the shot cue but still captions it',
+    (tester) async {
+      final vision = YoloVisionService();
+      final calls = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            autoCalibrate: false,
+            onAnnounce: calls.add,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Mute before any shot is graded.
+      await tester.tap(find.byTooltip('Mute shot calls'));
+      await tester.pump();
+
+      // Feed the first scripted stroke (depth 0.75 → excellent).
+      for (final frame in trainingSessionFrames().take(6)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      // Nothing was spoken through the sink, but the caption still updated.
+      expect(calls, isEmpty);
+      expect(find.text('Excellent shot!'), findsOneWidget);
+      // The toggle now offers to unmute.
+      expect(find.byTooltip('Unmute shot calls'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'live training Save to history persists the graded session',
     (tester) async {
       final vision = YoloVisionService();
