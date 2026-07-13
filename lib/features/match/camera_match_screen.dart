@@ -9,6 +9,7 @@ import '../../core/analysis/rally_referee.dart';
 import '../../core/analysis/table_calibrator.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
+import '../../core/vision/vision_model_profile.dart';
 import '../../core/vision/yolo_vision_service.dart';
 
 /// The **live camera** match screen: runs on-device `ultralytics_yolo`
@@ -35,11 +36,11 @@ class CameraMatchScreen extends StatefulWidget {
     this.visionService,
     this.cameraPreviewBuilder,
     this.matchControllerBuilder,
-    this.modelPath = 'yolo11n',
-    this.task = YOLOTask.detect,
+    this.model = defaultVisionModel,
   });
 
-  /// The camera-backed frame source. Defaults to a fresh [YoloVisionService].
+  /// The camera-backed frame source. Defaults to one whose adapter decodes
+  /// [model]'s output (its label set + confidence thresholds).
   final YoloVisionService? visionService;
 
   /// Builds the camera preview widget. Defaults to a real [YOLOView] wired to
@@ -51,17 +52,13 @@ class CameraMatchScreen extends StatefulWidget {
   /// waiting for auto-calibration.
   final MatchController Function()? matchControllerBuilder;
 
-  /// The on-device model to run. Defaults to the COCO `yolo11n` detector, which
-  /// labels both `person` (players) and `sports ball` (the ball) in a single
-  /// pass — the two classes [YoloVisionService]'s adapter maps into a
-  /// [FrameResult]. Swap for a fine-tuned ping-pong-ball model to improve ball
-  /// recall (see docs/ARCHITECTURE.md).
-  final String modelPath;
-
-  /// The inference task. [YOLOTask.detect] yields both player and ball boxes;
-  /// [YOLOTask.pose] adds player keypoints (for footwork analytics) but drops
-  /// the ball, so detection is the default for auto-scoring.
-  final YOLOTask task;
+  /// The on-device model to run. Defaults to the stock COCO detector
+  /// ([cocoDetectProfile]), which labels both `person` (players) and
+  /// `sports ball` (the ball) in a single pass. Swap to [pingPongDetectProfile]
+  /// once a fine-tuned model is bundled to improve ball recall (see
+  /// docs/ARCHITECTURE.md); the profile carries both the model path and the
+  /// matching decode config so the swap is a single coherent choice.
+  final VisionModelProfile model;
 
   @override
   State<CameraMatchScreen> createState() => _CameraMatchScreenState();
@@ -77,7 +74,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   @override
   void initState() {
     super.initState();
-    _vision = widget.visionService ?? YoloVisionService();
+    _vision = widget.visionService ?? widget.model.createVisionService();
     _controller = widget.matchControllerBuilder?.call() ??
         MatchController(
           calibrator: TableCalibrator(),
@@ -121,8 +118,8 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     final builder = widget.cameraPreviewBuilder;
     if (builder != null) return builder(context, _vision);
     return YOLOView(
-      modelPath: widget.modelPath,
-      task: widget.task,
+      modelPath: widget.model.modelPath,
+      task: widget.model.task,
       onStreamingData: _vision.onStreamingData,
     );
   }

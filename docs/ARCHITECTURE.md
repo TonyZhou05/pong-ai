@@ -209,6 +209,25 @@ behind a `VisionService` interface. This lets us:
      Match" card. Remaining: bundle/point at a fine-tuned ping-pong `.tflite` /
      `.mlpackage` for better ball recall (the COCO `sports ball` class is the
      default fallback).
+   - **[done — iteration 43]** `VisionModelProfile`
+     (`core/vision/vision_model_profile.dart`): the model-selection seam that
+     makes that "point at a fine-tuned model" a *single coherent choice*. Picking
+     a model is not just picking a file — the model fixes the inference `task`,
+     the class *labels* it emits (stock COCO calls the ball `sports ball`; a
+     fine-tuned model may call it `ball`), and the confidence bar those
+     detections deserve. Before this those lived in two places: the model path in
+     the camera screen and the label/threshold decode config (`YoloFrameConfig`)
+     in the adapter — and the camera screens built a *default* `YoloVisionService`,
+     so a custom decode config could not even reach the live pipeline. A
+     `VisionModelProfile` bundles `modelPath` + `task` + `frameConfig` and its
+     `createVisionService()` builds a `YoloVisionService` whose adapter decodes
+     *that* model's output. Two profiles ship: `cocoDetectProfile` (the
+     zero-setup `yolo11n` default) and `pingPongDetectProfile` (the drop-in slot
+     for a fine-tuned multi-class person+ball detector at
+     `assets/models/pingpong.tflite`, with a lower ball-confidence bar for higher
+     recall). Both `CameraMatchScreen` and `CameraTrainingScreen` now take a
+     single `model` param (default `defaultVisionModel`), so enabling the
+     fine-tuned model once bundled is a one-line change.
 3. Ball Kalman tracker + rally/point event detection from detections.
    - **[done — iteration 14]** `BallTrajectoryFilter`: a pure-Dart
      constant-velocity Kalman smoother/predictor (two independent 1-D filters,

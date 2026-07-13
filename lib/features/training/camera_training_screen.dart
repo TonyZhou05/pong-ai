@@ -8,6 +8,7 @@ import '../../core/analysis/ball_tracker.dart';
 import '../../core/training/shot_analyzer.dart';
 import '../../core/training/training_report_json.dart';
 import '../../core/vision/detection.dart';
+import '../../core/vision/vision_model_profile.dart';
 import '../../core/vision/yolo_vision_service.dart';
 import 'training_shot_map.dart';
 
@@ -36,11 +37,11 @@ class CameraTrainingScreen extends StatefulWidget {
     this.visionService,
     this.cameraPreviewBuilder,
     this.config = const TrainingConfig(),
-    this.modelPath = 'yolo11n',
-    this.task = YOLOTask.detect,
+    this.model = defaultVisionModel,
   });
 
-  /// The camera-backed frame source. Defaults to a fresh [YoloVisionService].
+  /// The camera-backed frame source. Defaults to one whose adapter decodes
+  /// [model]'s output (its label set + confidence thresholds).
   final YoloVisionService? visionService;
 
   /// Builds the camera preview widget. Defaults to a real [YOLOView] wired to
@@ -50,15 +51,12 @@ class CameraTrainingScreen extends StatefulWidget {
   /// What a "good" shot looks like (target depth, pace reference, player side).
   final TrainingConfig config;
 
-  /// The on-device model to run. Defaults to the COCO `yolo11n` detector, which
-  /// labels `sports ball` — the ball the [ShotAnalyzer] tracks. Swap for a
-  /// fine-tuned ping-pong-ball model to improve recall (see
-  /// docs/ARCHITECTURE.md).
-  final String modelPath;
-
-  /// The inference task. [YOLOTask.detect] yields the ball box the shot
-  /// segmentation needs.
-  final YOLOTask task;
+  /// The on-device model to run. Defaults to the stock COCO detector
+  /// ([cocoDetectProfile]), which labels `sports ball` — the ball the
+  /// [ShotAnalyzer] tracks. Swap to [pingPongDetectProfile] once a fine-tuned
+  /// model is bundled to improve recall (see docs/ARCHITECTURE.md); the profile
+  /// carries both the model path and the matching decode config.
+  final VisionModelProfile model;
 
   @override
   State<CameraTrainingScreen> createState() => _CameraTrainingScreenState();
@@ -76,7 +74,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   @override
   void initState() {
     super.initState();
-    _vision = widget.visionService ?? YoloVisionService();
+    _vision = widget.visionService ?? widget.model.createVisionService();
     _analyzer = ShotAnalyzer(config: widget.config);
     _startVision();
   }
@@ -120,8 +118,8 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
     final builder = widget.cameraPreviewBuilder;
     if (builder != null) return builder(context, _vision);
     return YOLOView(
-      modelPath: widget.modelPath,
-      task: widget.task,
+      modelPath: widget.model.modelPath,
+      task: widget.model.task,
       onStreamingData: _vision.onStreamingData,
     );
   }
