@@ -317,6 +317,70 @@ void main() {
     });
   });
 
+  group('MatchController — calibration progress / stall', () {
+    test('progress rises with ball samples then reaches 1 once calibrated', () {
+      final mc = MatchController(
+        calibrator: TableCalibrator(minBallSamples: 8),
+      );
+      final warm = _warmup();
+      expect(mc.calibrationProgress, 0);
+
+      mc.onFrame(warm[0]);
+      mc.onFrame(warm[1]);
+      expect(mc.calibrationFramesObserved, 2);
+      expect(mc.calibrationProgress, closeTo(2 / 8, 1e-9));
+
+      for (final f in warm) {
+        mc.onFrame(f);
+      }
+      expect(mc.isCalibrating, isFalse);
+      expect(mc.calibrationProgress, 1);
+      // The frame counter freezes once scoring begins.
+      final frozen = mc.calibrationFramesObserved;
+      mc.onFrame(_empty(9999));
+      expect(mc.calibrationFramesObserved, frozen);
+    });
+
+    test('flags a stall when the ball is never seen within the budget', () {
+      final mc = MatchController(
+        calibrator: TableCalibrator(minBallSamples: 20),
+        calibrationStallFrames: 5,
+      );
+      // Ball-less frames: the calibrator never accumulates a sample.
+      for (var i = 0; i < 4; i++) {
+        mc.onFrame(_empty(i * 33));
+      }
+      expect(mc.isCalibrationStalled, isFalse);
+      expect(mc.calibrationProgress, 0);
+
+      mc.onFrame(_empty(4 * 33));
+      expect(mc.calibrationFramesObserved, 5);
+      expect(mc.isCalibrationStalled, isTrue);
+      expect(mc.isCalibrating, isTrue);
+    });
+
+    test('a successful calibration is never reported as stalled', () {
+      final mc = MatchController(
+        calibrator: TableCalibrator(minBallSamples: 8),
+        calibrationStallFrames: 8,
+      );
+      for (final f in _warmup()) {
+        mc.onFrame(f);
+      }
+      expect(mc.isCalibrating, isFalse);
+      expect(mc.isCalibrationStalled, isFalse);
+    });
+
+    test('no calibrator: never calibrating, never stalled, full progress', () {
+      final mc = MatchController();
+      mc.onFrame(_empty(0));
+      expect(mc.isCalibrating, isFalse);
+      expect(mc.isCalibrationStalled, isFalse);
+      expect(mc.calibrationProgress, 1);
+      expect(mc.calibrationFramesObserved, 0);
+    });
+  });
+
   group('MatchController — player movement analytics', () {
     /// A frame with a left-side and right-side player whose box bottom-centre
     /// (their inferred foot) sits at the given x's.

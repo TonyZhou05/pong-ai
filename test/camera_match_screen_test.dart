@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/core/analysis/match_controller.dart';
 import 'package:pong_ai/core/analysis/rally_referee.dart';
+import 'package:pong_ai/core/analysis/table_calibrator.dart';
 import 'package:pong_ai/core/history/session_history_store.dart';
 import 'package:pong_ai/core/scoring/scoring_engine.dart';
 import 'package:pong_ai/core/vision/detection.dart';
@@ -417,6 +418,47 @@ void main() {
 
       expect(controller.score.pointsB, 1);
       expect(controller.points.single.reason, PointReason.manual);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'a stalled calibration prompts the user to reposition the phone',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // A calibrator that never gets ball samples + a tiny stall budget.
+            matchControllerBuilder: () => MatchController(
+              calibrator: TableCalibrator(minBallSamples: 20),
+              calibrationStallFrames: 3,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Warm-up banner shows a progress read-out before the stall budget runs
+      // out (no ball has been seen, so 0%).
+      expect(find.textContaining('Calibrating table'), findsOneWidget);
+      expect(find.textContaining('0%'), findsOneWidget);
+
+      // Feed ball-less frames: calibration can never complete, so once the
+      // stall budget is exceeded the banner becomes an actionable prompt.
+      for (var i = 0; i < 4; i++) {
+        vision.onFrame(FrameResult(timestampMs: i * 33));
+        await tester.pump();
+      }
+
+      expect(find.textContaining('reposition the phone'), findsOneWidget);
+      expect(find.textContaining('Calibrating table'), findsNothing);
 
       await tester.pumpWidget(const SizedBox());
     },

@@ -34,7 +34,9 @@ class MatchController {
     this.calibrator,
     this.switchEndsBetweenGames = false,
     this.movementJitterThreshold = 0,
-  })  : _tracker = tracker ?? BallTracker(),
+    this.calibrationStallFrames = 150,
+  })  : assert(calibrationStallFrames > 0),
+        _tracker = tracker ?? BallTracker(),
         referee = referee ?? RallyReferee(),
         engine = engine ?? ScoringEngine() {
     _movement = PlayerMovementAnalyzer(
@@ -78,7 +80,18 @@ class MatchController {
   /// enables a small value. See [PlayerMovementAnalyzer.minStep].
   final double movementJitterThreshold;
 
+  /// How many warm-up frames may pass before calibration is considered
+  /// **stalled** — a signal the phone is placed so the ball / table are rarely
+  /// in view (auto-calibration needs to see the ball actually travel across the
+  /// table). At ~30fps the default (150) is ~5s. Only meaningful when a
+  /// [calibrator] is supplied. See [isCalibrationStalled].
+  final int calibrationStallFrames;
+
   bool _calibrated = false;
+
+  /// Number of frames fed through [onFrame] while still in the calibration
+  /// warm-up phase. Stops incrementing once calibration completes.
+  int _warmupFrames = 0;
 
   /// Timestamp of the most recent frame fed through [onFrame], used to stamp a
   /// manually-entered point ([awardManualPoint]) at "now" in the same clock.
@@ -97,6 +110,31 @@ class MatchController {
 
   /// The table geometry currently driving rally detection.
   TableGeometry get geometry => _tracker.geometry;
+
+  /// How many warm-up frames have been processed while calibrating. Frozen once
+  /// calibration completes.
+  int get calibrationFramesObserved => _warmupFrames;
+
+  /// Fraction `[0, 1]` of the way to a usable calibration, measured by the ball
+  /// samples collected against the calibrator's requirement — for a progress
+  /// read-out while the app warms up. `1.0` when not calibrating (or no
+  /// calibrator). Note the calibrator can still withhold a geometry at full
+  /// progress if the observed ball motion is degenerate; [isCalibrationStalled]
+  /// covers that case via the frame budget.
+  double get calibrationProgress {
+    final cal = calibrator;
+    if (cal == null || _calibrated) return 1;
+    return (cal.ballSampleCount / cal.minBallSamples).clamp(0.0, 1.0);
+  }
+
+  /// Whether calibration is taking too long — more than [calibrationStallFrames]
+  /// warm-up frames have passed without a trusted geometry. When true the ball
+  /// is rarely being seen (or never travels across the table), which almost
+  /// always means the phone is mis-placed, so the UI should prompt the user to
+  /// reposition it rather than silently wait forever. Always false once scoring
+  /// has begun or when no [calibrator] was supplied.
+  bool get isCalibrationStalled =>
+      isCalibrating && _warmupFrames >= calibrationStallFrames;
 
   /// Decisions the referee could not attribute a winner to
   /// ([PointReason.outOfPlay]); the UI can surface these for the user to
@@ -211,6 +249,7 @@ class MatchController {
     // is trusted. Once it is, rebuild the tracker and score from here onward.
     final cal = calibrator;
     if (cal != null && !_calibrated) {
+      _warmupFrames++;
       cal.observe(frame);
       final geometry = cal.calibrate();
       if (geometry == null) return const [];

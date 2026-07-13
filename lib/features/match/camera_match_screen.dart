@@ -230,6 +230,8 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
               child: _LiveScoreboard(
                 state: state,
                 calibrating: _controller.isCalibrating,
+                calibrationProgress: _controller.calibrationProgress,
+                calibrationStalled: _controller.isCalibrationStalled,
                 // Let the user record who actually serves first while the match
                 // hasn't started, so the serve indicator and serve analytics
                 // aren't stuck assuming Player A.
@@ -300,12 +302,22 @@ class _LiveScoreboard extends StatelessWidget {
   const _LiveScoreboard({
     required this.state,
     required this.calibrating,
+    this.calibrationProgress = 1,
+    this.calibrationStalled = false,
     this.onPickServer,
     this.onPickBestOf,
   });
 
   final MatchState state;
   final bool calibrating;
+
+  /// Fraction `[0, 1]` of the way to a usable calibration, for the warm-up
+  /// progress line. Ignored unless [calibrating].
+  final double calibrationProgress;
+
+  /// Whether calibration has stalled (phone likely mis-placed), so the warm-up
+  /// line becomes an actionable reposition prompt instead of "hold steady".
+  final bool calibrationStalled;
 
   /// Called when the user taps a player to set who serves first. Null once the
   /// match has started (the first server can no longer change).
@@ -325,9 +337,15 @@ class _LiveScoreboard extends StatelessWidget {
         children: [
           if (calibrating)
             Text(
-              'Calibrating table… hold the phone steady',
-              style: theme.textTheme.labelMedium
-                  ?.copyWith(color: Colors.white70),
+              calibrationStalled
+                  ? 'Can’t see the ball — reposition the phone so the whole '
+                      'table and the ball are in view'
+                  : 'Calibrating table… hold the phone steady '
+                      '(${(calibrationProgress * 100).round()}%)',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: calibrationStalled ? Colors.orangeAccent : Colors.white70,
+              ),
             ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,

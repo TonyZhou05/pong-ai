@@ -351,6 +351,19 @@ behind a `VisionService` interface. This lets us:
      `TableGeometry` is inferred, then rebuilds its `BallTracker` on that
      geometry and starts scoring — so the self-calibration is actually in force
      on the live pipeline, not just an isolated component.
+   - **[done — iteration 100]** Calibration progress + stall feedback. Auto-
+     calibration can never complete if the phone is placed so the ball is rarely
+     in view (the calibrator needs to see the ball actually travel across the
+     table), and before this the live screen just showed "Calibrating table…
+     hold the phone steady" forever with no way for the user to know something
+     was wrong. `MatchController` now exposes `calibrationProgress` (ball samples
+     collected / required), `calibrationFramesObserved`, and `isCalibrationStalled`
+     — true once `calibrationStallFrames` (default 150, ~5s at 30fps) warm-up
+     frames pass without a trusted geometry. `CameraMatchScreen`'s warm-up banner
+     shows the progress percentage while calibrating and switches to an
+     actionable "Can't see the ball — reposition the phone so the whole table and
+     the ball are in view" prompt once stalled, directly serving the "just place
+     the phone table-side" deployment story.
 4. Connect events → scoring engine → live scoreboard UI.
    - **[done — iteration 61]** End changes between games. In table tennis the
      players swap ends after every game while the phone stays put, so the
