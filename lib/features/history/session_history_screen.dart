@@ -219,7 +219,8 @@ class _TrendsHeader extends StatelessWidget {
             Text(
               'Best: grade ${trends.bestSession!.overallGrade} · '
               '${trends.trainingCount} drills'
-              '${trends.bestMaxSpeedKmh != null ? ' · fastest ${trends.bestMaxSpeedKmh!.toStringAsFixed(1)} km/h' : ''}',
+              '${trends.bestMaxSpeedKmh != null ? ' · fastest ${trends.bestMaxSpeedKmh!.toStringAsFixed(1)} km/h' : ''}'
+              '${(trends.bestOnTargetStreak ?? 0) >= 2 ? ' · streak ${trends.bestOnTargetStreak}' : ''}',
               style: theme.textTheme.bodyMedium,
             ),
             if (_consistencyLine(trends) case final line?) ...[

@@ -14,6 +14,7 @@ StoredSession _training(
   double? rhythmConsistency,
   String? focus,
   double? onTableRate,
+  int? longestOnTargetStreak,
 }) {
   return StoredSession(
     id: id,
@@ -25,6 +26,8 @@ StoredSession _training(
         'overallGrade': grade,
         'averageScore': averageScore,
         if (onTableRate != null) 'onTableRate': onTableRate,
+        if (longestOnTargetStreak != null)
+          'longestOnTargetStreak': longestOnTargetStreak,
       },
       'placement': {'depthConsistency': depthConsistency},
       'pace': {'maxSpeedKmh': maxSpeedKmh},
@@ -297,6 +300,69 @@ void main() {
         _training('b', t2, averageScore: 0.80, grade: 'A', onTableRate: 0.85),
       ]);
       expect(trends.report(), contains('On-table accuracy: up +30%'));
+    });
+  });
+
+  group('SessionTrends on-target streak', () {
+    test('parses longestOnTargetStreak out of the session block', () {
+      final point = TrainingTrendPoint.fromStored(
+        _training(
+          'a',
+          t0,
+          averageScore: 0.7,
+          grade: 'B',
+          longestOnTargetStreak: 4,
+        ),
+      );
+      expect(point!.longestOnTargetStreak, 4);
+    });
+
+    test('bestOnTargetStreak is the max across tracked sessions', () {
+      final trends = SessionTrends.fromSessions([
+        _training(
+          'a',
+          t0,
+          averageScore: 0.5,
+          grade: 'C',
+          longestOnTargetStreak: 3,
+        ),
+        _training('b', t1, averageScore: 0.6, grade: 'B'),
+        _training(
+          'c',
+          t2,
+          averageScore: 0.7,
+          grade: 'A',
+          longestOnTargetStreak: 5,
+        ),
+      ]);
+      expect(trends.bestOnTargetStreak, 5);
+    });
+
+    test('bestOnTargetStreak is null when no session tracked it', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C'),
+      ]);
+      expect(trends.bestOnTargetStreak, isNull);
+    });
+
+    test('report surfaces a best on-target streak of at least two', () {
+      final trends = SessionTrends.fromSessions([
+        _training(
+          'a',
+          t0,
+          averageScore: 0.5,
+          grade: 'C',
+          longestOnTargetStreak: 2,
+        ),
+        _training(
+          'b',
+          t2,
+          averageScore: 0.8,
+          grade: 'A',
+          longestOnTargetStreak: 6,
+        ),
+      ]);
+      expect(trends.report(), contains('Best on-target streak: 6 in a row'));
     });
   });
 

@@ -742,6 +742,15 @@ behind a `VisionService` interface. This lets us:
      table less) and `bestOnTableRate` (personal-best consistency), surfaced as an
      "On-table accuracy: up N%" `report()` line and an "Accuracy up N%" segment on
      the Training-progress card's trend line.
+   - **[done — iteration 80]** On-target streak progression. Iteration 78 added
+     `TrainingSummary.longestOnTargetStreak` (best run of consecutive good-or-
+     better shots) and persisted it to the training export as
+     `session.longestOnTargetStreak`, but `SessionTrends`/`TrainingTrendPoint`
+     never parsed it — the streak analog of iteration 79's on-table-accuracy gap.
+     Added `longestOnTargetStreak` parsing to `TrainingTrendPoint` plus
+     `bestOnTargetStreak` (personal-best "in a row" across every session that
+     tracked it), surfaced as a "Best on-target streak: N in a row" `report()`
+     line and a "· streak N" segment on the Training-progress card's Best line.
    - **[done — iteration 55]** Recurring coaching focus. Iteration 53 persisted
      each training session's coaching `focus` (its weakest dimension) into the
      structured export, but `SessionTrends` only ever mined numeric metrics —

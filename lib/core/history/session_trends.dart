@@ -31,6 +31,7 @@ class TrainingTrendPoint {
     this.rhythmConsistency,
     this.focusArea,
     this.onTableRate,
+    this.longestOnTargetStreak,
   });
 
   final String id;
@@ -59,6 +60,11 @@ class TrainingTrendPoint {
   /// better*), from the persisted `session.onTableRate` field. Null if the drill
   /// attempted no strokes or the report predates the field.
   final double? onTableRate;
+
+  /// Best run of consecutive on-target (good-or-better) shots in the session,
+  /// from the persisted `session.longestOnTargetStreak` field. Null if the report
+  /// predates the field (iteration 78).
+  final int? longestOnTargetStreak;
 
   /// Parse a stored training session, or null if the report shape is not a
   /// recognizable training export (so a corrupt / foreign record is skipped).
@@ -89,6 +95,7 @@ class TrainingTrendPoint {
           tempo is Map ? _asDouble(tempo['rhythmConsistency']) : null,
       focusArea: focus is String ? focus : null,
       onTableRate: _asDouble(s['onTableRate']),
+      longestOnTargetStreak: _asInt(s['longestOnTargetStreak']),
     );
   }
 }
@@ -302,6 +309,19 @@ class SessionTrends {
     return best;
   }
 
+  /// Longest on-target (good-or-better) streak recorded across every session
+  /// that tracked it — the personal-best "in a row" number, the streak analog of
+  /// [bestOnTableRate]. Null if no session recorded a streak.
+  int? get bestOnTargetStreak {
+    int? best;
+    for (final p in trainingSessions) {
+      final s = p.longestOnTargetStreak;
+      if (s == null) continue;
+      if (best == null || s > best) best = s;
+    }
+    return best;
+  }
+
   /// How many training sessions across the history flagged each coaching focus
   /// area as their weakest dimension, e.g. `{Placement accuracy: 3, Rhythm: 1}`.
   /// Sessions with no recorded focus (no shots / older report) are excluded.
@@ -504,6 +524,11 @@ class SessionTrends {
               ? 'down ${_signedPct(accuracyTrend)}'
               : 'flat');
       lines.add('On-table accuracy: $verb');
+    }
+
+    final bestStreak = bestOnTargetStreak;
+    if (bestStreak != null && bestStreak >= 2) {
+      lines.add('Best on-target streak: $bestStreak in a row');
     }
 
     if (hasRecurringFocus) {
