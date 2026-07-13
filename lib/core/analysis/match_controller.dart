@@ -16,6 +16,7 @@ library;
 
 import '../scoring/scoring_engine.dart';
 import '../vision/detection.dart';
+import 'ball_speed.dart';
 import 'ball_tracker.dart';
 import 'bounce_placement.dart';
 import 'match_summary.dart';
@@ -38,6 +39,7 @@ class MatchController {
       leftPlayer: this.referee.leftPlayer,
     );
     _placement = BouncePlacementAnalyzer(geometry: _tracker.geometry);
+    _ballSpeed = BallSpeedEstimator(geometry: _tracker.geometry);
   }
 
   BallTracker _tracker;
@@ -114,6 +116,21 @@ class MatchController {
   SidePlacementStats placementFor(TableSide side) =>
       _placement.statsFor(side);
 
+  /// Real-world ball-speed analytics estimated from the ball's along-table
+  /// motion against the calibrated geometry. Rebuilt on the calibrated geometry
+  /// so the metres-per-unit ruler matches the inferred table. Live-only like the
+  /// movement/rally/placement analytics — not rewound by [undo].
+  late BallSpeedEstimator _ballSpeed;
+
+  /// The fastest ball speed (km/h) observed so far, or 0 when no data.
+  double get maxBallSpeedKmh => _ballSpeed.maxKmh;
+
+  /// The mean observed ball speed (km/h), or 0 when no data.
+  double get averageBallSpeedKmh => _ballSpeed.averageKmh;
+
+  /// Whether any ball-speed reading has been accumulated.
+  bool get hasBallSpeedData => _ballSpeed.hasData;
+
   void _record(
     Player winner,
     PointReason reason,
@@ -148,10 +165,12 @@ class MatchController {
       _applyCalibration(geometry);
     }
 
-    // Mine this frame's player poses for footwork/positioning analytics. Runs
-    // only once scoring is live (past any calibration warm-up), so the geometry
-    // used to attribute players to sides is the calibrated one.
+    // Mine this frame's player poses for footwork/positioning analytics, and
+    // its ball position for real-world speed. Runs only once scoring is live
+    // (past any calibration warm-up), so the geometry used to attribute players
+    // to sides and to scale ball speed to metres is the calibrated one.
     _movement.observe(frame);
+    _ballSpeed.observe(frame);
 
     final decisions = <PointDecision>[];
     for (final event in _tracker.update(frame)) {
@@ -207,6 +226,9 @@ class MatchController {
     // depth-from-net and lateral coordinates are measured against the inferred
     // table (nothing was scored during warm-up, so no bounces are lost).
     _placement = BouncePlacementAnalyzer(geometry: geometry);
+    // Rebuild the speed estimator on the calibrated table span so its
+    // metres-per-unit ruler reflects the inferred table width in the frame.
+    _ballSpeed = BallSpeedEstimator(geometry: geometry);
     _calibrated = true;
   }
 

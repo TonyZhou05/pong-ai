@@ -328,6 +328,25 @@ behind a `VisionService` interface. This lets us:
      nullable/back-compatible (`hasGameData`), a "Games:" line is added to
      `report()` (so it flows into the exported `buildMatchReport`), and the
      per-game line is surfaced in the Match screen's post-match summary.
+   - **[done — iteration 32]** Real-world ball-speed analytics
+     (`core/analysis/ball_speed.dart`). Every prior analytics layer worked in the
+     vision pipeline's *normalized* `[0,1]` coordinates, which carry no physical
+     meaning — so the headline "Ball AI"-style **km/h** ball speed was un-derived.
+     `BallSpeedEstimator` turns the ball's along-table (frame-x) displacement
+     between consecutive detections into metres-per-second / km/h, using the
+     calibrated `TableGeometry` as the ruler: the phone sits on the *side* of the
+     table so the regulation **2.74 m** length spans the frame horizontally, and
+     one x-unit therefore maps to `2.74 / (right - left)` metres. Only the
+     horizontal component is scaled (a side camera can't recover the foreshortened
+     near/far depth or the ball's height to scale), it skips intervals that bridge
+     a ball-loss gap (`maxGapMs`) or imply a physically-impossible speed
+     (`maxPlausibleKmh`, spurious detector teleports), and it accumulates
+     `maxKmh` / `averageKmh`. Wired live into `MatchController`
+     (`maxBallSpeedKmh` / `averageBallSpeedKmh` / `hasBallSpeedData`, live-only
+     and rebuilt on the calibrated table span like the movement/rally/placement
+     analytics), surfaced as a "Top ball speed" line in the Match screen's
+     post-match summary, and added as a "Ball speed" section to the exported
+     `buildMatchReport`.
    - **[done — iteration 25]** `buildMatchReport`
      (`core/analysis/match_report.dart`): the unified, exportable text report.
      Every prior analytics layer — the `MatchSummary` scoring breakdown,

@@ -141,6 +141,8 @@ class _MatchScreenState extends State<MatchScreen> {
                   for (final s in TableSide.values)
                     s: _controller.placementFor(s),
                 },
+                maxBallSpeedKmh:
+                    _controller.hasBallSpeedData ? _controller.maxBallSpeedKmh : null,
                 reportText: buildMatchReport(_controller),
               )
             else
@@ -395,6 +397,7 @@ class _SummaryPanel extends StatelessWidget {
     required this.positions,
     required this.netX,
     required this.placement,
+    required this.maxBallSpeedKmh,
     required this.reportText,
   });
 
@@ -414,6 +417,9 @@ class _SummaryPanel extends StatelessWidget {
 
   /// Per-side bounce-placement / shot-map analytics from the tracker's bounces.
   final Map<TableSide, SidePlacementStats> placement;
+
+  /// Fastest estimated ball speed (km/h), or null when no speed was measured.
+  final double? maxBallSpeedKmh;
 
   /// The full, shareable text report composed from every analytics layer,
   /// copied to the clipboard by the "Copy report" action.
@@ -467,6 +473,11 @@ class _SummaryPanel extends StatelessWidget {
             Text(
               'Rallies: avg ${rallies.averageStrokes.toStringAsFixed(1)} '
               'strokes, longest ${rallies.longestStrokes}',
+              style: theme.textTheme.bodyMedium,
+            ),
+          if (maxBallSpeedKmh != null)
+            Text(
+              'Top ball speed: ${maxBallSpeedKmh!.toStringAsFixed(1)} km/h',
               style: theme.textTheme.bodyMedium,
             ),
           for (final side in TableSide.values)

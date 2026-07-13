@@ -64,12 +64,27 @@ String _placementSection(TableSide side, SidePlacementStats p) {
   return lines.join('\n');
 }
 
+/// A ball-speed section, or a "not estimated" note when no along-table motion
+/// was measured (e.g. a camera-free clip with no ball detections).
+String _ballSpeedSection(MatchController controller) {
+  final lines = <String>['Ball speed'];
+  if (!controller.hasBallSpeedData) {
+    lines.add('  • not estimated');
+    return lines.join('\n');
+  }
+  lines
+    ..add('  • fastest: ${controller.maxBallSpeedKmh.toStringAsFixed(1)} km/h')
+    ..add('  • average: ${controller.averageBallSpeedKmh.toStringAsFixed(1)} km/h');
+  return lines.join('\n');
+}
+
 /// Compose the full, shareable match report from a [controller]'s live
 /// analytics. Deterministic and Flutter-free.
 String buildMatchReport(MatchController controller) {
   final sections = <String>[
     controller.summary.report(),
     controller.rallyStats.report(),
+    _ballSpeedSection(controller),
   ];
 
   for (final player in Player.values) {

@@ -72,6 +72,10 @@ void main() {
     // A bounce landed on the right half, so its placement section has a count.
     expect(report, contains('Right side placement'));
     expect(report, contains('avg depth'));
+
+    // The ball was detected every frame, so a speed section is estimated.
+    expect(report, contains('Ball speed'));
+    expect(report, contains('fastest'));
   });
 
   test('empty match still produces a well-formed report', () {
@@ -81,5 +85,29 @@ void main() {
     expect(report, contains('0 points played'));
     expect(report, contains('No rallies recorded yet.'));
     expect(report, contains('no bounces recorded'));
+    expect(report, contains('Ball speed'));
+    expect(report, contains('not estimated'));
+  });
+
+  test('controller estimates ball speed from a moving-ball rally', () {
+    final controller = MatchController();
+    // A ball travelling right→left across the table each frame, then a double
+    // bounce that ends the rally, gives real along-table speed readings.
+    final frames = <FrameResult>[
+      _ballAndPlayers(0, 0.80, 0.30),
+      _ballAndPlayers(33, 0.60, 0.50),
+      _ballAndPlayers(66, 0.40, 0.70),
+      _ballAndPlayers(99, 0.40, 0.50), // bounce apex on left
+      _ballAndPlayers(132, 0.40, 0.70),
+      _ballAndPlayers(165, 0.40, 0.50), // double bounce -> point
+    ];
+    for (final frame in frames) {
+      controller.onFrame(frame);
+    }
+
+    expect(controller.hasBallSpeedData, isTrue);
+    expect(controller.maxBallSpeedKmh, greaterThan(0));
+    // dx=0.20 over 33 ms on a full-frame ruler is ~59.8 km/h.
+    expect(controller.maxBallSpeedKmh, closeTo(0.20 * 2.74 / 0.033 * 3.6, 5));
   });
 }
