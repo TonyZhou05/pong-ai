@@ -155,6 +155,46 @@ class TrainingSummary {
   int get durationMs =>
       shots.length < 2 ? 0 : shots.last.timestampMs - shots.first.timestampMs;
 
+  /// The gaps (ms) between consecutive shots, in order. Empty for `<2` shots.
+  List<int> get shotIntervalsMs {
+    if (shots.length < 2) return const [];
+    return [
+      for (var i = 1; i < shots.length; i++)
+        shots[i].timestampMs - shots[i - 1].timestampMs,
+    ];
+  }
+
+  /// Mean time between consecutive shots, in ms. `0` for `<2` shots.
+  double get averageIntervalMs {
+    final gaps = shotIntervalsMs;
+    if (gaps.isEmpty) return 0;
+    return _mean(gaps.map((g) => g.toDouble()));
+  }
+
+  /// Drill cadence: how many shots the player produced per minute at the
+  /// observed tempo. `0` until at least two shots establish an interval.
+  double get shotsPerMinute {
+    final avg = averageIntervalMs;
+    if (avg <= 0) return 0;
+    return 60000 / avg;
+  }
+
+  /// How metronomic the drill tempo was, in `[0, 1]`: `1` means every gap
+  /// between shots was identical (a perfectly steady rhythm), `0` means the
+  /// gaps were wildly irregular. Derived from the coefficient of variation
+  /// (stddev / mean) of the inter-shot intervals — the tempo companion to the
+  /// depth/lateral placement [consistency] metrics.
+  double get rhythmConsistency {
+    final gaps = shotIntervalsMs;
+    if (gaps.length < 2) return gaps.isEmpty ? 0 : 1;
+    final mean = averageIntervalMs;
+    if (mean <= 0) return 0;
+    final variance =
+        _mean(gaps.map((g) => math.pow(g - mean, 2).toDouble()));
+    final std = math.sqrt(variance);
+    return (1 - std / mean).clamp(0.0, 1.0);
+  }
+
   /// An A–F letter grade for the whole session, from [averageScore].
   String get overallGrade {
     if (shots.isEmpty) return '–';
@@ -185,6 +225,10 @@ class TrainingSummary {
       'Avg pace: ${averageSpeed.toStringAsFixed(2)} units/s.',
       'Depth consistency: ${(consistency * 100).round()}%.',
       'Lateral consistency: ${(lateralConsistency * 100).round()}%.',
+      if (shots.length >= 2) ...[
+        'Tempo: ${shotsPerMinute.toStringAsFixed(1)} shots/min.',
+        'Rhythm consistency: ${(rhythmConsistency * 100).round()}%.',
+      ],
       '  • ${gradeCount(ShotGrade.excellent)} excellent',
       '  • ${gradeCount(ShotGrade.good)} good',
       '  • ${gradeCount(ShotGrade.fair)} fair',

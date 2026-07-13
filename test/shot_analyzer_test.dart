@@ -167,6 +167,39 @@ void main() {
       expect(grouped.report(), contains('Lateral consistency: 100%'));
     });
 
+    test('tempo and rhythm consistency mine the shot timestamps', () {
+      Shot at(int t) => Shot(
+            timestampMs: t,
+            speed: 1,
+            depth: 0.5,
+            lateral: 0.5,
+            score: 0.8,
+          );
+
+      // Perfectly metronomic: a shot every 500 ms → 120 shots/min, 100% rhythm.
+      final steady = TrainingSummary([at(0), at(500), at(1000), at(1500)]);
+      expect(steady.shotIntervalsMs, [500, 500, 500]);
+      expect(steady.averageIntervalMs, closeTo(500, 1e-9));
+      expect(steady.shotsPerMinute, closeTo(120, 1e-9));
+      expect(steady.rhythmConsistency, closeTo(1.0, 1e-9));
+      expect(steady.report(), contains('Tempo: 120.0 shots/min'));
+      expect(steady.report(), contains('Rhythm consistency: 100%'));
+
+      // Irregular gaps (200/1000/300) have the same mean tempo but a much
+      // lower rhythm consistency.
+      final erratic = TrainingSummary([at(0), at(200), at(1200), at(1500)]);
+      expect(erratic.averageIntervalMs, closeTo(500, 1e-9));
+      expect(erratic.rhythmConsistency, lessThan(steady.rhythmConsistency));
+
+      // A single shot establishes no interval, so tempo stats are neutral and
+      // the tempo lines are omitted from the report.
+      final single = TrainingSummary([at(0)]);
+      expect(single.shotIntervalsMs, isEmpty);
+      expect(single.shotsPerMinute, 0);
+      expect(single.rhythmConsistency, 0);
+      expect(single.report(), isNot(contains('Tempo:')));
+    });
+
     test('empty session reports no shots', () {
       const summary = TrainingSummary([]);
       expect(summary.shotCount, 0);

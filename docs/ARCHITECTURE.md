@@ -335,6 +335,19 @@ behind a `VisionService` interface. This lets us:
      (`Clipboard.setData`, no new dependency) with a confirmation snackbar.
 
 7. Training mode: shot segmentation + quality grading.
+   - **[done — iteration 30]** Training tempo / rhythm analytics
+     (`core/training/shot_analyzer.dart`). Each `Shot` has carried a
+     `timestampMs` since iteration 6, but `TrainingSummary` only ever reduced it
+     to the total `durationMs` — the *regularity* of a drill's tempo (a headline
+     coaching metric: is the player feeding at a steady, repeatable rhythm?) was
+     un-mined. `TrainingSummary` now exposes `shotIntervalsMs` (the gaps between
+     consecutive shots), `averageIntervalMs`, `shotsPerMinute` (drill cadence),
+     and `rhythmConsistency` — a `[0, 1]` metronome score from the coefficient of
+     variation (stddev / mean) of the inter-shot intervals, the tempo companion
+     to the depth/lateral placement `consistency` metrics. When a session has ≥2
+     shots, `report()` (and thus both training screens' Copy-report export and
+     on-screen summary) gains a "Tempo: N shots/min" and "Rhythm consistency: M%"
+     line; single-shot sessions omit them since no interval exists.
    - **[done — iteration 27]** Training placement analytics + shareable report.
      `Shot` has carried a `lateral` (across-table) landing coordinate since
      iteration 22, but it fed only the visual `TrainingShotMapView` — no
