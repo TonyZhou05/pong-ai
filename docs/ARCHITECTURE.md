@@ -115,7 +115,9 @@ lib/
       yolo_vision_service.dart Camera-backed VisionService: routes plugin callbacks → monotonic FrameResult stream
     tracking/            Ball Kalman tracker, rally/point event detection
                          (TableGeometry calibrates the net line + table surface
-                         region so off-table/floor bounces aren't scored)
+                         region so off-table/floor bounces aren't scored;
+                         TableCalibrator auto-estimates that geometry from a
+                         warm-up of observed ball/player positions)
     analysis/            Performance + shot-quality analytics
   features/
     home/                Landing screen (Match vs. Training)
@@ -155,6 +157,13 @@ behind a `VisionService` interface. This lets us:
      `YOLOView` widget in `MatchScreen` and bundle the exported
      `.tflite`/`.mlpackage` models.
 3. Ball Kalman tracker + rally/point event detection from detections.
+   - **[done — iteration 11]** `TableGeometry` table-surface calibration gating
+     off-table bounces.
+   - **[done — iteration 12]** `TableCalibrator`: pure-Dart auto-calibration
+     that infers `TableGeometry` (surface band from a trimmed percentile range
+     of ball positions + net line from the two players' x, or the ball-travel
+     midpoint) over a warm-up window, so the user just places the phone
+     table-side instead of hand-marking the table corners.
 4. Connect events → scoring engine → live scoreboard UI.
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
