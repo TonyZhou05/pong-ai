@@ -60,6 +60,33 @@ void main() {
       expect(frame.ball!.box.left, closeTo(0.7, 1e-9));
     });
 
+    test('exposes the other ball candidates best-first beyond the primary', () {
+      final frame = adapter.fromResults(
+        [
+          _result('sports ball', 0.4, const Rect.fromLTWH(0.1, 0.1, 0.02, 0.02)),
+          _result('sports ball', 0.9, const Rect.fromLTWH(0.7, 0.7, 0.02, 0.02)),
+          _result('sports ball', 0.6, const Rect.fromLTWH(0.5, 0.5, 0.02, 0.02)),
+        ],
+        timestampMs: 0,
+      );
+
+      // Primary is the top confidence; the rest ride along, next-best first.
+      expect(frame.ball!.confidence, closeTo(0.9, 1e-9));
+      expect(
+        frame.ballCandidates.map((c) => c.confidence),
+        [closeTo(0.6, 1e-9), closeTo(0.4, 1e-9)],
+      );
+    });
+
+    test('a single ball leaves the candidate list empty', () {
+      final frame = adapter.fromResults(
+        [_result('sports ball', 0.8, const Rect.fromLTWH(0.4, 0.5, 0.02, 0.02))],
+        timestampMs: 0,
+      );
+      expect(frame.ball, isNotNull);
+      expect(frame.ballCandidates, isEmpty);
+    });
+
     test('drops sub-threshold ball detections', () {
       final frame = adapter.fromResults(
         [_result('sports ball', 0.05, const Rect.fromLTWH(0.4, 0.5, 0.02, 0.02))],

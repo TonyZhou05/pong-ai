@@ -111,7 +111,7 @@ class YoloFrameAdapter {
     double? imageHeight,
     double? fps,
   }) {
-    yolo.YOLOResult? bestBall;
+    final ballCandidates = <yolo.YOLOResult>[];
     final people = <PersonPose>[];
 
     for (final r in results) {
@@ -119,9 +119,7 @@ class YoloFrameAdapter {
       if (config.ballLabels.contains(label)) {
         if (r.confidence < config.minBallConfidence) continue;
         if (_ballTooLarge(r.normalizedBox)) continue;
-        if (bestBall == null || r.confidence > bestBall.confidence) {
-          bestBall = r;
-        }
+        ballCandidates.add(r);
       } else if (config.personLabels.contains(label)) {
         if (r.confidence < config.minPersonConfidence) continue;
         people.add(
@@ -143,19 +141,30 @@ class YoloFrameAdapter {
       people.removeRange(config.maxPeople, people.length);
     }
 
+    // Highest-confidence candidate is the primary ball; the rest ride along as
+    // alternatives so a trajectory-aware consumer can recover the real ball when
+    // the detector's top pick is a spurious round object (see [FrameResult]).
+    if (ballCandidates.length > 1) {
+      ballCandidates.sort((a, b) => b.confidence.compareTo(a.confidence));
+    }
+
     return FrameResult(
       timestampMs: timestampMs,
-      ball: bestBall == null
-          ? null
-          : Detection(
-              label: 'ball',
-              confidence: bestBall.confidence,
-              box: _bbox(bestBall.normalizedBox),
-            ),
+      ball: ballCandidates.isEmpty ? null : _ballDetection(ballCandidates.first),
+      ballCandidates: [
+        for (var i = 1; i < ballCandidates.length; i++)
+          _ballDetection(ballCandidates[i]),
+      ],
       people: people,
       fps: fps,
     );
   }
+
+  Detection _ballDetection(yolo.YOLOResult r) => Detection(
+        label: 'ball',
+        confidence: r.confidence,
+        box: _bbox(r.normalizedBox),
+      );
 
   BBox _bbox(Rect box) => BBox(box.left, box.top, box.width, box.height);
 

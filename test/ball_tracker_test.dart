@@ -362,5 +362,57 @@ void main() {
       tracker.reset();
       expect(tracker.outlierCount, 0);
     });
+
+    test('recovers the real ball from an alternative candidate near prediction',
+        () {
+      final tracker = BallTracker(maxJump: 0.4);
+      _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+      ]);
+      // The detector's top pick is a spurious object across the frame (0.95),
+      // but the real ball is also detected near the ~0.30 prediction (0.31).
+      const frame = FrameResult(
+        timestampMs: 66,
+        ball: Detection(
+          label: 'ball',
+          confidence: 0.9,
+          box: BBox(0.95, 0.5, 0, 0),
+        ),
+        ballCandidates: [
+          Detection(label: 'ball', confidence: 0.6, box: BBox(0.31, 0.5, 0, 0)),
+        ],
+      );
+      final events = tracker.update(frame);
+      // The spurious primary was rejected, but the real ball was recovered:
+      // the trajectory advances to 0.31 instead of ending the rally.
+      expect(tracker.outlierCount, 1);
+      expect(tracker.lastSample!.x, closeTo(0.31, 1e-9));
+      expect(events.whereType<BallLostEvent>(), isEmpty);
+    });
+
+    test('falls back to dropout when no alternative candidate is plausible', () {
+      final tracker = BallTracker(maxJump: 0.4);
+      _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+      ]);
+      // Both the primary and the alternative are far from the ~0.30 prediction,
+      // so none is recovered and the trajectory is not teleported.
+      const frame = FrameResult(
+        timestampMs: 66,
+        ball: Detection(
+          label: 'ball',
+          confidence: 0.9,
+          box: BBox(0.95, 0.5, 0, 0),
+        ),
+        ballCandidates: [
+          Detection(label: 'ball', confidence: 0.6, box: BBox(0.90, 0.9, 0, 0)),
+        ],
+      );
+      tracker.update(frame);
+      expect(tracker.outlierCount, 1);
+      expect(tracker.lastSample!.x, closeTo(0.25, 1e-9));
+    });
   });
 }

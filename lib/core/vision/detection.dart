@@ -61,6 +61,7 @@ class FrameResult {
   const FrameResult({
     required this.timestampMs,
     this.ball,
+    this.ballCandidates = const [],
     this.people = const [],
     this.fps,
   });
@@ -69,6 +70,14 @@ class FrameResult {
 
   /// Best ball detection this frame, if any.
   final Detection? ball;
+
+  /// The *other* ball detections this frame beyond [ball] (i.e. lower-confidence
+  /// candidates that still passed the vision-layer filters), best-first. Usually
+  /// empty — the detector reports at most one "ball" — but when it also latches
+  /// onto a round object elsewhere in the frame these alternatives let a
+  /// trajectory-aware consumer (the [BallTracker]'s `maxJump` gate) fall back to
+  /// the candidate consistent with the predicted path instead of losing the ball.
+  final List<Detection> ballCandidates;
 
   final List<PersonPose> people;
 

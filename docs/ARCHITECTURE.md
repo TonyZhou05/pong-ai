@@ -268,6 +268,16 @@ behind a `VisionService` interface. This lets us:
      live-camera `CameraMatchScreen` enables it (`0.4`) where real detector
      false-positives occur, and `MatchController` preserves it across the
      post-calibration tracker rebuild.
+   - **[done — iteration 66]** Prediction-aware ball-candidate recovery. The
+     `maxJump` gate above rejects a spurious *primary* ball, but the real ball is
+     often *also* detected the same frame at lower confidence (a round object
+     out-scoring the true ball). `YoloFrameAdapter` now keeps those alternatives
+     on `FrameResult.ballCandidates` (best-first) instead of discarding them, and
+     when the gate rejects the primary, `BallTracker` falls back to the candidate
+     closest to the Kalman prediction that itself lands within `maxJump` — so the
+     detector latching onto the wrong object no longer forces a ball-lost when
+     the real ball was in view. Purely additive: `ballCandidates` is empty on the
+     synthetic path and recovery only runs when gating is active.
    - **[done — iteration 11]** `TableGeometry` table-surface calibration gating
      off-table bounces.
    - **[done — iteration 12]** `TableCalibrator`: pure-Dart auto-calibration

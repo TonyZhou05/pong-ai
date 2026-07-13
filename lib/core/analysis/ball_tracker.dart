@@ -223,20 +223,27 @@ class BallTracker {
     // Physical-plausibility gate: once a trajectory is established, a detection
     // that jumps implausibly far from the Kalman prediction is almost certainly
     // a false positive (the detector latching onto something across the frame),
-    // so reject it and route this frame through the missing-ball path. The
-    // filter then extrapolates over it, and if the spurious detections persist
-    // past maxGapFrames the rally ends cleanly instead of the trajectory
-    // teleporting and manufacturing a bogus net-cross/bounce.
+    // so reject it. But the *real* ball may also have been detected this frame
+    // at lower confidence (frame.ballCandidates), so before giving up on the
+    // frame we try to recover the alternative that lands within the gate. If
+    // none does, route this frame through the missing-ball path — the filter
+    // extrapolates over it, and persistent spurious detections still end the
+    // rally cleanly instead of the trajectory teleporting into a bogus event.
+    var accepted = ball;
     if (_isOutlier(frame.timestampMs, ball.box.centerX, ball.box.centerY)) {
       _outlierCount++;
-      return _handleMissingBall(frame.timestampMs);
+      final recovered = _recoverCandidate(frame);
+      if (recovered == null) {
+        return _handleMissingBall(frame.timestampMs);
+      }
+      accepted = recovered;
     }
 
     _missedFrames = 0;
     final sample = BallSample(
       frame.timestampMs,
-      ball.box.centerX,
-      ball.box.centerY,
+      accepted.box.centerX,
+      accepted.box.centerY,
     );
     _filter.observe(sample.timestampMs, sample.x, sample.y);
 
@@ -279,6 +286,31 @@ class BallTracker {
     final dx = x - predicted.x;
     final dy = y - predicted.y;
     return dx * dx + dy * dy > gate * gate;
+  }
+
+  /// When the primary ball is rejected by the [maxJump] gate, pick the
+  /// alternative candidate (if any) closest to the Kalman prediction that itself
+  /// falls within the gate — the real ball the detector reported at lower
+  /// confidence than a spurious round object. Returns null when no candidate is
+  /// plausible (so the frame is treated as a dropout). Only meaningful when
+  /// gating is active; [frame.ballCandidates] is empty on the synthetic path.
+  Detection? _recoverCandidate(FrameResult frame) {
+    final gate = maxJump;
+    if (gate == null || frame.ballCandidates.isEmpty) return null;
+    final predicted = _filter.estimateAt(frame.timestampMs);
+    if (predicted == null) return null;
+    Detection? best;
+    var bestDist2 = gate * gate;
+    for (final c in frame.ballCandidates) {
+      final dx = c.box.centerX - predicted.x;
+      final dy = c.box.centerY - predicted.y;
+      final dist2 = dx * dx + dy * dy;
+      if (dist2 <= bestDist2) {
+        bestDist2 = dist2;
+        best = c;
+      }
+    }
+    return best;
   }
 
   List<TrackerEvent> _handleMissingBall(int timestampMs) {
