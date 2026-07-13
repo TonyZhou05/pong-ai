@@ -433,6 +433,21 @@ behind a `VisionService` interface. This lets us:
      clipboard.
 
 7. Training mode: shot segmentation + quality grading.
+   - **[done — iteration 39]** Training structured (JSON) export
+     (`core/training/training_report_json.dart`): the practice-mode companion to
+     iteration 38's `buildMatchReportJson`. Training only ever produced the
+     human-readable `TrainingSummary.report()` text blob, so a drill couldn't be
+     stored as history, diffed across sessions, or fed to another tool.
+     `buildTrainingReportJson(summary, config:)` / `trainingReportJsonString`
+     emit the full session analytics — config target side, session grade,
+     depth/lateral placement + consistency, pace (km/h), tempo/rhythm, grade
+     buckets, and the per-shot list — as a versioned
+     (`trainingReportSchemaVersion`), JSON-encodable `Map` that round-trips
+     through `dart:convert`. Optional sections (pace km/h, tempo) are explicit
+     `null`s so the schema shape is stable. Both `TrainingScreen` (demo) and
+     `CameraTrainingScreen` (live) session reports gained an **Export JSON**
+     action next to Copy report that writes the pretty-printed string to the
+     clipboard.
    - **[done — iteration 33]** Training real-world shot-speed (km/h)
      (`core/training/shot_analyzer.dart`). Each `Shot` recorded only a
      *normalized* `speed` (units/s) which — as iterations 6/7 noted — saturates

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/analysis/ball_tracker.dart';
 import '../../core/training/shot_analyzer.dart';
+import '../../core/training/training_report_json.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/replay_vision_service.dart';
 import '../../core/vision/synthetic_frames.dart';
@@ -308,6 +309,16 @@ class _SessionReport extends StatelessWidget {
     );
   }
 
+  Future<void> _exportJson(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(
+      ClipboardData(text: trainingReportJsonString(summary, config: config)),
+    );
+    messenger.showSnackBar(
+      const SnackBar(content: Text('JSON report copied to clipboard')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -331,10 +342,20 @@ class _SessionReport extends StatelessWidget {
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.copy, size: 18),
-                label: const Text('Copy report'),
-                onPressed: () => _copyReport(context),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('Copy report'),
+                    onPressed: () => _copyReport(context),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.data_object, size: 18),
+                    label: const Text('Export JSON'),
+                    onPressed: () => _exportJson(context),
+                  ),
+                ],
               ),
             ),
           ],
