@@ -65,6 +65,7 @@ void main() {
     // missing keys) — a reader can rely on the schema shape.
     expect(json['ballSpeed'], isNull);
     expect(json['trackingQuality'], isNull);
+    expect(json['coaching'], isNull);
     final movement = json['movement'] as Map<String, dynamic>;
     expect(movement['A'], isNull);
     expect(movement['B'], isNull);
@@ -100,5 +101,24 @@ void main() {
     final placement = json['placement'] as Map<String, dynamic>;
     expect(placement['left'], isNotNull);
     expect((placement['left'] as Map)['count'], greaterThan(0));
+  });
+
+  test('played match exports the per-player coaching section', () {
+    final controller = MatchController();
+    for (final frame in demoMatchFrames()) {
+      controller.onFrame(frame);
+    }
+
+    final coaching = buildMatchReportJson(controller)['coaching']
+        as Map<String, dynamic>;
+    // Serve data was captured per point, so at least one player has a focus.
+    final playerA = coaching['A'] as Map<String, dynamic>;
+    expect(playerA['focus'], isA<String>());
+    expect(playerA['focusTip'], isA<String>());
+    expect(playerA['strength'], isA<String>());
+    final dims = playerA['dimensions'] as List;
+    expect(dims, isNotEmpty);
+    expect((dims.first as Map)['name'], isA<String>());
+    expect((dims.first as Map)['score'], isA<num>());
   });
 }

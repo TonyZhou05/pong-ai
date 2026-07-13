@@ -19,6 +19,7 @@ import 'dart:convert';
 
 import '../analysis/ball_tracker.dart';
 import 'shot_analyzer.dart';
+import 'training_feedback.dart';
 
 /// Bumped whenever the emitted structure changes in a backward-incompatible way,
 /// so a stored report can be migrated or rejected by a future reader.
@@ -50,6 +51,7 @@ Map<String, Object?> buildTrainingReportJson(
   TrainingConfig config = const TrainingConfig(),
 }) {
   final hasShots = summary.shots.isNotEmpty;
+  final feedback = TrainingFeedback(summary, config: config);
   return {
     'schemaVersion': trainingReportSchemaVersion,
     'config': {
@@ -90,6 +92,17 @@ Map<String, Object?> buildTrainingReportJson(
       'fair': summary.gradeCount(ShotGrade.fair),
       'poor': summary.gradeCount(ShotGrade.poor),
     },
+    'coaching': feedback.hasData
+        ? {
+            'focus': feedback.weakest!.name,
+            'focusTip': feedback.focusTip!,
+            'strength': feedback.strongest!.name,
+            'dimensions': [
+              for (final d in feedback.dimensions)
+                {'name': d.name, 'score': _round(d.score)},
+            ],
+          }
+        : null,
     'shots': hasShots ? [for (final s in summary.shots) _shotJson(s)] : const [],
   };
 }

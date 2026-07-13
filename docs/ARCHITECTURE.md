@@ -485,7 +485,13 @@ behind a `VisionService` interface. This lets us:
      rounded for compact, deterministic output that round-trips through
      `dart:convert`. The Match screen's post-match panel gained an **Export JSON**
      action next to Copy report that writes the pretty-printed string to the
-     clipboard.
+     clipboard. *(iteration 53)* The structured export now also carries a
+     `coaching` section (`MatchInsights` per-player focus/strength/dimension
+     scores) that the text `buildMatchReport` gained in iteration 52 but the JSON
+     companion had lacked — so a persisted history session, not just the on-screen
+     panel, can surface each player's "focus next" cue. The training JSON export
+     (`buildTrainingReportJson`) gained the same `coaching` section from
+     `TrainingFeedback` (iteration 51), closing the parallel gap.
    - **[done — iteration 45]** `SessionHistoryStore`
      (`core/history/session_history_store.dart`): the across-session *memory* the
      structured exports were built for. Iterations 38/39 made the match and

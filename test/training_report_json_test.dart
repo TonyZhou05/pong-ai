@@ -64,6 +64,14 @@ void main() {
     // Two shots establish an interval, so tempo is populated.
     expect(decoded['tempo'], isNotNull);
     expect((decoded['tempo'] as Map)['shotsPerMinute'], greaterThan(0));
+
+    // With shots recorded, the coaching section carries a prioritized focus.
+    final coaching = decoded['coaching'] as Map<String, dynamic>;
+    expect(coaching['focus'], isA<String>());
+    expect(coaching['focusTip'], isA<String>());
+    expect(coaching['strength'], isA<String>());
+    // Two shots unlock the consistency/rhythm dimensions beyond placement.
+    expect((coaching['dimensions'] as List).length, greaterThan(1));
   });
 
   test('empty session emits a well-formed, null-populated report', () {
@@ -74,6 +82,7 @@ void main() {
     // No pace scale and <2 shots, so the optional sections are explicit nulls.
     expect((json['pace'] as Map)['maxSpeedKmh'], isNull);
     expect(json['tempo'], isNull);
+    expect(json['coaching'], isNull);
 
     // Still valid JSON.
     expect(

@@ -20,6 +20,7 @@ import '../scoring/scoring_engine.dart';
 import 'ball_tracker.dart';
 import 'bounce_placement.dart';
 import 'match_controller.dart';
+import 'match_insights.dart';
 import 'match_summary.dart';
 import 'player_movement.dart';
 import 'rally_analyzer.dart';
@@ -107,6 +108,18 @@ Map<String, Object?>? _movementJson(PlayerMovementStats m) {
   };
 }
 
+Map<String, Object?>? _coachingJson(PlayerInsights pi) {
+  if (!pi.hasData) return null;
+  return {
+    'focus': pi.weakest!.name,
+    'focusTip': pi.focusTip!,
+    'strength': pi.strongest!.name,
+    'dimensions': [
+      for (final d in pi.dimensions) {'name': d.name, 'score': _round(d.score)},
+    ],
+  };
+}
+
 Map<String, Object?>? _placementJson(SidePlacementStats p) {
   if (p.count == 0) return null;
   return {
@@ -126,6 +139,7 @@ Map<String, Object?> buildMatchReportJson(MatchController controller) {
   final summary = controller.summary;
   final state = controller.score;
   final winner = summary.matchWinner;
+  final insights = MatchInsights(summary);
 
   return {
     'schemaVersion': matchReportSchemaVersion,
@@ -175,6 +189,12 @@ Map<String, Object?> buildMatchReportJson(MatchController controller) {
       for (final side in TableSide.values)
         _sideKey(side): _placementJson(controller.placementFor(side)),
     },
+    'coaching': insights.hasData
+        ? {
+            for (final p in Player.values)
+              _playerKey(p): _coachingJson(insights.insightsFor(p)),
+          }
+        : null,
   };
 }
 
