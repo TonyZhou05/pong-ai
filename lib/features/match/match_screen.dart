@@ -15,6 +15,7 @@ import '../../core/vision/replay_vision_service.dart';
 import '../../core/vision/synthetic_frames.dart';
 import '../../core/vision/vision_service.dart';
 import '../summary/momentum_chart.dart';
+import '../summary/player_map.dart';
 import '../summary/shot_map.dart';
 
 /// Live match screen: streams vision frames through the [MatchController] and
@@ -130,6 +131,10 @@ class _MatchScreenState extends State<MatchScreen> {
                 movement: {
                   for (final p in Player.values) p: _controller.movementFor(p),
                 },
+                positions: {
+                  for (final p in Player.values) p: _controller.positionsFor(p),
+                },
+                netX: _controller.geometry.netX,
                 placement: {
                   for (final s in TableSide.values)
                     s: _controller.placementFor(s),
@@ -384,6 +389,8 @@ class _SummaryPanel extends StatelessWidget {
     required this.summary,
     required this.rallies,
     required this.movement,
+    required this.positions,
+    required this.netX,
     required this.placement,
   });
 
@@ -394,6 +401,12 @@ class _SummaryPanel extends StatelessWidget {
 
   /// Per-player footwork/positioning metrics mined from the pose model.
   final Map<Player, PlayerMovementStats> movement;
+
+  /// Per-player foot-position samples, the raw material for the coverage map.
+  final Map<Player, List<FramePoint>> positions;
+
+  /// The calibrated net line (frame x), used to re-centre the coverage map.
+  final double netX;
 
   /// Per-side bounce-placement / shot-map analytics from the tracker's bounces.
   final Map<TableSide, SidePlacementStats> placement;
@@ -454,6 +467,12 @@ class _SummaryPanel extends StatelessWidget {
               left: placement[TableSide.left]!,
               right: placement[TableSide.right]!,
             ),
+          ],
+          if (positions.values.any((p) => p.isNotEmpty)) ...[
+            const SizedBox(height: 8),
+            Text('Player coverage', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 4),
+            PlayerPositionMapView(positions: positions, netX: netX),
           ],
           const SizedBox(height: 8),
           Row(

@@ -150,6 +150,15 @@ class PlayerMovementAnalyzer {
     Player.b: _Accumulator(),
   };
 
+  /// Every foot position sample recorded for each player, in frame order — the
+  /// raw material for a positioning heatmap (where the player actually stood).
+  /// Unlike the aggregate [PlayerMovementStats] this keeps the individual
+  /// samples so a court-coverage map can render their density.
+  final Map<Player, List<FramePoint>> _positions = {
+    Player.a: [],
+    Player.b: [],
+  };
+
   Player _playerForFoot(FramePoint foot) =>
       geometry.sideOf(foot.x) == TableSide.left ? _leftPlayer : _leftPlayer.other;
 
@@ -164,6 +173,7 @@ class PlayerMovementAnalyzer {
       // isn't corrupted by flip-flopping between two same-side detections.
       if (!seen.add(player)) continue;
       _acc[player]!.add(frame.timestampMs, foot, stanceWidthOf(pose));
+      _positions[player]!.add(foot);
     }
     // A player missing this frame breaks distance continuity, so their next
     // appearance doesn't add a spurious jump across the gap.
@@ -175,10 +185,17 @@ class PlayerMovementAnalyzer {
   /// Movement metrics for [player] so far.
   PlayerMovementStats statsFor(Player player) => _acc[player]!.build();
 
+  /// Every recorded foot position for [player], in frame order — the samples a
+  /// positioning heatmap draws. Returns a copy so callers can't mutate state.
+  List<FramePoint> positionsFor(Player player) => List.of(_positions[player]!);
+
   /// Forget all accumulated movement.
   void reset() {
     for (final a in _acc.values) {
       a.reset();
+    }
+    for (final p in _positions.values) {
+      p.clear();
     }
   }
 }

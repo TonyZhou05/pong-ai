@@ -249,6 +249,19 @@ behind a `VisionService` interface. This lets us:
      verifiable without pixels; the `CustomPaint` painter just draws those
      points. Surfaced in the Match screen's post-match summary panel below the
      per-side short/mid/deep counts.
+   - **[done — iteration 24]** `PlayerPositionMapView`
+     (`features/summary/player_map.dart`): the *player-positioning* /
+     court-coverage heatmap — the headline "where did each player stand" view of
+     match apps. `PlayerMovementAnalyzer` mined the pose model into aggregate
+     footwork metrics (distance, coverage span, average position) since iteration
+     16 but discarded the individual foot-position samples; the analyzer now
+     retains them (`positionsFor(player)`) and this view renders both players'
+     samples as per-player translucent heat clouds on a schematic top-down table,
+     each half re-centred around the calibrated net line so the net always sits
+     at the map centre. The frame-foot → pixel geometry is a pure, unit-tested
+     `playerMapPosition(foot, netX:)` seam; the `CustomPaint` painter just draws
+     the clouds. Surfaced in the Match screen's post-match summary panel below the
+     shot map, shown once either player was tracked.
    - **[done — iteration 23]** `MomentumChartView`
      (`features/summary/momentum_chart.dart`): the score-progression / momentum
      timeline. `MatchSummary` already keeps the ordered `ScoredPoint` log, but it

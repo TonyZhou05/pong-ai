@@ -93,6 +93,10 @@ class MatchController {
   /// Footwork / positioning metrics for [player] over the match so far.
   PlayerMovementStats movementFor(Player player) => _movement.statsFor(player);
 
+  /// Every recorded foot-position sample for [player] over the match so far —
+  /// the raw material for a positioning / court-coverage heatmap.
+  List<FramePoint> positionsFor(Player player) => _movement.positionsFor(player);
+
   /// Rally-length analytics (strokes/duration per point) over the match so far.
   /// Like the movement analytics it is live-only — it is not rewound by [undo].
   final RallyAnalyzer _rallies = RallyAnalyzer();
