@@ -44,6 +44,7 @@ StoredSession _match(
   int? longestStrokes,
   double? maxKmh,
   String? winner,
+  int? durationMs,
 }) =>
     StoredSession(
       id: id,
@@ -51,7 +52,11 @@ StoredSession _match(
       savedAt: at,
       report: {
         'score': {'gamesA': 3, 'gamesB': 1, 'winner': winner},
-        if (totalPoints != null) 'summary': {'totalPoints': totalPoints},
+        if (totalPoints != null || durationMs != null)
+          'summary': {
+            if (totalPoints != null) 'totalPoints': totalPoints,
+            if (durationMs != null) 'durationMs': durationMs,
+          },
         if (longestStrokes != null) 'rallies': {'longestStrokes': longestStrokes},
         if (maxKmh != null) 'ballSpeed': {'maxKmh': maxKmh},
       },
@@ -496,6 +501,23 @@ void main() {
       expect(trends.totalMatchPoints, isNull);
       expect(trends.longestMatchRallyStrokes, isNull);
       expect(trends.fastestMatchBallSpeedKmh, isNull);
+      expect(trends.totalMatchDurationMs, isNull);
+    });
+
+    test('sums total play time across matches that recorded a duration', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, durationMs: 125000),
+        _match('m2', t1, durationMs: 90000),
+        _match('m3', t2), // no duration recorded
+      ]);
+      expect(trends.totalMatchDurationMs, 125000 + 90000);
+    });
+
+    test('total play time is null when no match recorded a duration', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, totalPoints: 19),
+      ]);
+      expect(trends.totalMatchDurationMs, isNull);
     });
 
     test('no match data leaves the aggregates empty', () {
@@ -516,6 +538,15 @@ void main() {
       expect(report, contains('Points contested: 44'));
       expect(report, contains('Longest rally: 11 strokes'));
       expect(report, contains('Fastest ball: 88.2 km/h'));
+    });
+
+    test('report surfaces cumulative play time', () {
+      final report = SessionTrends.fromSessions([
+        _match('m1', t0, durationMs: 125000),
+        _match('m2', t1, durationMs: 90000),
+      ]).report();
+      // 215000 ms = 3m 35s
+      expect(report, contains('Total play time: 3m 35s'));
     });
 
     test('report shows the match section even with no training drills', () {

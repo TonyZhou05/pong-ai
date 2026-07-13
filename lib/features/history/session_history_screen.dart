@@ -303,6 +303,10 @@ class _MatchSummaryCard extends StatelessWidget {
     final chips = <String>[];
     final points = trends.totalMatchPoints;
     if (points != null) chips.add('$points points');
+    final playtime = trends.totalMatchDurationMs;
+    if (playtime != null) {
+      chips.add('${playtime ~/ 60000}m played');
+    }
     final rally = trends.longestMatchRallyStrokes;
     if (rally != null) chips.add('longest rally $rally');
     final speed = trends.fastestMatchBallSpeedKmh;

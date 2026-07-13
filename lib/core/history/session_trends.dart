@@ -398,6 +398,21 @@ class SessionTrends {
     return any ? total : null;
   }
 
+  /// Total wall-clock play time (ms) summed across every saved match that
+  /// recorded a duration — a cumulative "career" time-on-table stat, the
+  /// match-side twin of [totalShotsPracticed]. Null if no match recorded one.
+  int? get totalMatchDurationMs {
+    var total = 0;
+    var any = false;
+    for (final m in matchSessions) {
+      final d = m.durationMs;
+      if (d == null) continue;
+      total += d;
+      any = true;
+    }
+    return any ? total : null;
+  }
+
   /// Fastest ball speed (km/h) tracked across every saved match — the match-side
   /// personal-best radar number. Null if no match recorded a scaled speed.
   double? get fastestMatchBallSpeedKmh {
@@ -565,12 +580,23 @@ class SessionTrends {
     }
     final points = totalMatchPoints;
     if (points != null) lines.add('Points contested: $points');
+    final playtime = totalMatchDurationMs;
+    if (playtime != null) lines.add('Total play time: ${_fmtDuration(playtime)}');
     final rally = longestMatchRallyStrokes;
     if (rally != null) lines.add('Longest rally: $rally strokes');
     final speed = fastestMatchBallSpeedKmh;
     if (speed != null) {
       lines.add('Fastest ball: ${speed.toStringAsFixed(1)} km/h');
     }
+  }
+
+  /// Format a millisecond duration as `Mm Ss` (e.g. `12m 03s`) for the
+  /// cumulative career play-time line.
+  static String _fmtDuration(int ms) {
+    final totalSeconds = ms ~/ 1000;
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes}m ${seconds.toString().padLeft(2, '0')}s';
   }
 
   static String _pct(double v) => '${(v * 100).round()}%';

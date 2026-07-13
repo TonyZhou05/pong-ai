@@ -751,6 +751,15 @@ behind a `VisionService` interface. This lets us:
      `bestOnTargetStreak` (personal-best "in a row" across every session that
      tracked it), surfaced as a "Best on-target streak: N in a row" `report()`
      line and a "· streak N" segment on the Training-progress card's Best line.
+   - **[done — iteration 82]** Match career play-time total. `MatchTrendPoint`
+     had parsed each match's `summary.durationMs` since iteration 56 but no
+     `SessionTrends` getter or report line ever referenced it — a
+     captured-but-unconsumed match-side signal. Added
+     `SessionTrends.totalMatchDurationMs` (sum of `durationMs` over every saved
+     match that recorded one, null if none — the match-side twin of iteration
+     81's `totalShotsPracticed`), surfaced as a "Total play time: Mm SSs"
+     `report()` line and a "· N m played" chip on the history screen's
+     Match-record card.
    - **[done — iteration 81]** Training career practice-volume total. Iteration 56
      added `totalMatchPoints` as the match-side cumulative "career" volume stat,
      but training trends had no equivalent — the per-session `shotCount` was
