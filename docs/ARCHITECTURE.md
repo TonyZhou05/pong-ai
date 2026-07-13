@@ -201,6 +201,14 @@ behind a `VisionService` interface. This lets us:
      otherwise seed a bad trajectory *before* the `BallTracker` `maxJump` gate
      (which only engages once a trajectory exists) can catch it. Gating on the
      smaller dimension keeps a motion-blurred ball (elongated along one axis).
+     Symmetrically, a person detection shorter than
+     `YoloFrameConfig.minPersonRelativeHeight` (iteration 67; both live profiles
+     set 0.25, off by default) is rejected as a distant background bystander: the
+     iteration-64 area cap only chooses *among* more than `maxPeople` boxes, so
+     when only one real player and one far-away bystander are detected the
+     bystander would still be accepted and corrupt the net-split side assignment
+     and movement/coverage analytics. It gates on box **height** (not width/area)
+     because a legitimate side-on player is narrow but always tall.
    - **[done — iteration 10]** `YoloVisionService`: the camera-backed
      `VisionService` implementation — routes the `YOLOView.onStreamingData`
      callback through `YoloFrameAdapter` onto a `FrameResult` broadcast stream,

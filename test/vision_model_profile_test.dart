@@ -43,6 +43,22 @@ void main() {
       expect(pingPongDetectProfile.frameConfig.maxBallRelativeSize, isNotNull);
     });
 
+    test('both live profiles floor the player size to drop distant bystanders',
+        () {
+      // A real table-side player spans a large fraction of the frame height;
+      // both real-camera profiles reject short (distant) person boxes so a
+      // background bystander is not mistaken for a player.
+      expect(cocoDetectProfile.frameConfig.minPersonRelativeHeight, isNotNull);
+      expect(
+        cocoDetectProfile.frameConfig.minPersonRelativeHeight,
+        greaterThan(0.0),
+      );
+      expect(
+        pingPongDetectProfile.frameConfig.minPersonRelativeHeight,
+        isNotNull,
+      );
+    });
+
     test('createVisionService wires the profile frame-config into the adapter',
         () {
       final service = pingPongDetectProfile.createVisionService();

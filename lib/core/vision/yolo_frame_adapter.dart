@@ -17,11 +17,17 @@ class YoloFrameConfig {
     this.minBallConfidence = 0.20,
     this.minPersonConfidence = 0.30,
     this.maxBallRelativeSize,
+    this.minPersonRelativeHeight,
     this.maxPeople = 2,
-  }) : assert(
+  })  : assert(
           maxBallRelativeSize == null ||
               (maxBallRelativeSize > 0 && maxBallRelativeSize <= 1),
           'maxBallRelativeSize must be in (0, 1]',
+        ),
+        assert(
+          minPersonRelativeHeight == null ||
+              (minPersonRelativeHeight >= 0 && minPersonRelativeHeight < 1),
+          'minPersonRelativeHeight must be in [0, 1)',
         );
 
   /// Lower-cased class names that count as the ball.
@@ -47,6 +53,21 @@ class YoloFrameConfig {
   /// along one axis only) while catching genuinely large false positives.
   /// `null` disables the gate (the default, preserving prior behaviour).
   final double? maxBallRelativeSize;
+
+  /// Reject a "person" detection whose box is shorter than this fraction of the
+  /// frame height — a distant-bystander sanity floor for a *player*.
+  ///
+  /// This is the player analog of [maxBallRelativeSize]. With the phone at the
+  /// side of the table a real player is seen side-on and always spans a large
+  /// fraction of the frame height, while spectators/passers-by in the background
+  /// project to short boxes. The iteration-64 area-based [maxPeople] cap only
+  /// helps when *more than* [maxPeople] people are detected; when only one or two
+  /// boxes exist and one is a tiny far-away bystander, that bystander is still
+  /// accepted as a "player", corrupting the net-split side assignment and the
+  /// movement/coverage analytics. Gating on box height (not width or area, since
+  /// a legitimate side-on player is narrow) drops those distant false players.
+  /// `null` disables the gate (the default, preserving prior behaviour).
+  final double? minPersonRelativeHeight;
 
   /// Drop person detections below this confidence.
   final double minPersonConfidence;
@@ -122,6 +143,7 @@ class YoloFrameAdapter {
         ballCandidates.add(r);
       } else if (config.personLabels.contains(label)) {
         if (r.confidence < config.minPersonConfidence) continue;
+        if (_personTooSmall(r.normalizedBox)) continue;
         people.add(
           PersonPose(
             box: _bbox(r.normalizedBox),
@@ -177,6 +199,15 @@ class YoloFrameAdapter {
     if (limit == null) return false;
     final smaller = box.width < box.height ? box.width : box.height;
     return smaller > limit;
+  }
+
+  /// Whether a person box is too short to be a near-table player (i.e. a distant
+  /// background bystander). Gates on box height so a legitimately narrow side-on
+  /// player is kept. Always false when the gate is disabled.
+  bool _personTooSmall(Rect box) {
+    final floor = config.minPersonRelativeHeight;
+    if (floor == null) return false;
+    return box.height < floor;
   }
 
   static double _boxArea(BBox box) => box.width * box.height;

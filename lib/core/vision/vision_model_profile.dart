@@ -83,6 +83,9 @@ const VisionModelProfile cocoDetectProfile = VisionModelProfile(
     // (heads, logos, a stray basketball). Cap the ball to a plausible
     // ping-pong size so such gross false positives can't seed the tracker.
     maxBallRelativeSize: 0.25,
+    // Drop distant background bystanders (short person boxes) so they can't be
+    // mistaken for a table-side player when only one real player is visible.
+    minPersonRelativeHeight: 0.25,
   ),
   description: 'Works out of the box, but the small, motion-blurred ball is '
       'only the generic COCO "sports ball" class — lower ball recall.',
@@ -106,6 +109,8 @@ const VisionModelProfile pingPongDetectProfile = VisionModelProfile(
     minBallConfidence: 0.15,
     // Keep the same ping-pong size sanity cap as the COCO profile.
     maxBallRelativeSize: 0.25,
+    // Keep the same distant-bystander floor as the COCO profile.
+    minPersonRelativeHeight: 0.25,
   ),
   description: 'Fine-tuned multi-class (person + ball) detector for higher '
       'recall on the small, motion-blurred ball. Bundle the exported .tflite / '

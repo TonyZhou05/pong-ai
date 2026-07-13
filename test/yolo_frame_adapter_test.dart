@@ -195,6 +195,48 @@ void main() {
       expect(frame.fps, closeTo(28.5, 1e-9));
     });
 
+    test('person-height floor drops a distant bystander, keeps a real player',
+        () {
+      // With only two person detections, the area-based maxPeople cap keeps
+      // both — so a tiny far-away bystander would still be accepted as a player
+      // without the height floor.
+      const gated = YoloFrameAdapter(
+        config: YoloFrameConfig(minPersonRelativeHeight: 0.25),
+      );
+      final frame = gated.fromResults(
+        [
+          // Near table-side player: tall side-on box.
+          _result('person', 0.9, const Rect.fromLTWH(0.10, 0.2, 0.15, 0.6)),
+          // Distant background bystander: short box (height 0.10 < 0.25).
+          _result('person', 0.9, const Rect.fromLTWH(0.70, 0.05, 0.06, 0.10)),
+        ],
+        timestampMs: 0,
+      );
+      expect(frame.people, hasLength(1));
+      expect(frame.people.single.box.left, closeTo(0.10, 1e-9));
+    });
+
+    test('person-height floor keeps a narrow but tall side-on player', () {
+      const gated = YoloFrameAdapter(
+        config: YoloFrameConfig(minPersonRelativeHeight: 0.25),
+      );
+      final frame = gated.fromResults(
+        // Narrow (width 0.08) but tall (height 0.7) — a legitimate side-on
+        // player must survive a height floor.
+        [_result('person', 0.9, const Rect.fromLTWH(0.30, 0.2, 0.08, 0.7))],
+        timestampMs: 0,
+      );
+      expect(frame.people, hasLength(1));
+    });
+
+    test('person-height floor is off by default (short box still accepted)', () {
+      final frame = adapter.fromResults(
+        [_result('person', 0.9, const Rect.fromLTWH(0.70, 0.05, 0.06, 0.10))],
+        timestampMs: 0,
+      );
+      expect(frame.people, hasLength(1));
+    });
+
     test('size gate rejects an implausibly large ball, keeping a real one', () {
       const gated = YoloFrameAdapter(
         config: YoloFrameConfig(maxBallRelativeSize: 0.25),
