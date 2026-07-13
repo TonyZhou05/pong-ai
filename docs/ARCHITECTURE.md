@@ -215,4 +215,15 @@ behind a `VisionService` interface. This lets us:
      rally-length breakdown match apps headline. Wired live into
      `MatchController` (`rallyStats`, live-only like the movement analytics — not
      rewound by `undo`) and surfaced in the Match screen's post-match summary.
+   - **[done — iteration 18]** `BouncePlacementAnalyzer`
+     (`core/analysis/bounce_placement.dart`): the shot-map / placement layer.
+     `BallTracker` already emits a `BounceEvent` (table-relative x/y + side) on
+     every surface touch, but nothing mined it. This folds each bounce into a
+     per-side placement distribution — depth-from-net (0 net … 1 baseline)
+     bucketed short/middle/deep, lateral spread across the table's near/far
+     depth, depth consistency (stddev), and a `depthBins × lateralBins` landing
+     heatmap — measured against the (calibrated) `TableGeometry` net/edges. Wired
+     live into `MatchController` (`placementFor(side)`, live-only like the
+     movement/rally analytics, rebuilt on the calibrated geometry) and surfaced
+     as per-side short/mid/deep counts in the Match screen's post-match summary.
 7. Training mode: shot segmentation + quality grading.

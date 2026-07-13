@@ -17,6 +17,7 @@ library;
 import '../scoring/scoring_engine.dart';
 import '../vision/detection.dart';
 import 'ball_tracker.dart';
+import 'bounce_placement.dart';
 import 'match_summary.dart';
 import 'player_movement.dart';
 import 'rally_analyzer.dart';
@@ -36,6 +37,7 @@ class MatchController {
       geometry: _tracker.geometry,
       leftPlayer: this.referee.leftPlayer,
     );
+    _placement = BouncePlacementAnalyzer(geometry: _tracker.geometry);
   }
 
   BallTracker _tracker;
@@ -98,6 +100,16 @@ class MatchController {
   /// Aggregate rally-length statistics accumulated so far.
   RallyStats get rallyStats => _rallies.stats;
 
+  /// Bounce-placement / shot-map analytics accumulated from the tracker's
+  /// bounce events. Rebuilt on the calibrated geometry so net/edge-relative
+  /// placement lines up with the inferred table. Live-only like the movement and
+  /// rally analytics — not rewound by [undo].
+  late BouncePlacementAnalyzer _placement;
+
+  /// Placement distribution of every bounce recorded on [side] so far.
+  SidePlacementStats placementFor(TableSide side) =>
+      _placement.statsFor(side);
+
   void _record(Player winner, PointReason reason, int timestampMs) {
     _points.add(
       ScoredPoint(winner: winner, reason: reason, timestampMs: timestampMs),
@@ -128,6 +140,7 @@ class MatchController {
     final decisions = <PointDecision>[];
     for (final event in _tracker.update(frame)) {
       _rallies.observe(event);
+      _placement.observe(event);
       final decision = referee.update(event);
       if (decision == null) continue;
 
@@ -161,6 +174,10 @@ class MatchController {
       geometry: geometry,
       leftPlayer: referee.leftPlayer,
     );
+    // Rebuild placement analytics on the calibrated net/edges so bounce
+    // depth-from-net and lateral coordinates are measured against the inferred
+    // table (nothing was scored during warm-up, so no bounces are lost).
+    _placement = BouncePlacementAnalyzer(geometry: geometry);
     _calibrated = true;
   }
 

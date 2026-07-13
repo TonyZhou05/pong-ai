@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/analysis/ball_tracker.dart';
+import '../../core/analysis/bounce_placement.dart';
 import '../../core/analysis/match_controller.dart';
 import '../../core/analysis/match_summary.dart';
 import '../../core/analysis/player_movement.dart';
@@ -125,6 +127,10 @@ class _MatchScreenState extends State<MatchScreen> {
                 rallies: _controller.rallyStats,
                 movement: {
                   for (final p in Player.values) p: _controller.movementFor(p),
+                },
+                placement: {
+                  for (final s in TableSide.values)
+                    s: _controller.placementFor(s),
                 },
               )
             else
@@ -376,6 +382,7 @@ class _SummaryPanel extends StatelessWidget {
     required this.summary,
     required this.rallies,
     required this.movement,
+    required this.placement,
   });
 
   final MatchSummary summary;
@@ -385,6 +392,9 @@ class _SummaryPanel extends StatelessWidget {
 
   /// Per-player footwork/positioning metrics mined from the pose model.
   final Map<Player, PlayerMovementStats> movement;
+
+  /// Per-side bounce-placement / shot-map analytics from the tracker's bounces.
+  final Map<TableSide, SidePlacementStats> placement;
 
   static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
 
@@ -416,6 +426,15 @@ class _SummaryPanel extends StatelessWidget {
               'strokes, longest ${rallies.longestStrokes}',
               style: theme.textTheme.bodyMedium,
             ),
+          for (final side in TableSide.values)
+            if (placement[side]!.count > 0)
+              Text(
+                '${side == TableSide.left ? 'Left' : 'Right'} bounces: '
+                '${placement[side]!.shortCount} short / '
+                '${placement[side]!.middleCount} mid / '
+                '${placement[side]!.deepCount} deep',
+                style: theme.textTheme.bodyMedium,
+              ),
           const SizedBox(height: 8),
           Row(
             children: [
