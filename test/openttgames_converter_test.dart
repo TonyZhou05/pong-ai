@@ -142,6 +142,38 @@ void main() {
       expect(result.ball.recall, closeTo(2 / 3, 1e-9));
     });
 
+    test('attaches ground-truth bounce events when events markup is given', () {
+      final clip = clipFixtureFromOpenTtGames(
+        name: 'with_events',
+        ballMarkup: markup,
+        frameWidth: 1280,
+        frameHeight: 720,
+        fps: 120,
+        eventsMarkup: const {
+          '2': 'bounce',
+          '3': 'net', // not mapped (ball into net, not a tracker event)
+          '4': 'empty', // skipped
+        },
+      );
+      expect(clip.groundTruthEvents, isNotNull);
+      expect(clip.groundTruthEvents!.length, 1);
+      expect(clip.groundTruthEvents!.single.timestampMs, (2 * 1000 / 120).round());
+      // Survives the ClipFixture JSON round-trip alongside the ground-truth frames.
+      final back = ClipFixture.fromJson(clip.toJson());
+      expect(back.groundTruthEvents, hasLength(1));
+    });
+
+    test('leaves ground-truth events null when no events markup is given', () {
+      final clip = clipFixtureFromOpenTtGames(
+        name: 'no_events',
+        ballMarkup: markup,
+        frameWidth: 1280,
+        frameHeight: 720,
+        fps: 120,
+      );
+      expect(clip.groundTruthEvents, isNull);
+    });
+
     test('round-trips through ClipFixture JSON unchanged', () {
       final clip = clipFixtureFromOpenTtGames(
         name: 'rt',

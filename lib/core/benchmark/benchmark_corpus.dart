@@ -17,9 +17,11 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import '../analysis/ball_tracker.dart';
 import 'benchmark_runner.dart';
 import 'clip_fixture.dart';
 import 'detection_metrics.dart';
+import 'event_metrics.dart';
 
 /// The default corpus directory, relative to the package root.
 const String defaultClipDir = 'benchmark/clips';
@@ -65,12 +67,14 @@ List<ClipFixture> loadClipDirectory([String dir = defaultClipDir]) {
 }
 
 /// Compose a consolidated report over [clips]: the scoring-accuracy suite for
-/// every clip, followed by the perception (per-frame detection) stage for those
-/// clips that carry `groundTruthFrames`.
+/// every clip, the perception (per-frame detection) stage for those clips that
+/// carry `groundTruthFrames`, and the event-detection stage for those that
+/// carry `groundTruthEvents`.
 String buildCorpusReport(
   List<ClipFixture> clips, {
   BenchmarkRunner runner = const BenchmarkRunner(),
   DetectionBenchmark detection = const DetectionBenchmark(),
+  EventDetectionBenchmark events = const EventDetectionBenchmark(),
 }) {
   final buf = StringBuffer()
     ..writeln('######## pong-ai benchmark corpus ########')
@@ -99,6 +103,32 @@ String buildCorpusReport(
     );
   } else {
     for (final r in perception) {
+      buf.write(r.report());
+    }
+  }
+  buf.writeln();
+
+  final eventResults = <EventBenchmarkResult>[];
+  for (final clip in clips) {
+    final gt = clip.groundTruthEvents;
+    if (gt == null) continue;
+    eventResults.add(
+      events.evaluate(
+        name: clip.name,
+        frames: clip.frames,
+        groundTruth: gt,
+        geometry: TableGeometry(netX: clip.netX),
+      ),
+    );
+  }
+
+  buf.writeln('=== Stage 3: event-detection accuracy ===');
+  if (eventResults.isEmpty) {
+    buf.writeln(
+      'No clips carry ground-truth events (groundTruthEvents) to score.',
+    );
+  } else {
+    for (final r in eventResults) {
       buf.write(r.report());
     }
   }

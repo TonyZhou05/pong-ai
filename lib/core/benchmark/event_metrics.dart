@@ -46,6 +46,19 @@ class GroundTruthEvent {
   /// Which kind of event (a table bounce or a crossing of the net).
   final TrackedEventType type;
 
+  /// Parse one labeled event from a fixture's `groundTruthEvents` list, e.g.
+  /// `{"t": 133, "type": "bounce"}`. Unknown `type` strings fall back to
+  /// [TrackedEventType.bounce] (the only ground-truthable OpenTTGames label).
+  factory GroundTruthEvent.fromJson(Map<String, dynamic> json) =>
+      GroundTruthEvent(
+        (json['t'] as num).toInt(),
+        (json['type'] as String?)?.toLowerCase() == 'netcross'
+            ? TrackedEventType.netCross
+            : TrackedEventType.bounce,
+      );
+
+  Map<String, dynamic> toJson() => {'t': timestampMs, 'type': type.name};
+
   @override
   String toString() => 'GTEvent($type @$timestampMs)';
 }

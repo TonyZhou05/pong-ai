@@ -90,12 +90,18 @@ List<FrameResult> openTtGamesGroundTruthFrames({
 /// predictions (a perfect-detector baseline that still exercises the
 /// tracker/scoring pipeline). OpenTTGames carries no scoreboard, so supply the
 /// rally outcome via [groundTruth] if you scored the clip by hand.
+///
+/// Pass the game's `events_markup.json` as [eventsMarkup] to also attach
+/// ground-truth bounce timings (via [openTtGamesBounceEvents]) as
+/// [ClipFixture.groundTruthEvents], so the fixture feeds the
+/// [EventDetectionBenchmark] as well as the perception stage.
 ClipFixture clipFixtureFromOpenTtGames({
   required String name,
   required Map<String, dynamic> ballMarkup,
   required int frameWidth,
   required int frameHeight,
   required double fps,
+  Map<String, dynamic>? eventsMarkup,
   List<FrameResult>? predictedFrames,
   ClipGroundTruth groundTruth = const ClipGroundTruth(pointsA: 0, pointsB: 0),
   String source = 'OpenTTGames',
@@ -124,6 +130,9 @@ ClipFixture clipFixtureFromOpenTtGames({
     bestOf: bestOf,
     frames: predictedFrames ?? gtFrames,
     groundTruthFrames: gtFrames,
+    groundTruthEvents: eventsMarkup == null
+        ? null
+        : openTtGamesBounceEvents(eventsMarkup: eventsMarkup, fps: fps),
     groundTruth: groundTruth,
   );
 }

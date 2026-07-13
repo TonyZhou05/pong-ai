@@ -4,6 +4,20 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/core/benchmark/benchmark_corpus.dart';
 import 'package:pong_ai/core/benchmark/clip_fixture.dart';
+import 'package:pong_ai/core/benchmark/event_metrics.dart';
+import 'package:pong_ai/core/vision/detection.dart';
+
+FrameResult _ball(int t, double x, double y) => FrameResult(
+      timestampMs: t,
+      ball: Detection(label: 'ball', confidence: 1, box: BBox(x, y, 0, 0)),
+    );
+
+/// A down-then-up arc whose apex (a bounce) lands on the middle sample's t.
+List<FrameResult> _bounceArc(int t0, double x, {int step = 33}) => [
+      _ball(t0, x, 0.40),
+      _ball(t0 + step, x, 0.60),
+      _ball(t0 + 2 * step, x, 0.55),
+    ];
 
 void main() {
   group('loadClipDirectory', () {
@@ -80,6 +94,48 @@ void main() {
       expect(report, contains('Perception: ${base.name}'));
       // A perfect self-detector should score 100% ball recall.
       expect(report, contains('Ball  P/R/F1: 100.0%/100.0%'));
+    });
+
+    test('notes when no clip carries ground-truth events', () {
+      final clips = loadClipFixtures(['benchmark/clips/synthetic_demo.json']);
+      final report = buildCorpusReport(clips);
+      expect(report, contains('Stage 3: event-detection accuracy'));
+      expect(report, contains('No clips carry ground-truth events'));
+    });
+
+    test('scores the event stage when ground-truth events are present', () {
+      final clip = ClipFixture(
+        name: 'bounce_clip',
+        frames: _bounceArc(0, 0.30),
+        groundTruthEvents: const [
+          GroundTruthEvent(33, TrackedEventType.bounce),
+        ],
+        groundTruth: const ClipGroundTruth(pointsA: 0, pointsB: 0),
+      );
+      final report = buildCorpusReport([clip]);
+      expect(report, contains('Stage 3: event-detection accuracy'));
+      expect(report, contains('Events: bounce_clip'));
+      // A clean arc against a matching label is a perfect bounce detection.
+      expect(report, contains('Bounce    P/R/F1: 100.0%/100.0%/100.0%'));
+    });
+
+    test('ground-truth events survive a JSON round-trip', () {
+      final clip = ClipFixture(
+        name: 'evt',
+        frames: _bounceArc(0, 0.30),
+        groundTruthEvents: const [
+          GroundTruthEvent(33, TrackedEventType.bounce),
+          GroundTruthEvent(200, TrackedEventType.netCross),
+        ],
+        groundTruth: const ClipGroundTruth(pointsA: 0, pointsB: 0),
+      );
+      final again = ClipFixture.fromJson(
+        jsonDecode(jsonEncode(clip.toJson())) as Map<String, dynamic>,
+      );
+      expect(again.groundTruthEvents, hasLength(2));
+      expect(again.groundTruthEvents![0].timestampMs, 33);
+      expect(again.groundTruthEvents![0].type, TrackedEventType.bounce);
+      expect(again.groundTruthEvents![1].type, TrackedEventType.netCross);
     });
 
     test('the shipped corpus round-trips through JSON without loss', () {

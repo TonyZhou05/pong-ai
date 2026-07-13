@@ -16,6 +16,7 @@ library;
 
 import '../scoring/scoring_engine.dart';
 import '../vision/detection.dart';
+import 'event_metrics.dart';
 
 /// The verified scoring outcome of a clip, used to score the pipeline against.
 class ClipGroundTruth {
@@ -61,6 +62,7 @@ class ClipFixture {
     required this.frames,
     required this.groundTruth,
     this.groundTruthFrames,
+    this.groundTruthEvents,
     this.source = 'unknown',
     this.fps = 30,
     this.netX = 0.5,
@@ -101,11 +103,19 @@ class ClipFixture {
   /// accuracy. Null when the clip only carries a scoring outcome.
   final List<FrameResult>? groundTruthFrames;
 
+  /// Optional ground-truth *event* timings (table bounces / net crossings) used
+  /// by the event-detection benchmark ([EventDetectionBenchmark]) to score the
+  /// tracker's bounce/net-cross timing. Null when the clip carries no event
+  /// labels. Populated from OpenTTGames `events_markup.json` via
+  /// `openTtGamesBounceEvents`.
+  final List<GroundTruthEvent>? groundTruthEvents;
+
   final ClipGroundTruth groundTruth;
 
   factory ClipFixture.fromJson(Map<String, dynamic> json) {
     final rawFrames = (json['frames'] as List<dynamic>? ?? const []);
     final rawGtFrames = json['groundTruthFrames'] as List<dynamic>?;
+    final rawGtEvents = json['groundTruthEvents'] as List<dynamic>?;
     return ClipFixture(
       name: json['name'] as String? ?? 'unnamed',
       source: json['source'] as String? ?? 'unknown',
@@ -120,6 +130,9 @@ class ClipFixture {
           .toList(growable: false),
       groundTruthFrames: rawGtFrames
           ?.map((f) => _frameFromJson(f as Map<String, dynamic>))
+          .toList(growable: false),
+      groundTruthEvents: rawGtEvents
+          ?.map((e) => GroundTruthEvent.fromJson(e as Map<String, dynamic>))
           .toList(growable: false),
       groundTruth: ClipGroundTruth.fromJson(
         json['groundTruth'] as Map<String, dynamic>,
@@ -141,6 +154,9 @@ class ClipFixture {
         if (groundTruthFrames != null)
           'groundTruthFrames':
               groundTruthFrames!.map(_frameToJson).toList(),
+        if (groundTruthEvents != null)
+          'groundTruthEvents':
+              groundTruthEvents!.map((e) => e.toJson()).toList(),
       };
 }
 

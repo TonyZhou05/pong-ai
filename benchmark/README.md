@@ -23,7 +23,8 @@ It is pure Dart — no camera, no plugin — so it all runs in `flutter test`.
 
 - `lib/core/benchmark/clip_fixture.dart` — `ClipFixture`, the JSON representation
   of one labeled clip (per-frame predicted detections + ground-truth score, plus
-  optional per-frame ground-truth detections in `groundTruthFrames`).
+  optional per-frame ground-truth detections in `groundTruthFrames` and
+  ground-truth event timings in `groundTruthEvents`).
 - `lib/core/benchmark/benchmark_runner.dart` — `BenchmarkRunner` /
   `BenchmarkResult` / `BenchmarkSuiteResult`: scoring-accuracy metrics.
 - `lib/core/benchmark/detection_metrics.dart` — `DetectionBenchmark` /
@@ -32,7 +33,7 @@ It is pure Dart — no camera, no plugin — so it all runs in `flutter test`.
   `EventTypeMetrics` / `GroundTruthEvent`: tracker event-detection metrics.
 - `lib/core/benchmark/benchmark_corpus.dart` — `loadClipDirectory` /
   `loadClipFixtures` / `buildCorpusReport`: load the on-disk corpus and compose
-  the scoring + perception stages into one report.
+  the scoring + perception + event-detection stages into one report.
 - `bin/benchmark.dart` — the runnable entrypoint (see **Running** below).
 - `clips/` — the fixture corpus (start with `synthetic_demo.json`).
 - `test/benchmark_test.dart`, `test/detection_metrics_test.dart`,
@@ -48,8 +49,9 @@ dart run bin/benchmark.dart                 # score every clip in clips/
 dart run bin/benchmark.dart path/a.json ... # score the given fixtures
 ```
 
-It prints Stage 1 (scoring accuracy over all clips) and Stage 2 (perception
-accuracy for clips carrying `groundTruthFrames`), and exits non-zero when no
+It prints Stage 1 (scoring accuracy over all clips), Stage 2 (perception
+accuracy for clips carrying `groundTruthFrames`), and Stage 3 (event-detection
+accuracy for clips carrying `groundTruthEvents`), and exits non-zero when no
 clips are found so it can gate CI.
 
 ## Fixture format (`clips/*.json`)
@@ -88,6 +90,12 @@ clips are found so it can gate CI.
   `frames`) holding the *true* ball/people boxes and keypoints. Ground-truth
   keypoints with `conf == 0` are treated as unlabeled/occluded and skipped by
   PCK, the standard convention. Omit `groundTruthFrames` for scoring-only clips.
+- To also score the tracker's **event-detection** timing (Stage 3), add a
+  `groundTruthEvents` array of `{ "t": <ms>, "type": "bounce" | "netCross" }`
+  entries — the true table-bounce / net-crossing instants. The
+  `EventDetectionBenchmark` replays `frames` through a `BallTracker` and scores
+  the emitted bounce/net-cross events against these. Omit for clips without
+  event labels.
 
 ## Metrics
 
@@ -113,6 +121,11 @@ present):
   matched by box IoU ≥ 0.5), PCK (fraction of visible keypoints within a
   normalized distance of 0.05), and mean keypoint error.
 
+Per clip, event detection (`EventBenchmarkResult`, when `groundTruthEvents` is
+present): per-type (bounce / net-cross) precision, recall, F1, and mean temporal
+error of matched events (emitted events greedily matched to the nearest same-type
+ground-truth event within a temporal tolerance).
+
 ## Adding real clips
 
 **OpenTTGames converter (implemented).** OpenTTGames ships a per-game
@@ -132,7 +145,10 @@ its `bounce` frames into `GroundTruthEvent`s on the same ms clock, which
 `EventDetectionBenchmark.evaluate(...)` scores against the `BounceEvent`s a
 `BallTracker` emits over the clip's frames. (The `net` label — ball *hitting* the
 net — is a different event from the tracker's over-the-net crossing, so it is not
-mapped.)
+mapped.) Pass that same map as `clipFixtureFromOpenTtGames(..., eventsMarkup:)`
+and the converter attaches the events as the fixture's `groundTruthEvents`, so a
+single converted clip feeds Stage 2 (perception) and Stage 3 (event detection) in
+the corpus report as well as Stage 1 (scoring).
 
 To convert any other public dataset or a side-angle match video into a fixture
 by hand:
@@ -147,7 +163,10 @@ by hand:
    dataset's own per-frame annotations (OpenTTGames ships true ball positions;
    SPIN ships ball + pose) so `DetectionBenchmark` can score how well the model
    detector matched them — that is the direct model-quality comparison.
-5. Drop the file in `clips/` and it is picked up by the harness.
+5. **(Optional) For event-detection scoring**, add `groundTruthEvents` (the true
+   bounce / net-crossing instants) so `EventDetectionBenchmark` can score the
+   tracker's event timing.
+6. Drop the file in `clips/` and it is picked up by the harness.
 
 Recommended sources (see ARCHITECTURE §2): **OpenTTGames** (ball position +
 bounce/net/empty event labels → straightforward `frames` + ground truth),

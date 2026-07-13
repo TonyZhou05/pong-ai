@@ -124,12 +124,16 @@ docs. Three evaluation stages exist:
   `openTtGamesBounceEvents(...)` (iteration 40) converts its `bounce` labels into
   `GroundTruthEvent`s on the same ms clock, feeding the event-detection
   benchmark. (`net` = ball *hitting* the net, a different event from the
-  tracker's over-the-net crossing, so it is intentionally not mapped.)
+  tracker's over-the-net crossing, so it is intentionally not mapped.) Passing
+  that map as `clipFixtureFromOpenTtGames(..., eventsMarkup:)` (iteration 42)
+  attaches the events as the fixture's `groundTruthEvents` so one converted clip
+  feeds all three benchmark stages.
 - **Runnable entrypoint** (`bin/benchmark.dart` + `benchmark_corpus.dart`,
   iteration 41) — `dart run bin/benchmark.dart` discovers `benchmark/clips/*.json`
-  (via `loadClipDirectory`), scores them through the scoring + perception stages
-  (`buildCorpusReport`), and prints one consolidated report, so the corpus can be
-  evaluated outside `flutter test` and gate CI.
+  (via `loadClipDirectory`), scores them through the scoring + perception +
+  event-detection stages (`buildCorpusReport`; Stage 3 added iteration 42, scoring
+  clips that carry `groundTruthEvents`), and prints one consolidated report, so
+  the corpus can be evaluated outside `flutter test` and gate CI.
 
 See [`../benchmark/README.md`](../benchmark/README.md).
 
