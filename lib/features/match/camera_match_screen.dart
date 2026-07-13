@@ -133,6 +133,9 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   void _onFrame(FrameResult frame) {
     final decisions = _controller.onFrame(frame);
     if (!mounted) return;
+    // While paused the controller ignores frames (no decisions); freeze the
+    // overlay too so the display matches — nothing is being scored right now.
+    if (_controller.isPaused) return;
     setState(() {
       _lastFrame = frame;
       _predictedBall = frame.ball == null
@@ -171,6 +174,19 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       _predictedBall = null;
     });
     _vision.start();
+  }
+
+  /// Pause / resume auto-scoring for a break in play (a timeout, towel-down,
+  /// retrieving a stray ball). The camera keeps running; the pipeline just stops
+  /// consuming frames so incidental ball motion during the break isn't scored.
+  void _togglePause() {
+    setState(() {
+      if (_controller.isPaused) {
+        _controller.resume();
+      } else {
+        _controller.pause();
+      }
+    });
   }
 
   void _setFirstServer(Player p) {
@@ -212,6 +228,16 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       appBar: AppBar(
         title: const Text('Live Match'),
         actions: [
+          // Pause auto-scoring for a break in play so the always-on camera can't
+          // manufacture phantom points while nobody's actually rallying.
+          if (!state.isMatchOver)
+            IconButton(
+              icon: Icon(
+                _controller.isPaused ? Icons.play_arrow : Icons.pause,
+              ),
+              tooltip: _controller.isPaused ? 'Resume play' : 'Pause play',
+              onPressed: _togglePause,
+            ),
           IconButton(
             icon: const Icon(Icons.undo),
             tooltip: 'Undo last point',
@@ -270,11 +296,19 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                     _controller.matchNotStarted ? _setPointsPerGame : null,
               ),
             ),
+            // A break in play: show a clear "PAUSED" cue over the frozen preview
+            // so it's obvious the app is deliberately not scoring right now.
+            if (_controller.isPaused && !state.isMatchOver)
+              const Align(
+                alignment: Alignment.center,
+                child: IgnorePointer(child: _PausedBanner()),
+              ),
             // Live "reposition the phone" nudge: while the match is on, if the
             // trailing-window detection health is poor (ball/players frequently
             // out of frame) surface the placement hint so the user can fix the
             // phone position instead of only learning it failed at match end.
             if (!state.isMatchOver &&
+                !_controller.isPaused &&
                 _controller.trackingQuality.isPlacementPoor)
               Align(
                 alignment: const Alignment(0, -0.35),
@@ -465,6 +499,40 @@ class _ChangeEndsBanner extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A "PAUSED" cue shown centred over the frozen preview while auto-scoring is
+/// paused for a break in play, so it's unmistakable that the app is
+/// deliberately not scoring rather than having lost tracking.
+class _PausedBanner extends StatelessWidget {
+  const _PausedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.pause_circle_filled, color: Colors.white, size: 22),
+          const SizedBox(width: 8),
+          Text(
+            'PAUSED',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ],
       ),
     );
   }

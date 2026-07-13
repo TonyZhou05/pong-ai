@@ -281,6 +281,18 @@ behind a `VisionService` interface. This lets us:
        through the existing `_PointPressureBanner` so the decider context shows
        from the game's first point (game/match point still takes precedence at
        the climax).
+     - **[done — iteration 104]** Pause / resume. Because the live camera feeds
+       frames continuously, a real break in play — a timeout, towel-down,
+       retrieving a stray ball, or warm-up hits between points — would keep the
+       pipeline consuming ball motion and could manufacture a phantom rally.
+       `MatchController.pause()`/`resume()` (with `isPaused`) gate `onFrame` so a
+       paused controller drops every frame (no scoring, no calibration, no
+       analytics); `pause()` also resets the tracker so a half-tracked ball from
+       before the break can't bleed into the first rally after it. The live
+       `CameraMatchScreen` exposes an AppBar pause/resume toggle and freezes the
+       tracking overlay behind a centred "PAUSED" cue while paused, so it's
+       unmistakable the app is deliberately not scoring rather than having lost
+       tracking. `startNewMatch` clears the paused state for a rematch.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking

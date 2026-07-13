@@ -672,4 +672,76 @@ void main() {
       expect(mc.referee.leftPlayer, Player.b);
     });
   });
+
+  group('MatchController — pause/resume', () {
+    test('a paused controller ignores frames and scores nothing', () {
+      final mc = MatchController();
+      expect(mc.isPaused, isFalse);
+      mc.pause();
+      expect(mc.isPaused, isTrue);
+      // A full double-bounce rally arrives during the break — it must not score.
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 0);
+      expect(mc.score.pointsB, 0);
+      expect(mc.points, isEmpty);
+    });
+
+    test('resuming scores subsequent rallies normally', () {
+      final mc = MatchController();
+      mc.pause();
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 0);
+
+      mc.resume();
+      expect(mc.isPaused, isFalse);
+      // A fresh rally after resuming scores as usual.
+      for (final f in _doubleBounceOn(0.75, startT: 1000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+    });
+
+    test('pause discards an in-flight rally so it cannot bleed across', () {
+      final mc = MatchController();
+      // Start a rally (two bounces of a double-bounce sequence) then pause mid
+      // rally before the second bounce is reported.
+      final frames = _doubleBounceOn(0.75);
+      for (final f in frames.take(4)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 0);
+      mc.pause();
+      mc.resume();
+      // Feeding the tail of the old rally now does nothing — the trajectory was
+      // cleared, so the stale second bounce can't complete a double bounce.
+      for (final f in frames.skip(4)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 0);
+    });
+
+    test('pause/resume are idempotent no-ops when already in that state', () {
+      final mc = MatchController();
+      mc.resume(); // no-op while running
+      expect(mc.isPaused, isFalse);
+      mc.pause();
+      mc.pause(); // no-op while paused
+      expect(mc.isPaused, isTrue);
+    });
+
+    test('startNewMatch clears a paused state', () {
+      final mc = MatchController();
+      mc.pause();
+      mc.startNewMatch();
+      expect(mc.isPaused, isFalse);
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+    });
+  });
 }

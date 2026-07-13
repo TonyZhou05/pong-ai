@@ -601,4 +601,52 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets(
+    'pausing freezes scoring during a break and resuming restores it',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            matchControllerBuilder: MatchController.new,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Pause play via the AppBar control.
+      expect(find.byTooltip('Pause play'), findsOneWidget);
+      await tester.tap(find.byTooltip('Pause play'));
+      await tester.pump();
+      expect(find.text('PAUSED'), findsOneWidget);
+      expect(find.byTooltip('Resume play'), findsOneWidget);
+
+      // A full rally arrives during the break — nothing is scored.
+      for (final frame in demoMatchFrames().take(13)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      expect(find.textContaining('not returned'), findsNothing);
+      expect(find.text('Waiting for the first rally…'), findsOneWidget);
+
+      // Resume and feed a fresh rally (the first scripted rally, which scores
+      // A) — with a clean trajectory it now scores.
+      await tester.tap(find.byTooltip('Resume play'));
+      await tester.pump();
+      expect(find.text('PAUSED'), findsNothing);
+      for (final frame in demoMatchFrames().take(13)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      expect(find.textContaining('Player A — not returned'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

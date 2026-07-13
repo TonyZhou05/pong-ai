@@ -118,6 +118,32 @@ class MatchController {
   /// [switchEndsBetweenGames] is off).
   bool get changeEndsPending => _changeEndsPending;
 
+  /// Whether play is paused. While paused, [onFrame] ignores every frame — no
+  /// scoring, no calibration, no analytics — so incidental ball motion during a
+  /// break (a timeout, a towel-down, retrieving a stray ball, warm-up hits
+  /// between points) can't manufacture a phantom rally. The camera can keep
+  /// running; the pipeline simply stops consuming.
+  bool _paused = false;
+
+  /// Whether play is currently paused (see [pause]/[resume]).
+  bool get isPaused => _paused;
+
+  /// Pause scoring: subsequent frames fed to [onFrame] are dropped until
+  /// [resume]. The in-flight rally trajectory is cleared so a half-tracked ball
+  /// from before the break doesn't bleed into the first rally after it. No-op if
+  /// already paused.
+  void pause() {
+    if (_paused) return;
+    _paused = true;
+    // Discard any partial trajectory so play resumes from a clean rally — the
+    // ball will be somewhere else entirely after a break.
+    _tracker.reset();
+  }
+
+  /// Resume scoring after a [pause]. The next frames are consumed normally,
+  /// starting a fresh rally. No-op if not paused.
+  void resume() => _paused = false;
+
   /// Whether the controller is still in the calibration warm-up (no points are
   /// scored yet). Always false when no [calibrator] was supplied.
   bool get isCalibrating => calibrator != null && !_calibrated;
@@ -257,6 +283,10 @@ class MatchController {
   /// most one per rally-ending event). Decisive decisions are applied to the
   /// [engine] automatically; undetermined ones are collected in [undetermined].
   List<PointDecision> onFrame(FrameResult frame) {
+    // Paused (a break in play): drop the frame entirely so nothing during the
+    // break — stray-ball retrieval, warm-up hits, players milling about — is
+    // scored or mined into analytics.
+    if (_paused) return const [];
     _lastTimestampMs = frame.timestampMs;
     // Detection-health accounting runs on every frame, including calibration
     // warm-up, since it measures how well the phone placement tracks the ball
@@ -362,6 +392,7 @@ class MatchController {
     referee.resetEnds();
     _midGameEndsSwitched = false;
     _changeEndsPending = false;
+    _paused = false;
     _points.clear();
     _undetermined.clear();
     _tracker.reset();
