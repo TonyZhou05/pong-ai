@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/core/history/session_history_store.dart';
 import 'package:pong_ai/core/vision/detection.dart';
@@ -366,6 +367,93 @@ void main() {
         find.textContaining('Match focus: serve effectiveness'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('Share progress hands the aggregate report to the sink',
+        (tester) async {
+      final store = FakeHistoryStore();
+      await store.save(
+        kind: SessionKind.match,
+        report: {
+          'score': {'gamesA': 3, 'gamesB': 1, 'winner': 'A'},
+        },
+        at: DateTime(2026, 1, 1, 9),
+      );
+
+      String? sharedText;
+      String? sharedSubject;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SessionHistoryScreen(
+            store: store,
+            shareReport: (text, {subject}) async {
+              sharedText = text;
+              sharedSubject = subject;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Share progress'));
+      await tester.pumpAndSettle();
+
+      expect(sharedSubject, 'Table tennis progress');
+      expect(sharedText, contains('Progress across saved sessions'));
+      expect(sharedText, contains('Matches: 1 played'));
+    });
+
+    testWidgets('Copy progress writes the aggregate report to the clipboard',
+        (tester) async {
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String?;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      final store = FakeHistoryStore();
+      await store.save(
+        kind: SessionKind.training,
+        report: {
+          'session': {
+            'overallGrade': 'A',
+            'shotCount': 8,
+            'averageScore': 0.80,
+          },
+        },
+        at: DateTime(2026, 1, 1, 9),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: store)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Copy progress'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Progress copied to clipboard'), findsOneWidget);
+      expect(copied, contains('Progress across saved sessions'));
+    });
+
+    testWidgets('progress actions are hidden when no sessions are saved',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: FakeHistoryStore())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Copy progress'), findsNothing);
+      expect(find.byTooltip('Share progress'), findsNothing);
     });
 
     testWidgets('delete removes a session from the list', (tester) async {

@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
 import '../../core/history/session_trends.dart';
+import '../../core/share/report_share.dart';
 import 'progress_chart.dart';
 
 /// Browse, view and delete previously-saved match / training sessions.
@@ -24,6 +26,7 @@ class SessionHistoryScreen extends StatefulWidget {
     super.key,
     this.store,
     this.storeLoader,
+    this.shareReport = defaultShareReport,
   });
 
   /// A ready store to use directly (tests). When null, [storeLoader] resolves
@@ -33,6 +36,11 @@ class SessionHistoryScreen extends StatefulWidget {
   /// Resolves the store when [store] is null. Defaults to the on-device
   /// documents-directory store.
   final Future<SessionHistoryStore> Function()? storeLoader;
+
+  /// Sink for the OS share sheet, injectable so the aggregate-report Share
+  /// action stays widget-testable headlessly. Defaults to the `share_plus`
+  /// backed [defaultShareReport].
+  final ShareReportSink shareReport;
 
   @override
   State<SessionHistoryScreen> createState() => _SessionHistoryScreenState();
@@ -77,12 +85,50 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
     await _load();
   }
 
+  /// The aggregate cross-session progress + career summary as shareable text,
+  /// or null when nothing is saved yet. Composed from the same [SessionTrends]
+  /// that backs the on-screen Training-progress / Match-record cards.
+  String? _progressReport() {
+    final sessions = _sessions;
+    if (sessions == null || sessions.isEmpty) return null;
+    return SessionTrends.fromSessions(sessions).report();
+  }
+
+  Future<void> _copyProgress(BuildContext context) async {
+    final report = _progressReport();
+    if (report == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: report));
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Progress copied to clipboard')),
+    );
+  }
+
+  Future<void> _shareProgress() async {
+    final report = _progressReport();
+    if (report == null) return;
+    await widget.shareReport(report, subject: 'Table tennis progress');
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasSessions = (_sessions?.isNotEmpty ?? false);
     return Scaffold(
       appBar: AppBar(
         title: const Text('History'),
         actions: [
+          if (hasSessions) ...[
+            IconButton(
+              icon: const Icon(Icons.copy),
+              tooltip: 'Copy progress',
+              onPressed: () => _copyProgress(context),
+            ),
+            IconButton(
+              icon: const Icon(Icons.ios_share),
+              tooltip: 'Share progress',
+              onPressed: _shareProgress,
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Reload',

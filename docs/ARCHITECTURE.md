@@ -1034,6 +1034,16 @@ behind a `VisionService` interface. This lets us:
      short-match controller (`ScoringEngine(pointsPerGame: 3, bestOf: 1)`) that
      the demo rallies finish, exercising the summary panel end-to-end for the
      first time.
+   - **[done — iteration 127]** Aggregate progress-report export. Every *individual*
+     saved session could be copied/shared/exported since iterations 25/38/121, and
+     `SessionTrends.report()` (iteration 48+) composes the whole cross-session
+     progress + career summary — but that aggregate report was only ever rendered
+     as the Training-progress / Match-record cards, never itself exportable.
+     `SessionHistoryScreen` now carries **Copy progress** (clipboard) and **Share
+     progress** (an injectable `ShareReportSink`, default `defaultShareReport`)
+     app-bar actions, shown once at least one session is saved, that hand
+     `SessionTrends.fromSessions(sessions).report()` to the clipboard / OS share
+     sheet — closing the "produce summary" gap for the career-level view.
    - **[done — iteration 57]** Live-camera "Save to history" parity. Iterations
      46/47 added the producer only to the scripted *demo* screens
      (`TrainingScreen`/`MatchScreen`), so the actual production live-camera path
