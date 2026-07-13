@@ -34,6 +34,7 @@ class TrackingQualityAnalyzer {
     this.ballWeight = 0.4,
     this.ballConfidenceWeight = 0.2,
     this.playerWeight = 0.4,
+    this.requireBothPlayers = true,
   }) : assert(
           (ballWeight + ballConfidenceWeight + playerWeight - 1.0).abs() < 1e-9,
           'weights must sum to 1',
@@ -46,9 +47,21 @@ class TrackingQualityAnalyzer {
   /// How much the mean ball-detection confidence contributes to [qualityScore].
   final double ballConfidenceWeight;
 
-  /// How much the fraction of frames with *both* players visible contributes to
-  /// [qualityScore].
+  /// How much the player-visibility rate contributes to [qualityScore].
   final double playerWeight;
+
+  /// Whether good placement needs *both* players (both ends of the table) in
+  /// frame. `true` for a match — the phone must see both halves; `false` for
+  /// **training mode**, where a single player practises against a rebound net so
+  /// only that one player needs to be visible. Controls which player-visibility
+  /// rate ([twoPlayerRate] vs [anyPlayerRate]) feeds [qualityScore] / [hint] /
+  /// [report].
+  final bool requireBothPlayers;
+
+  /// The player-visibility rate that feeds the health score, per
+  /// [requireBothPlayers].
+  double get playerVisibilityRate =>
+      requireBothPlayers ? twoPlayerRate : anyPlayerRate;
 
   int _frames = 0;
   int _ballFrames = 0;
@@ -84,7 +97,7 @@ class TrackingQualityAnalyzer {
     if (_frames == 0) return 0;
     return ballWeight * ballDetectionRate +
         ballConfidenceWeight * averageBallConfidence +
-        playerWeight * twoPlayerRate;
+        playerWeight * playerVisibilityRate;
   }
 
   /// An A–F letter grade for the tracking health, from [qualityScore]. Uses the
@@ -103,9 +116,12 @@ class TrackingQualityAnalyzer {
   /// the user knows how to reposition the phone for better tracking.
   String get hint {
     if (_frames == 0) return 'No frames analysed yet.';
-    if (twoPlayerRate < 0.5) {
-      return 'Both players are often out of frame — move the phone back or '
-          'lower so the whole table and both ends are visible.';
+    if (playerVisibilityRate < 0.5) {
+      return requireBothPlayers
+          ? 'Both players are often out of frame — move the phone back or '
+              'lower so the whole table and both ends are visible.'
+          : 'You are often out of frame — reposition the phone so your whole '
+              'body and the target half are visible.';
     }
     if (ballDetectionRate < 0.4) {
       return 'The ball is frequently lost — improve lighting or move the phone '
@@ -141,7 +157,8 @@ class TrackingQualityAnalyzer {
           '(${(qualityScore * 100).round()}%)',
       '  • ball detected in ${(ballDetectionRate * 100).round()}% of frames '
           '(avg confidence ${(averageBallConfidence * 100).round()}%)',
-      '  • both players visible in ${(twoPlayerRate * 100).round()}% of frames',
+      '  • ${requireBothPlayers ? 'both players' : 'player'} visible in '
+          '${(playerVisibilityRate * 100).round()}% of frames',
       '  • $hint',
     ].join('\n');
   }

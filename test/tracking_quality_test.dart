@@ -83,6 +83,34 @@ void main() {
     expect(a.hint, contains('ball is frequently lost'));
   });
 
+  test('training mode scores on any-player visibility, not both ends', () {
+    final match = TrackingQualityAnalyzer();
+    final training = TrackingQualityAnalyzer(requireBothPlayers: false);
+    // A lone practising player: ball always seen, only ever one person in view.
+    for (var t = 0; t < 10; t++) {
+      match.observe(_frame(t, ballConf: 0.9, players: 1));
+      training.observe(_frame(t, ballConf: 0.9, players: 1));
+    }
+    expect(training.playerVisibilityRate, 1.0); // any-player
+    expect(match.playerVisibilityRate, 0.0); // both-players
+    // 0.4*1 + 0.2*0.9 + 0.4*1 == 0.98 -> A for training, C for the match view.
+    expect(training.qualityScore, closeTo(0.98, 1e-9));
+    expect(training.grade, 'A');
+    expect(match.grade, 'C');
+    expect(training.hint, contains('healthy'));
+  });
+
+  test('training-mode hint and report speak to a single player', () {
+    final a = TrackingQualityAnalyzer(requireBothPlayers: false);
+    // Player frequently out of frame drives the single-player hint.
+    for (var t = 0; t < 10; t++) {
+      a.observe(_frame(t, ballConf: 0.9, players: t < 3 ? 1 : 0));
+    }
+    expect(a.playerVisibilityRate, closeTo(0.3, 1e-9));
+    expect(a.hint, contains('You are often out of frame'));
+    expect(a.report(), contains('player visible in 30% of frames'));
+  });
+
   test('report and reset', () {
     final a = TrackingQualityAnalyzer();
     a.observe(_frame(0, ballConf: 0.9, players: 2));

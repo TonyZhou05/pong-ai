@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/analysis/ball_tracker.dart';
+import '../../core/analysis/tracking_quality.dart';
 import '../../core/training/shot_analyzer.dart';
 import '../../core/training/training_report_json.dart';
 import '../../core/vision/detection.dart';
@@ -41,6 +42,10 @@ class TrainingScreen extends StatefulWidget {
 class _TrainingScreenState extends State<TrainingScreen> {
   late final VisionService _vision;
   late final ShotAnalyzer _analyzer;
+  // Single-player detection-health for the phone-placement hint (training has
+  // one player, so it scores on any-player visibility, not both ends).
+  final TrackingQualityAnalyzer _quality =
+      TrackingQualityAnalyzer(requireBothPlayers: false);
 
   StreamSubscription<FrameResult>? _sub;
   FrameResult? _lastFrame;
@@ -64,6 +69,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
 
   void _onFrame(FrameResult frame) {
     final shot = _analyzer.onFrame(frame);
+    _quality.observe(frame);
     if (!mounted) return;
     setState(() {
       _lastFrame = frame;
@@ -83,6 +89,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
   void _restart() {
     setState(() {
       _analyzer.reset();
+      _quality.reset();
       _recentShots.clear();
       _finished = false;
       _lastFrame = null;
@@ -123,7 +130,13 @@ class _TrainingScreenState extends State<TrainingScreen> {
             if (_finished)
               // Bounded so the report's internal scroll view fits (and scrolls)
               // instead of overflowing the column with the placement map.
-              Flexible(child: _SessionReport(summary: summary, config: widget.config))
+              Flexible(
+                child: _SessionReport(
+                  summary: summary,
+                  config: widget.config,
+                  quality: _quality,
+                ),
+              )
             else
               _ShotFeed(shots: _recentShots),
           ],
@@ -296,14 +309,22 @@ class _ShotFeed extends StatelessWidget {
 
 /// End-of-session report, shown once the replay finishes.
 class _SessionReport extends StatelessWidget {
-  const _SessionReport({required this.summary, required this.config});
+  const _SessionReport({
+    required this.summary,
+    required this.config,
+    required this.quality,
+  });
 
   final TrainingSummary summary;
   final TrainingConfig config;
+  final TrackingQualityAnalyzer quality;
 
   Future<void> _copyReport(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    await Clipboard.setData(ClipboardData(text: summary.report()));
+    final text = quality.hasData
+        ? '${summary.report()}\n\n${quality.report()}'
+        : summary.report();
+    await Clipboard.setData(ClipboardData(text: text));
     messenger.showSnackBar(
       const SnackBar(content: Text('Report copied to clipboard')),
     );
@@ -333,6 +354,13 @@ class _SessionReport extends StatelessWidget {
             Text('Session complete', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(summary.report(), style: theme.textTheme.bodyMedium),
+            if (quality.hasData) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Tracking quality: ${quality.grade} — ${quality.hint}',
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
             if (summary.shots.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text('Placement map', style: theme.textTheme.titleSmall),

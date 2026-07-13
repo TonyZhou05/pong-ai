@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 import '../../core/analysis/ball_tracker.dart';
+import '../../core/analysis/tracking_quality.dart';
 import '../../core/training/shot_analyzer.dart';
 import '../../core/training/training_report_json.dart';
 import '../../core/vision/detection.dart';
@@ -65,6 +66,10 @@ class CameraTrainingScreen extends StatefulWidget {
 class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   late final YoloVisionService _vision;
   late final ShotAnalyzer _analyzer;
+  // Single-player detection-health for the phone-placement hint (training has
+  // one player, so it scores on any-player visibility, not both ends).
+  final TrackingQualityAnalyzer _quality =
+      TrackingQualityAnalyzer(requireBothPlayers: false);
 
   StreamSubscription<FrameResult>? _sub;
   FrameResult? _lastFrame;
@@ -87,6 +92,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
 
   void _onFrame(FrameResult frame) {
     final shot = _analyzer.onFrame(frame);
+    _quality.observe(frame);
     if (!mounted) return;
     setState(() {
       _lastFrame = frame;
@@ -106,6 +112,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
 
   void _restart() {
     _analyzer.reset();
+    _quality.reset();
     setState(() {
       _recentShots.clear();
       _finished = false;
@@ -162,7 +169,11 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
               left: 0,
               right: 0,
               child: _finished
-                  ? _SessionReport(summary: summary, config: widget.config)
+                  ? _SessionReport(
+                      summary: summary,
+                      config: widget.config,
+                      quality: _quality,
+                    )
                   : _ShotFeed(shots: _recentShots),
             ),
           ],
@@ -344,14 +355,22 @@ class _ShotFeed extends StatelessWidget {
 
 /// End-of-session report, shown once the player taps Finish.
 class _SessionReport extends StatelessWidget {
-  const _SessionReport({required this.summary, required this.config});
+  const _SessionReport({
+    required this.summary,
+    required this.config,
+    required this.quality,
+  });
 
   final TrainingSummary summary;
   final TrainingConfig config;
+  final TrackingQualityAnalyzer quality;
 
   Future<void> _copyReport(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    await Clipboard.setData(ClipboardData(text: summary.report()));
+    final text = quality.hasData
+        ? '${summary.report()}\n\n${quality.report()}'
+        : summary.report();
+    await Clipboard.setData(ClipboardData(text: text));
     messenger.showSnackBar(
       const SnackBar(content: Text('Report copied to clipboard')),
     );
@@ -388,6 +407,14 @@ class _SessionReport extends StatelessWidget {
               style:
                   theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
             ),
+            if (quality.hasData) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Tracking quality: ${quality.grade} — ${quality.hint}',
+                style:
+                    theme.textTheme.bodySmall?.copyWith(color: Colors.white60),
+              ),
+            ],
             if (summary.shots.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(

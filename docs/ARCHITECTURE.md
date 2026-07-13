@@ -475,6 +475,21 @@ behind a `VisionService` interface. This lets us:
      clipboard.
 
 7. Training mode: shot segmentation + quality grading.
+   - **[done — iteration 44]** Training-mode tracking-quality / detection-health.
+     Iteration 35 added `TrackingQualityAnalyzer` for the match path — the
+     phone-placement health signal behind the objective's "place the phone
+     table-side" story — but training mode had none, though the story applies
+     equally to practice. The analyzer's player component hard-coded
+     `twoPlayerRate` (both ends of the table), which is match-specific: a
+     training drill has a *single* player against a rebound net. The analyzer now
+     takes a `requireBothPlayers` flag (default `true`, unchanged for the match)
+     and, when `false`, scores `qualityScore` / `hint` / `report` on
+     `playerVisibilityRate` = `anyPlayerRate` with single-player wording ("You
+     are often out of frame…"). Both `TrainingScreen` (demo) and
+     `CameraTrainingScreen` (live) now own a `TrackingQualityAnalyzer(
+     requireBothPlayers: false)`, observe every frame, reset it on Restart, and
+     surface a "Tracking quality: grade — hint" line in the end-of-session report
+     (also appended to the Copy-report clipboard export).
    - **[done — iteration 39]** Training structured (JSON) export
      (`core/training/training_report_json.dart`): the practice-mode companion to
      iteration 38's `buildMatchReportJson`. Training only ever produced the
