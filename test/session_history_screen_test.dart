@@ -236,6 +236,80 @@ void main() {
       expect(find.byType(ProgressChartView), findsOneWidget);
     });
 
+    testWidgets('celebrates a new personal record set by the latest session',
+        (tester) async {
+      final store = FakeHistoryStore();
+      await store.save(
+        kind: SessionKind.training,
+        report: {
+          'session': {
+            'overallGrade': 'C',
+            'shotCount': 6,
+            'averageScore': 0.50,
+          },
+          'pace': {'maxSpeedKmh': 70.0},
+        },
+        at: DateTime(2026, 1, 1, 9),
+      );
+      await store.save(
+        kind: SessionKind.training,
+        report: {
+          'session': {
+            'overallGrade': 'A',
+            'shotCount': 8,
+            'averageScore': 0.80,
+          },
+          'pace': {'maxSpeedKmh': 95.0},
+        },
+        at: DateTime(2026, 1, 5, 9),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: store)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('New personal records!'), findsOneWidget);
+      expect(find.text('• Top shot speed: 95.0 km/h'), findsOneWidget);
+      expect(find.byIcon(Icons.emoji_events), findsOneWidget);
+    });
+
+    testWidgets('no records banner when the latest session beats no best',
+        (tester) async {
+      final store = FakeHistoryStore();
+      await store.save(
+        kind: SessionKind.training,
+        report: {
+          'session': {
+            'overallGrade': 'A',
+            'shotCount': 8,
+            'averageScore': 0.80,
+          },
+          'pace': {'maxSpeedKmh': 95.0},
+        },
+        at: DateTime(2026, 1, 1, 9),
+      );
+      await store.save(
+        kind: SessionKind.training,
+        report: {
+          'session': {
+            'overallGrade': 'C',
+            'shotCount': 6,
+            'averageScore': 0.50,
+          },
+          'pace': {'maxSpeedKmh': 70.0},
+        },
+        at: DateTime(2026, 1, 5, 9),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: store)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.emoji_events), findsNothing);
+    });
+
     testWidgets('surfaces a recurring coaching focus in the trends card',
         (tester) async {
       final store = FakeHistoryStore();

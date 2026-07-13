@@ -1032,4 +1032,89 @@ void main() {
       expect(report, isNot(contains('Current streak')));
     });
   });
+
+  group('SessionTrends latest-session records', () {
+    test('a training session that beats every prior best sets records', () {
+      // The newest session tops the field on speed, quality and accuracy.
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0,
+            averageScore: 0.50,
+            grade: 'C',
+            maxSpeedKmh: 70,
+            onTableRate: 0.6,),
+        _training('b', t1,
+            averageScore: 0.60,
+            grade: 'B',
+            maxSpeedKmh: 80,
+            onTableRate: 0.7,),
+        _training('c', t2,
+            averageScore: 0.75,
+            grade: 'A',
+            maxSpeedKmh: 92,
+            onTableRate: 0.85,),
+      ]);
+      expect(trends.latestSessionSetRecord, isTrue);
+      expect(trends.latestSessionRecords, [
+        'Top shot speed: 92.0 km/h',
+        'Best shot quality: 75%',
+        'Best on-table accuracy: 85%',
+      ]);
+    });
+
+    test('only the metrics the latest session actually leads are recorded', () {
+      // Newest session is the fastest but NOT the highest quality, so only the
+      // speed record surfaces.
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.80, grade: 'A', maxSpeedKmh: 70),
+        _training('b', t2, averageScore: 0.60, grade: 'B', maxSpeedKmh: 90),
+      ]);
+      expect(trends.latestSessionRecords, ['Top shot speed: 90.0 km/h']);
+    });
+
+    test('tying a prior best is not a new record (strict improvement)', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.70, grade: 'B', maxSpeedKmh: 88),
+        _training('b', t2, averageScore: 0.70, grade: 'B', maxSpeedKmh: 88),
+      ]);
+      expect(trends.latestSessionSetRecord, isFalse);
+      expect(trends.latestSessionRecords, isEmpty);
+    });
+
+    test('the first-ever session sets no *new* record', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.70, grade: 'B', maxSpeedKmh: 88),
+      ]);
+      expect(trends.latestSessionRecords, isEmpty);
+    });
+
+    test('records belong to whichever kind was saved most recently', () {
+      // A match saved after the newest training drill owns the record slot, so a
+      // fastest-ball record surfaces and training metrics do not.
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, maxKmh: 60, longestStrokes: 4),
+        _training('a', t1, averageScore: 0.9, grade: 'A', maxSpeedKmh: 99),
+        _match('m2', t2, maxKmh: 75, longestStrokes: 9),
+      ]);
+      expect(trends.latestSessionRecords, [
+        'Fastest ball: 75.0 km/h',
+        'Longest rally: 9 strokes',
+      ]);
+    });
+
+    test('report() lists new records under a header, or omits it', () {
+      final withRecord = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', maxSpeedKmh: 70),
+        _training('b', t2, averageScore: 0.8, grade: 'A', maxSpeedKmh: 95),
+      ]).report();
+      expect(withRecord, contains('New personal records this session:'));
+      expect(withRecord, contains('• Top shot speed: 95.0 km/h'));
+      expect(withRecord, contains('• Best shot quality: 80%'));
+
+      final noRecord = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.8, grade: 'A', maxSpeedKmh: 95),
+        _training('b', t2, averageScore: 0.5, grade: 'C', maxSpeedKmh: 70),
+      ]).report();
+      expect(noRecord, isNot(contains('New personal record')));
+    });
+  });
 }

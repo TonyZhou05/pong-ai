@@ -268,6 +268,65 @@ class SessionTrends {
   TrainingTrendPoint? get latestSession =>
       trainingSessions.isEmpty ? null : trainingSessions.last;
 
+  /// Career records the single most-recently-saved session just set — each a
+  /// metric on which the latest session is a strict all-time best across every
+  /// saved session of its kind. Returns short "new personal record" phrases
+  /// (headline pace/quality first), or an empty list when the latest session
+  /// tied or fell short of every prior best, or is the only session of its kind
+  /// (a first-ever session sets no *new* record).
+  ///
+  /// Distinct from the cumulative bests ([bestMaxSpeedKmh]) and the first→latest
+  /// deltas ([speedImprovement]): those answer "how far have you come"; this
+  /// answers "did you just set a personal best this session?" — the motivating
+  /// badge a Ball-AI-style app celebrates at the end of a session.
+  List<String> get latestSessionRecords {
+    final tLast = trainingSessions.isEmpty ? null : trainingSessions.last;
+    final mLast = matchSessions.isEmpty ? null : matchSessions.last;
+    // A record belongs to whichever kind was saved most recently (ties, which
+    // require two saves at the same instant, resolve to training).
+    final latestIsMatch =
+        mLast != null && (tLast == null || mLast.savedAt.isAfter(tLast.savedAt));
+    final records = <String>[];
+    if (latestIsMatch) {
+      final speed = _latestRecordHigh(matchSessions, (m) => m.maxBallSpeedKmh);
+      if (speed != null) {
+        records.add('Fastest ball: ${speed.toStringAsFixed(1)} km/h');
+      }
+      final rally = _latestRecordHigh(
+        matchSessions,
+        (m) => m.longestRallyStrokes?.toDouble(),
+      );
+      if (rally != null) {
+        records.add('Longest rally: ${rally.round()} strokes');
+      }
+    } else if (tLast != null) {
+      final speed = _latestRecordHigh(trainingSessions, (p) => p.maxSpeedKmh);
+      if (speed != null) {
+        records.add('Top shot speed: ${speed.toStringAsFixed(1)} km/h');
+      }
+      final quality = _latestRecordHigh(trainingSessions, (p) => p.averageScore);
+      if (quality != null) {
+        records.add('Best shot quality: ${_pct(quality)}');
+      }
+      final accuracy = _latestRecordHigh(trainingSessions, (p) => p.onTableRate);
+      if (accuracy != null) {
+        records.add('Best on-table accuracy: ${_pct(accuracy)}');
+      }
+      final streak = _latestRecordHigh(
+        trainingSessions,
+        (p) => p.longestOnTargetStreak?.toDouble(),
+      );
+      if (streak != null) {
+        records.add('Longest on-target streak: ${streak.round()} in a row');
+      }
+    }
+    return records;
+  }
+
+  /// Whether the most-recently-saved session set at least one new career record,
+  /// so a "new personal record" badge is worth showing.
+  bool get latestSessionSetRecord => latestSessionRecords.isNotEmpty;
+
   /// The training session with the highest average score (ties broken toward
   /// the more recent one), or null if there are none.
   TrainingTrendPoint? get bestSession {
@@ -787,6 +846,14 @@ class SessionTrends {
       'Sessions: $trainingCount training'
       '${matchCount > 0 ? ', $matchCount match' : ''}',
     );
+    final records = latestSessionRecords;
+    if (records.isNotEmpty) {
+      lines.add('New personal record${records.length > 1 ? 's' : ''} this '
+          'session:');
+      for (final r in records) {
+        lines.add('  • $r');
+      }
+    }
     if (trainingSessions.isEmpty) {
       lines.add('No training drills saved yet.');
       _appendMatchSection(lines);
@@ -968,6 +1035,28 @@ class SessionTrends {
         '($recurringMatchFocusCount of $matchCount matches)',
       );
     }
+  }
+
+  /// If [pts]' last entry sets a strict new maximum on [select] versus every
+  /// earlier entry that recorded the metric, return that record value; else
+  /// null. Requires at least one earlier recorded value to beat, so a first-ever
+  /// session (or the only session that carries the metric) is never a *new*
+  /// record — the strict `>` also means merely tying a prior best does not count.
+  static double? _latestRecordHigh<T>(
+    List<T> pts,
+    double? Function(T) select,
+  ) {
+    if (pts.length < 2) return null;
+    final latest = select(pts.last);
+    if (latest == null) return null;
+    double? priorBest;
+    for (var i = 0; i < pts.length - 1; i++) {
+      final v = select(pts[i]);
+      if (v == null) continue;
+      if (priorBest == null || v > priorBest) priorBest = v;
+    }
+    if (priorBest == null) return null;
+    return latest > priorBest ? latest : null;
   }
 
   /// Format a millisecond duration as `Mm Ss` (e.g. `12m 03s`) for the

@@ -172,18 +172,24 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
       );
     }
     final trends = SessionTrends.fromSessions(sessions);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (trends.hasTrainingTrend) _TrendsHeader(trends: trends),
-        if (trends.hasMatchData) _MatchSummaryCard(trends: trends),
-        Expanded(child: _sessionList(sessions)),
+    // The header cards scroll together with the session list (rather than
+    // sitting fixed above an Expanded list) so a tall stack — records banner +
+    // trends header + match card — never overflows on a short screen.
+    return CustomScrollView(
+      slivers: [
+        if (trends.latestSessionSetRecord)
+          SliverToBoxAdapter(child: _RecordsBanner(trends: trends)),
+        if (trends.hasTrainingTrend)
+          SliverToBoxAdapter(child: _TrendsHeader(trends: trends)),
+        if (trends.hasMatchData)
+          SliverToBoxAdapter(child: _MatchSummaryCard(trends: trends)),
+        _sessionSliver(sessions),
       ],
     );
   }
 
-  Widget _sessionList(List<StoredSession> sessions) {
-    return ListView.separated(
+  Widget _sessionSliver(List<StoredSession> sessions) {
+    return SliverList.separated(
       itemCount: sessions.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, i) {
@@ -208,6 +214,59 @@ class _SessionHistoryScreenState extends State<SessionHistoryScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Celebratory banner shown above the trend cards when the most-recently-saved
+/// session set at least one new career best (see
+/// [SessionTrends.latestSessionRecords]).
+class _RecordsBanner extends StatelessWidget {
+  const _RecordsBanner({required this.trends});
+
+  final SessionTrends trends;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final records = trends.latestSessionRecords;
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      color: theme.colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.emoji_events,
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'New personal record${records.length > 1 ? 's' : ''}!',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            for (final r in records)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '• $r',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

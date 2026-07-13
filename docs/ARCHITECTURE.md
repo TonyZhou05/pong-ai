@@ -1211,6 +1211,23 @@ behind a `VisionService` interface. This lets us:
      can own the fastest shot), not a per-person progression. Surfaced as a "Ball
      pace: up/down/flat N.N km/h" `report()` line and a "pace ↑/↓ N.N km/h" chip on
      the history screen's Match-record card.
+   - **[done — iteration 130]** New-personal-record detection. Every prior
+     `SessionTrends` getter answered "how far have you come" — either a cumulative
+     career best (`bestMaxSpeedKmh`) or a first→latest delta
+     (`speedImprovement`) — but none answered the motivating "did I just set a
+     personal best?" that a Ball-AI-style app celebrates at a session's end. Added
+     `SessionTrends.latestSessionRecords` (and `latestSessionSetRecord`): it finds
+     the single most-recently-saved session's kind, then via a generic
+     `_latestRecordHigh` helper checks whether that session *strictly* beats every
+     earlier session on each headline metric — training: top shot speed, shot
+     quality, on-table accuracy, on-target streak; match: fastest ball, longest
+     rally — returning short "new record" phrases (a strict `>` means merely tying
+     a prior best or a first-ever session sets no *new* record). Surfaced as a
+     "New personal record(s) this session:" block in `report()` (so it flows into
+     the Copy/Share progress export) and a celebratory `_RecordsBanner`
+     (`emoji_events` trophy, `primaryContainer` card) atop the history screen. The
+     history body became a `CustomScrollView` so the records banner + trends header
+     + match card scroll together instead of overflowing a short screen.
    - **[done — iteration 129]** Match career *typical* ball-pace progression. The
      match career trend section trended only the *peak* ball speed
      (`matchBallSpeedImprovement`, iteration 123); the parsed `averageBallSpeedKmh`
