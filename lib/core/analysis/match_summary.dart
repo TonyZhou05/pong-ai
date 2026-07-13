@@ -247,6 +247,16 @@ class MatchSummary {
     return gamePointsConvertedBy(p) / held;
   }
 
+  /// Fraction of the game points [p] *faced* that [p] saved (won the rally to
+  /// deny the opponent the game), in `[0, 1]`, or null when [p] faced no game
+  /// point. The defensive complement to [gamePointConversionRateFor] — clutch
+  /// under pressure when the opponent is serving/playing for the game.
+  double? gamePointSaveRateFor(Player p) {
+    final faced = gamePointsFacedBy(p);
+    if (faced == 0) return null;
+    return gamePointsSavedBy(p) / faced;
+  }
+
   /// Whether any game-point situation occurred, i.e. pressure/clutch analytics
   /// are meaningful for this match. Requires per-game indexing to reconstruct
   /// the within-game running score.

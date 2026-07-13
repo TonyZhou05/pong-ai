@@ -111,12 +111,54 @@ void main() {
       expect(clutch.score, closeTo(0.5, 1e-9));
       expect(a.focusTip, contains('Close out games'));
 
-      // B held no game point and served nothing, so it has no data.
-      expect(insights.insightsFor(Player.b).hasData, isFalse);
+      // B held no game point and served nothing, but it faced two of A's game
+      // points and saved one (at 10-9), so it earns a defensive-clutch
+      // dimension scored 1/2.
+      final b = insights.insightsFor(Player.b);
+      expect(b.dimensions.map((d) => d.name), ['Saving game points']);
+      expect(b.dimensions.single.score, closeTo(0.5, 1e-9));
       final report = insights.report();
       expect(report, contains('Coaching insights'));
       expect(report, contains('Closing games: 50%'));
-      expect(report, contains('Player B — not enough data'));
+      expect(report, contains('Saving game points: 50%'));
+    });
+
+    test('coaches poor game-point defense as the focus', () {
+      // A reaches game point once; B faces it and fails to save it (0.0),
+      // while B holds half its own serves (0.5) — so B's weakest dimension
+      // and thus focus is saving game points.
+      final points = <ScoredPoint>[
+        for (var i = 0; i < 9; i++) ...[
+          ScoredPoint(
+            winner: Player.a,
+            reason: PointReason.notReturned,
+            timestampMs: i * 2,
+            gameIndex: 0,
+            server: Player.b,
+          ),
+          ScoredPoint(
+            winner: Player.b,
+            reason: PointReason.notReturned,
+            timestampMs: i * 2 + 1,
+            gameIndex: 0,
+            server: Player.b,
+          ),
+        ],
+        // 9-9. A takes 10-9 (game point for A on the next B point).
+        _ptG(Player.a, 0, 100),
+        // 10-9: A's game point, B loses it -> not saved. A closes 11-9.
+        _ptG(Player.a, 0, 101),
+      ];
+      final b = MatchInsights(
+        MatchSummary(points: points, finalState: _state(gamesA: 1)),
+      ).insightsFor(Player.b);
+
+      final save = b.dimensions.firstWhere(
+        (d) => d.name == 'Saving game points',
+      );
+      expect(save.score, closeTo(0.0, 1e-9));
+      expect(b.weakest!.name, 'Saving game points');
+      expect(b.focusTip, contains('Dig in when down game point'));
     });
   });
 }

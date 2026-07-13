@@ -558,7 +558,9 @@ behind a `VisionService` interface. This lets us:
      side before iteration 51's `TrainingFeedback` — never *prioritized* one into
      "what to work on". `MatchInsights(summary)` folds the per-player metrics into
      scored coachable `InsightDimension`s (serve effectiveness, return of serve,
-     closing games), each derived from `MatchSummary` with the denominator-guard
+     closing games, and — since iteration 94 — saving game points, the defensive
+     clutch of denying an opponent's game point via `gamePointSaveRateFor`), each
+     derived from `MatchSummary` with the denominator-guard
      so a dimension only appears when there is data for it. `insightsFor(player)`
      names the weakest as that player's focus (or encouragement when even the
      weakest clears a 0.6 bar) and the strongest as a confirmed strength; a

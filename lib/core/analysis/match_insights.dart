@@ -8,8 +8,9 @@
 /// match metrics into one actionable weakness was a genuine parallel gap.
 ///
 /// [MatchInsights] folds a finished [MatchSummary] into scored coachable
-/// dimensions *for each player* (serve effectiveness, return of serve, and
-/// clutch/game-point conversion), then names each player's weakest dimension as
+/// dimensions *for each player* (serve effectiveness, return of serve,
+/// closing games, and saving game points under pressure), then names each
+/// player's weakest dimension as
 /// their focus and their strongest as a confirmed strength. Like the rest of
 /// `core/analysis/`, it is pure Dart derived only from the summary, so it is
 /// unit-testable with no Flutter or vision plugin.
@@ -140,6 +141,21 @@ class MatchInsights {
           name: 'Closing games',
           score: clutch,
           tip: 'Close out games — stay aggressive on your game-point chances.',
+        ),
+      );
+    }
+
+    // Defensive clutch: fraction of faced game points saved (denying the
+    // opponent the game). The complement to closing — a player who repeatedly
+    // gets broken when down game point has a save-under-pressure weakness.
+    final saveRate = summary.gamePointSaveRateFor(p);
+    if (saveRate != null) {
+      dims.add(
+        InsightDimension(
+          name: 'Saving game points',
+          score: saveRate,
+          tip: 'Dig in when down game point — stay patient and force one more '
+              'rally to save it.',
         ),
       );
     }

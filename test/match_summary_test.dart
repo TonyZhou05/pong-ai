@@ -253,6 +253,10 @@ void main() {
       expect(summary.gamePointConversionRateFor(Player.b), isNull);
       expect(summary.gamePointsFacedBy(Player.b), 2);
       expect(summary.gamePointsSavedBy(Player.b), 1);
+
+      // Defensive-clutch rate: A faced none (null), B saved 1 of 2 faced.
+      expect(summary.gamePointSaveRateFor(Player.a), isNull);
+      expect(summary.gamePointSaveRateFor(Player.b), 0.5);
     });
 
     test('reports converted/saved game-point lines for both players', () {
