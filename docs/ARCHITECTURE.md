@@ -384,6 +384,18 @@ behind a `VisionService` interface. This lets us:
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
    clips, ready for SPIN/OpenTTGames conversion.
+   - **[done — iteration 88]** Shipped a second corpus clip
+     (`benchmark/clips/synthetic_labeled.json`, `synthetic_labeled_2_1`) that
+     carries `groundTruthFrames` + `groundTruthEvents` so the on-disk corpus
+     exercises all three stages of `dart run bin/benchmark.dart` — perception
+     (Stage 2) and event-detection (Stage 3) previously always printed "No clips
+     carry ground truth" because `synthetic_demo.json` only has a scoring
+     outcome. It is a three-rally (L→R, R→L, L→R) net-crossing/bounce clip
+     scoring A-B = 2-1 whose predicted frames intentionally drop each rally's
+     trailing ball detection, so ball recall reads a discriminating 83.3%
+     (not a trivial 100%) while events and score stay perfect. Generated and
+     self-verified against the real tracker/pipeline by
+     `tool/gen_labeled_clip.dart`.
 6. Post-match summary + analytics charts.
    - **[done — iteration 16]** `PlayerMovementAnalyzer`
      (`core/analysis/player_movement.dart`): the first layer to consume the

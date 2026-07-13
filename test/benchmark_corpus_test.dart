@@ -31,6 +31,22 @@ void main() {
     test('returns empty for a missing directory', () {
       expect(loadClipDirectory('benchmark/does_not_exist'), isEmpty);
     });
+
+    test('ships a labeled clip carrying frame + event ground truth', () {
+      final labeled = loadClipDirectory().firstWhere(
+        (c) => c.name == 'synthetic_labeled_2_1',
+        orElse: () => throw StateError('synthetic_labeled_2_1 not shipped'),
+      );
+      // The labeled clip must exercise perception (Stage 2) and event (Stage 3)
+      // detection, not just scoring — that is the whole point of shipping it.
+      expect(labeled.groundTruthFrames, isNotNull);
+      expect(
+        labeled.groundTruthFrames!.length,
+        labeled.frames.length,
+        reason: 'ground-truth frames must be index-aligned with predictions',
+      );
+      expect(labeled.groundTruthEvents, isNotEmpty);
+    });
   });
 
   group('loadClipFixtures', () {
@@ -70,6 +86,23 @@ void main() {
       expect(report, contains('Stage 1: scoring accuracy'));
       expect(report, contains('Stage 2: perception accuracy'));
       expect(report, contains('synthetic_demo_5_2'));
+    });
+
+    test('the shipped corpus scores all three stages with real numbers', () {
+      // Regression guard: the labeled clip must make Stages 2 & 3 actually run,
+      // rather than the "No clips carry ground truth" fallbacks, so
+      // `dart run bin/benchmark.dart` demonstrates the full metrics table.
+      final report = buildCorpusReport(loadClipDirectory());
+      expect(report, isNot(contains('No clips carry per-frame ground truth')));
+      expect(report, isNot(contains('No clips carry ground-truth events')));
+      expect(report, contains('Perception: synthetic_labeled_2_1'));
+      expect(report, contains('Events: synthetic_labeled_2_1'));
+      // The intentional dropped trailing detections make ball recall < 100%,
+      // proving the perception metric discriminates rather than always reads 100.
+      expect(report, contains('Ball  P/R/F1: 100.0%/83.3%'));
+      // A clean arc against matching labels is perfect event detection.
+      expect(report, contains('Bounce    P/R/F1: 100.0%/100.0%/100.0%'));
+      expect(report, contains('NetCross  P/R/F1: 100.0%/100.0%/100.0%'));
     });
 
     test('notes when no clip carries per-frame ground truth', () {
