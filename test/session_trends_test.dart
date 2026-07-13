@@ -10,6 +10,7 @@ StoredSession _training(
   required String grade,
   int shots = 6,
   double? depthConsistency,
+  double? lateralConsistency,
   double? maxSpeedKmh,
   double? averageSpeedKmh,
   double? rhythmConsistency,
@@ -30,7 +31,10 @@ StoredSession _training(
         if (longestOnTargetStreak != null)
           'longestOnTargetStreak': longestOnTargetStreak,
       },
-      'placement': {'depthConsistency': depthConsistency},
+      'placement': {
+        'depthConsistency': depthConsistency,
+        'lateralConsistency': lateralConsistency,
+      },
       'pace': {
         if (maxSpeedKmh != null) 'maxSpeedKmh': maxSpeedKmh,
         if (averageSpeedKmh != null) 'averageSpeedKmh': averageSpeedKmh,
@@ -241,6 +245,43 @@ void main() {
       expect(trends.depthConsistencyImprovement, closeTo(0.05, 1e-9));
     });
 
+    test('lateralConsistencyImprovement is first minus latest (tighter=+)', () {
+      final trends = SessionTrends.fromSessions([
+        _training(
+          'a',
+          t0,
+          averageScore: 0.5,
+          grade: 'C',
+          lateralConsistency: 0.10,
+        ),
+        _training('b', t1, averageScore: 0.6, grade: 'B'),
+        _training(
+          'c',
+          t2,
+          averageScore: 0.7,
+          grade: 'A',
+          lateralConsistency: 0.04,
+        ),
+      ]);
+      // Skips the session with no lateral metric; first 0.10 → latest 0.04.
+      expect(trends.lateralConsistencyImprovement, closeTo(0.06, 1e-9));
+    });
+
+    test('lateralConsistencyImprovement is null without two recording sessions',
+        () {
+      final trends = SessionTrends.fromSessions([
+        _training(
+          'a',
+          t0,
+          averageScore: 0.5,
+          grade: 'C',
+          lateralConsistency: 0.05,
+        ),
+        _training('b', t2, averageScore: 0.7, grade: 'A'),
+      ]);
+      expect(trends.lateralConsistencyImprovement, isNull);
+    });
+
     test('rhythmConsistencyImprovement is latest minus first (steadier=+)', () {
       final trends = SessionTrends.fromSessions([
         _training('a', t0, averageScore: 0.5, grade: 'C', rhythmConsistency: 0.6),
@@ -308,6 +349,7 @@ void main() {
           averageScore: 0.50,
           grade: 'C',
           depthConsistency: 0.09,
+          lateralConsistency: 0.11,
           rhythmConsistency: 0.60,
         ),
         _training(
@@ -316,11 +358,13 @@ void main() {
           averageScore: 0.80,
           grade: 'A',
           depthConsistency: 0.04,
+          lateralConsistency: 0.05,
           rhythmConsistency: 0.85,
         ),
       ]);
       final report = trends.report();
       expect(report, contains('Placement consistency: tighter'));
+      expect(report, contains('Lateral consistency: tighter'));
       expect(report, contains('Rhythm consistency: up +25%'));
     });
 

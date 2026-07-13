@@ -265,6 +265,10 @@ class _TrendsHeader extends StatelessWidget {
     if (depth != null && depth.abs() > 0.0005) {
       parts.add('Placement ${depth > 0 ? 'tighter' : 'looser'}');
     }
+    final lateral = trends.lateralConsistencyImprovement;
+    if (lateral != null && lateral.abs() > 0.0005) {
+      parts.add('Lateral ${lateral > 0 ? 'tighter' : 'looser'}');
+    }
     final rhythm = trends.rhythmConsistencyImprovement;
     if (rhythm != null && rhythm.abs() > 0.0005) {
       parts.add(

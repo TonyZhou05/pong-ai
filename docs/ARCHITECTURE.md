@@ -1082,6 +1082,17 @@ behind a `VisionService` interface. This lets us:
      first, positive = steadier tempo), each computed over the sessions that
      actually recorded the metric, with matching `report()` lines and a compact
      "Placement tighter · Rhythm up N%" line on the Training-progress card.
+     **[iteration 126]** The *across-table* (lateral) placement consistency
+     (`placement.lateralConsistency`, persisted since iteration 27's training
+     export) had been the depth trend's captured-but-unconsumed twin —
+     `TrainingTrendPoint` parsed depth stddev but never the lateral stddev, so a
+     player tightening their side-to-side aim over sessions had no cross-session
+     signal even though the depth axis did. Added
+     `SessionTrends.lateralConsistencyImprovement` (first − latest, positive =
+     tighter lateral placement, over the sessions that recorded it — the exact
+     across-table mirror of `depthConsistencyImprovement`), a "Lateral
+     consistency: tighter/looser/flat" `report()` line, and a "Lateral
+     tighter/looser" segment on the Training-progress card's consistency line.
    - **[done — iteration 50]** Visual progress chart. `SessionTrends` was only
      ever surfaced as a first→latest text delta, never as the *shape* of the
      progression. `ProgressChartView`

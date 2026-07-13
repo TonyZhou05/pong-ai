@@ -27,6 +27,7 @@ class TrainingTrendPoint {
     required this.averageScore,
     required this.overallGrade,
     this.depthConsistency,
+    this.lateralConsistency,
     this.maxSpeedKmh,
     this.averageSpeedKmh,
     this.rhythmConsistency,
@@ -44,6 +45,11 @@ class TrainingTrendPoint {
   /// Placement consistency (population stddev of landing depth); lower is
   /// tighter. Null if the stored report predates the field.
   final double? depthConsistency;
+
+  /// Across-table (lateral) placement consistency (population stddev of landing
+  /// lateral position); lower is tighter — the across-table twin of
+  /// [depthConsistency]. Null if the stored report predates the field.
+  final double? lateralConsistency;
 
   /// Peak physical shot speed in km/h, null if the session recorded no scaled
   /// pace (e.g. an all-slow drill or an older report).
@@ -96,6 +102,8 @@ class TrainingTrendPoint {
       overallGrade: grade,
       depthConsistency:
           placement is Map ? _asDouble(placement['depthConsistency']) : null,
+      lateralConsistency:
+          placement is Map ? _asDouble(placement['lateralConsistency']) : null,
       maxSpeedKmh: pace is Map ? _asDouble(pace['maxSpeedKmh']) : null,
       averageSpeedKmh: pace is Map ? _asDouble(pace['averageSpeedKmh']) : null,
       rhythmConsistency:
@@ -343,6 +351,18 @@ class SessionTrends {
   /// carry the metric.
   double? get depthConsistencyImprovement {
     final series = _metricSeries((p) => p.depthConsistency);
+    if (series.length < 2) return null;
+    return series.first - series.last;
+  }
+
+  /// Change in across-table (lateral) placement consistency (population stddev
+  /// of shot lateral position) from the first to the latest session that
+  /// recorded it — the across-table twin of [depthConsistencyImprovement].
+  /// Lateral stddev is *lower-is-tighter*, so this returns `first − latest`: a
+  /// positive value means across-table placement got tighter (improved). Null
+  /// unless at least two sessions carry the metric.
+  double? get lateralConsistencyImprovement {
+    final series = _metricSeries((p) => p.lateralConsistency);
     if (series.length < 2) return null;
     return series.first - series.last;
   }
@@ -790,6 +810,14 @@ class SessionTrends {
           ? 'tighter'
           : (depthTrend < -0.0005 ? 'looser' : 'flat');
       lines.add('Placement consistency: $verb');
+    }
+
+    final lateralTrend = lateralConsistencyImprovement;
+    if (lateralTrend != null) {
+      final verb = lateralTrend > 0.0005
+          ? 'tighter'
+          : (lateralTrend < -0.0005 ? 'looser' : 'flat');
+      lines.add('Lateral consistency: $verb');
     }
 
     final rhythmTrend = rhythmConsistencyImprovement;
