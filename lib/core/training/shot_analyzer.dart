@@ -148,11 +148,28 @@ class TrainingConfig {
 
 /// Aggregated feedback over a training session's [Shot]s.
 class TrainingSummary {
-  const TrainingSummary(this.shots);
+  const TrainingSummary(this.shots, {this.missedShots = 0})
+      : assert(missedShots >= 0);
 
   final List<Shot> shots;
 
+  /// Outgoing strokes that crossed the net but never landed on the target half
+  /// — the ball went off the table (long/wide) instead of bouncing in. These
+  /// are *not* [Shot]s (they have no landing to grade), but they are attempts,
+  /// so they set the denominator for [onTableRate]. Defaults to `0`.
+  final int missedShots;
+
   int get shotCount => shots.length;
+
+  /// Every outgoing stroke attempted this session: the ones that landed on the
+  /// table ([shotCount]) plus the ones that missed it ([missedShots]).
+  int get attemptedShots => shotCount + missedShots;
+
+  /// Fraction of attempted strokes that actually landed on the target half, in
+  /// `[0, 1]` — the headline "in %" a coach watches. `0` when nothing was
+  /// attempted. A player grouping every ball on the table scores `1`.
+  double get onTableRate =>
+      attemptedShots == 0 ? 0 : shotCount / attemptedShots;
 
   double get averageSpeed => _mean(shots.map((s) => s.speed));
 
@@ -271,6 +288,9 @@ class TrainingSummary {
     return [
       'Training summary',
       '$shotCount shots — grade $overallGrade ($pct%).',
+      if (missedShots > 0)
+        'On-table accuracy: ${(onTableRate * 100).round()}% '
+            '($shotCount of $attemptedShots on the table).',
       'Avg depth: ${(averageDepth * 100).round()}% of the far half.',
       'Avg pace: ${averageSpeed.toStringAsFixed(2)} units/s.',
       if (maxSpeedKmh > 0)
@@ -310,6 +330,7 @@ class ShotAnalyzer {
   BallTracker get tracker => _tracker;
 
   final List<Shot> _shots = [];
+  int _misses = 0;
 
   BallSample? _prev;
   bool _outgoing = false;
@@ -318,6 +339,11 @@ class ShotAnalyzer {
 
   /// All shots recorded so far, in order.
   List<Shot> get shots => List.unmodifiable(_shots);
+
+  /// Outgoing strokes this session that crossed the net but never landed on the
+  /// target half — i.e. the ball went off the table without bouncing in. Fed
+  /// into [TrainingSummary.missedShots] so on-table accuracy can be reported.
+  int get missCount => _misses;
 
   /// The most recent per-frame ball speed, scaled to real-world **km/h** via the
   /// table ruler — the live "radar gun" reading a training overlay can flash
@@ -329,7 +355,8 @@ class ShotAnalyzer {
   double? get currentSpeedKmh => _lastSpeedKmh;
 
   /// A live summary over the shots recorded so far.
-  TrainingSummary get summary => TrainingSummary(List.of(_shots));
+  TrainingSummary get summary =>
+      TrainingSummary(List.of(_shots), missedShots: _misses);
 
   /// Feed one frame; returns the shot completed on it, if any.
   Shot? onFrame(FrameResult frame) {
@@ -361,6 +388,10 @@ class ShotAnalyzer {
         _outgoing = true;
         _peakSpeed = 0;
       } else if (event is BallLostEvent) {
+        // An outgoing stroke that was still in flight when the ball vanished
+        // crossed the net but never landed on the target half — it went off
+        // the table. Count it as a missed attempt (it is not a gradable shot).
+        if (_outgoing) _misses++;
         _outgoing = false;
         _peakSpeed = 0;
         _lastSpeedKmh = null;
@@ -425,6 +456,7 @@ class ShotAnalyzer {
   void reset() {
     _tracker.reset();
     _shots.clear();
+    _misses = 0;
     _prev = null;
     _outgoing = false;
     _peakSpeed = 0;

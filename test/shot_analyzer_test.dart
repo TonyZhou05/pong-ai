@@ -112,6 +112,52 @@ void main() {
         ..._gap(66), // ball lost → outgoing cancelled
       ];
       expect(_run(analyzer, frames), isEmpty);
+      // The stroke crossed the net but never landed on the target half: it went
+      // off the table and is counted as a missed attempt.
+      expect(analyzer.missCount, 1);
+    });
+  });
+
+  group('ShotAnalyzer — on-table accuracy', () {
+    test('a stroke that lands on the target half is not a miss', () {
+      final analyzer = ShotAnalyzer();
+      _run(analyzer, _arc([0.30, 0.60, 0.75, 0.72, 0.70]));
+      expect(analyzer.summary.shotCount, 1);
+      expect(analyzer.missCount, 0);
+      expect(analyzer.summary.onTableRate, 1.0);
+    });
+
+    test('landing one of two attempts on the table reads 50% accuracy', () {
+      final analyzer = ShotAnalyzer();
+      // Stroke 1: lands deep on the target half (a real shot).
+      final landed = _arc([0.30, 0.60, 0.75, 0.72, 0.70]);
+      // Stroke 2: crosses the net but the ball is lost before any bounce — off
+      // the table, a miss.
+      final missed = [
+        _frame(400, 0.30, 0.30),
+        _frame(433, 0.60, 0.35), // net-cross → outgoing
+        ..._gap(466), // ball lost → miss
+      ];
+      _run(analyzer, [...landed, ..._gap(200), ...missed]);
+
+      final summary = analyzer.summary;
+      expect(summary.shotCount, 1);
+      expect(summary.missedShots, 1);
+      expect(summary.attemptedShots, 2);
+      expect(summary.onTableRate, closeTo(0.5, 1e-9));
+    });
+
+    test('reset clears the miss count', () {
+      final analyzer = ShotAnalyzer();
+      _run(analyzer, [
+        _frame(0, 0.30, 0.30),
+        _frame(33, 0.60, 0.35),
+        ..._gap(66),
+      ]);
+      expect(analyzer.missCount, 1);
+      analyzer.reset();
+      expect(analyzer.missCount, 0);
+      expect(analyzer.summary.missedShots, 0);
     });
   });
 
@@ -282,6 +328,30 @@ void main() {
       expect(report, contains('2 shots'));
       expect(report, contains('grade A'));
       expect(report, contains('km/h'));
+    });
+
+    test('missedShots set the on-table accuracy denominator and report line', () {
+      const summary = TrainingSummary(
+        [
+          Shot(timestampMs: 0, speed: 1, depth: 0.7, score: 0.8),
+          Shot(timestampMs: 100, speed: 1, depth: 0.7, score: 0.8),
+          Shot(timestampMs: 200, speed: 1, depth: 0.7, score: 0.8),
+        ],
+        missedShots: 1,
+      );
+      expect(summary.attemptedShots, 4);
+      expect(summary.onTableRate, closeTo(0.75, 1e-9));
+      expect(summary.report(), contains('On-table accuracy: 75%'));
+      expect(summary.report(), contains('3 of 4 on the table'));
+    });
+
+    test('the accuracy line is omitted when nothing was missed', () {
+      const summary = TrainingSummary([
+        Shot(timestampMs: 0, speed: 1, depth: 0.7, score: 0.8),
+      ]);
+      expect(summary.attemptedShots, 1);
+      expect(summary.onTableRate, 1.0);
+      expect(summary.report(), isNot(contains('On-table accuracy')));
     });
 
     test('the km/h line is omitted when no shot carries a real-world pace', () {

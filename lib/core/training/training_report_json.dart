@@ -62,6 +62,10 @@ Map<String, Object?> buildTrainingReportJson(
     },
     'session': {
       'shotCount': summary.shotCount,
+      'missedShots': summary.missedShots,
+      'attemptedShots': summary.attemptedShots,
+      'onTableRate':
+          summary.attemptedShots > 0 ? _round(summary.onTableRate) : null,
       'overallGrade': summary.overallGrade,
       'averageScore': _round(summary.averageScore),
       'durationMs': summary.durationMs,

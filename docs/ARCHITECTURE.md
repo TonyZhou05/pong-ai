@@ -835,6 +835,23 @@ behind a `VisionService` interface. This lets us:
        "N km/h" label beside the tracked ball — drawn only while the ball is in
        view so a detector dropout doesn't freeze a stale number, reaching live
        speed-readout parity with the match screen.
+   - **[done — iteration 77]** Training on-table accuracy (miss rate)
+     (`core/training/shot_analyzer.dart`). A `Shot` is recorded only when the
+     ball lands on the *target* half (a target-side `BounceEvent`); an outgoing
+     stroke that crossed the net but then went off the table — lost in flight
+     with no target bounce — was silently discarded (`_outgoing` cleared on
+     `BallLostEvent`), so a player who kept missing the table got no shots *and*
+     no penalty, and the headline "in %" every training app shows was
+     unmeasurable. `ShotAnalyzer` now counts those as `missCount`, feeding
+     `TrainingSummary.missedShots`; the summary exposes `attemptedShots`
+     (`shotCount + missedShots`) and `onTableRate` (the `[0, 1]` fraction that
+     landed in), `report()` gains an "On-table accuracy: N% (X of Y on the
+     table)" line when anything was missed (so it flows into both training
+     screens' report/Copy-report), and `buildTrainingReportJson`'s `session`
+     block carries `missedShots`/`attemptedShots`/`onTableRate` so accuracy
+     persists to history. Backward-compatible: `missedShots` defaults to `0`, so
+     directly-built summaries and every existing test read 100% accuracy with no
+     new report line.
    - **[done — iteration 30]** Training tempo / rhythm analytics
      (`core/training/shot_analyzer.dart`). Each `Shot` has carried a
      `timestampMs` since iteration 6, but `TrainingSummary` only ever reduced it
