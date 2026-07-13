@@ -219,4 +219,45 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets(
+    'best-of format picker sets the match length before it starts',
+    (tester) async {
+      final vision = YoloVisionService();
+      final controller = MatchController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            matchControllerBuilder: () => controller,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // The format picker is shown before any point is scored; default best-of-5.
+      expect(find.text('Best of:'), findsOneWidget);
+      expect(controller.score.bestOf, 5);
+
+      // Pick best-of-3.
+      await tester.tap(find.widgetWithText(ChoiceChip, '3'));
+      await tester.pump();
+      expect(controller.score.bestOf, 3);
+
+      // Feed the first scripted rally to start the match.
+      for (final frame in demoMatchFrames().take(13)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      // A point was scored, so the picker disappears (format locked in).
+      expect(find.text('Best of:'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

@@ -355,6 +355,13 @@ behind a `VisionService` interface. This lets us:
      `MatchController.setFirstServer()`/`matchNotStarted` expose it, and
      `CameraMatchScreen`'s scoreboard shows a "First server: A/B" chip picker
      while the match hasn't started (throughout calibration too).
+   - **[done — iteration 72]** Match-format selection. The live match was
+     hardcoded to best-of-5 11-point games with no way to pick a shorter/longer
+     match. `ScoringEngine.setMatchFormat({pointsPerGame, bestOf})` (valid only
+     before the first point, rejecting invalid formats) reconfigures the format
+     preserving the chosen server, `MatchController.setMatchFormat()` exposes it,
+     and `CameraMatchScreen`'s scoreboard shows a "Best of: 3/5/7" chip picker
+     alongside the first-server picker while the match hasn't started.
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
    clips, ready for SPIN/OpenTTGames conversion.

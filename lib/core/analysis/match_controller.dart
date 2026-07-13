@@ -358,6 +358,11 @@ class MatchController {
   /// Only takes effect before play starts; returns true if applied.
   bool setFirstServer(Player p) => engine.setFirstServer(p);
 
+  /// Sets the match format (see [ScoringEngine.setMatchFormat]).
+  /// Only takes effect before play starts; returns true if applied.
+  bool setMatchFormat({int? pointsPerGame, int? bestOf}) =>
+      engine.setMatchFormat(pointsPerGame: pointsPerGame, bestOf: bestOf);
+
   /// Undo the most recent scored point. Returns true if something was undone.
   bool undo() {
     final gamesBefore = engine.state.gamesA + engine.state.gamesB;

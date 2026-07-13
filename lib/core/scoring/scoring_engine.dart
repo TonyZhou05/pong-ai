@@ -149,6 +149,40 @@ class ScoringEngine {
     return true;
   }
 
+  /// Reconfigures the match format (game length and/or best-of series length).
+  ///
+  /// Valid only before the match has begun (no point awarded yet); returns
+  /// `false` and changes nothing once play has started or if the requested
+  /// format is invalid ([pointsPerGame] must be positive, [bestOf] a positive
+  /// odd number). The app defaults to 11-point games, best-of-5, but the user
+  /// can pick a shorter/longer match (e.g. best-of-3 for casual play,
+  /// best-of-7 for a full match) before scoring starts. Omitted arguments keep
+  /// the current value.
+  bool setMatchFormat({int? pointsPerGame, int? bestOf}) {
+    if (_history.isNotEmpty ||
+        _state.pointsA != 0 ||
+        _state.pointsB != 0 ||
+        _state.gamesA != 0 ||
+        _state.gamesB != 0) {
+      return false;
+    }
+    final ppg = pointsPerGame ?? _state.pointsPerGame;
+    final bo = bestOf ?? _state.bestOf;
+    if (ppg < 1 || bo < 1 || bo.isEven) return false;
+    _state = MatchState(
+      pointsA: 0,
+      pointsB: 0,
+      gamesA: 0,
+      gamesB: 0,
+      server: _state.server,
+      initialServer: _state.initialServer,
+      pointsPerGame: ppg,
+      bestOf: bo,
+      isMatchOver: false,
+    );
+    return true;
+  }
+
   /// Undo the last [awardPoint]. Returns true if something was undone.
   bool undo() {
     if (_history.isEmpty) return false;

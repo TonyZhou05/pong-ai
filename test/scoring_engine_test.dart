@@ -134,4 +134,49 @@ void main() {
       expect(engine.state.initialServer, Player.a);
     });
   });
+
+  group('ScoringEngine — setMatchFormat', () {
+    test('changes the format before play, preserving the server', () {
+      final engine = ScoringEngine();
+      expect(engine.state.bestOf, 5); // default
+      expect(engine.state.pointsPerGame, 11);
+
+      engine.setFirstServer(Player.b);
+      expect(engine.setMatchFormat(bestOf: 3), isTrue);
+      expect(engine.state.bestOf, 3);
+      expect(engine.state.pointsPerGame, 11); // untouched
+      expect(engine.state.server, Player.b); // preserved
+      expect(engine.state.initialServer, Player.b);
+
+      // Best-of-3 is won at 2 games.
+      for (var i = 0; i < 11; i++) {
+        engine.awardPoint(Player.a);
+      }
+      expect(engine.state.gamesA, 1);
+      for (var i = 0; i < 11; i++) {
+        engine.awardPoint(Player.a);
+      }
+      expect(engine.state.isMatchOver, isTrue);
+    });
+
+    test('can change both game length and best-of together', () {
+      final engine = ScoringEngine();
+      expect(engine.setMatchFormat(pointsPerGame: 21, bestOf: 7), isTrue);
+      expect(engine.state.pointsPerGame, 21);
+      expect(engine.state.bestOf, 7);
+    });
+
+    test('rejects an invalid (even) best-of and leaves state unchanged', () {
+      final engine = ScoringEngine();
+      expect(engine.setMatchFormat(bestOf: 4), isFalse);
+      expect(engine.state.bestOf, 5);
+    });
+
+    test('is rejected once a point has been scored', () {
+      final engine = ScoringEngine();
+      engine.awardPoint(Player.a);
+      expect(engine.setMatchFormat(bestOf: 3), isFalse);
+      expect(engine.state.bestOf, 5);
+    });
+  });
 }

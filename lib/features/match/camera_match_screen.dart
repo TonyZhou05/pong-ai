@@ -156,6 +156,10 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     if (_controller.setFirstServer(p)) setState(() {});
   }
 
+  void _setBestOf(int bestOf) {
+    if (_controller.setMatchFormat(bestOf: bestOf)) setState(() {});
+  }
+
   Widget _buildCameraPreview(BuildContext context) {
     final builder = widget.cameraPreviewBuilder;
     if (builder != null) return builder(context, _vision);
@@ -220,6 +224,9 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                 // aren't stuck assuming Player A.
                 onPickServer:
                     _controller.matchNotStarted ? _setFirstServer : null,
+                // Let the user pick the match length before it starts.
+                onPickBestOf:
+                    _controller.matchNotStarted ? _setBestOf : null,
               ),
             ),
             if (pending.isNotEmpty)
@@ -265,6 +272,7 @@ class _LiveScoreboard extends StatelessWidget {
     required this.state,
     required this.calibrating,
     this.onPickServer,
+    this.onPickBestOf,
   });
 
   final MatchState state;
@@ -273,6 +281,10 @@ class _LiveScoreboard extends StatelessWidget {
   /// Called when the user taps a player to set who serves first. Null once the
   /// match has started (the first server can no longer change).
   final void Function(Player)? onPickServer;
+
+  /// Called when the user picks the best-of series length. Null once the match
+  /// has started (the format can no longer change).
+  final void Function(int)? onPickBestOf;
 
   @override
   Widget build(BuildContext context) {
@@ -312,6 +324,47 @@ class _LiveScoreboard extends StatelessWidget {
           ),
           if (onPickServer != null)
             _ServerPicker(server: state.server, onPick: onPickServer!),
+          if (onPickBestOf != null)
+            _FormatPicker(bestOf: state.bestOf, onPick: onPickBestOf!),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lets the user pick the match length (best-of series) before the match
+/// starts, so a casual game can be best-of-3 and a full match best-of-7 instead
+/// of always being the default best-of-5.
+class _FormatPicker extends StatelessWidget {
+  const _FormatPicker({required this.bestOf, required this.onPick});
+
+  final int bestOf;
+  final void Function(int) onPick;
+
+  static const _options = [3, 5, 7];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Best of:',
+            style: theme.textTheme.labelMedium?.copyWith(color: Colors.white70),
+          ),
+          const SizedBox(width: 8),
+          for (final n in _options)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: ChoiceChip(
+                label: Text('$n'),
+                selected: bestOf == n,
+                onSelected: (_) => onPick(n),
+              ),
+            ),
         ],
       ),
     );
