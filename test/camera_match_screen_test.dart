@@ -331,6 +331,47 @@ void main() {
   );
 
   testWidgets(
+    'game-length picker sets the per-game point target before it starts',
+    (tester) async {
+      final vision = YoloVisionService();
+      final controller = MatchController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            matchControllerBuilder: () => controller,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // The game-length picker is shown before any point; default 11-point.
+      expect(find.text('Play to:'), findsOneWidget);
+      expect(controller.score.pointsPerGame, 11);
+
+      // Pick the classic 21-point game length.
+      await tester.tap(find.widgetWithText(ChoiceChip, '21'));
+      await tester.pump();
+      expect(controller.score.pointsPerGame, 21);
+
+      // Feed the first scripted rally to start the match.
+      for (final frame in demoMatchFrames().take(13)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      // A point was scored, so the picker disappears (format locked in).
+      expect(find.text('Play to:'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'live placement warning appears on poor tracking and clears when fixed',
     (tester) async {
       final vision = YoloVisionService();

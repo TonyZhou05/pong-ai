@@ -167,6 +167,12 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     if (_controller.setMatchFormat(bestOf: bestOf)) setState(() {});
   }
 
+  void _setPointsPerGame(int pointsPerGame) {
+    if (_controller.setMatchFormat(pointsPerGame: pointsPerGame)) {
+      setState(() {});
+    }
+  }
+
   Widget _buildCameraPreview(BuildContext context) {
     final builder = widget.cameraPreviewBuilder;
     if (builder != null) return builder(context, _vision);
@@ -240,6 +246,10 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                 // Let the user pick the match length before it starts.
                 onPickBestOf:
                     _controller.matchNotStarted ? _setBestOf : null,
+                // Let the user pick the game length (11-point modern vs
+                // 21-point classic) before the match starts.
+                onPickPointsPerGame:
+                    _controller.matchNotStarted ? _setPointsPerGame : null,
               ),
             ),
             // Live "reposition the phone" nudge: while the match is on, if the
@@ -306,6 +316,7 @@ class _LiveScoreboard extends StatelessWidget {
     this.calibrationStalled = false,
     this.onPickServer,
     this.onPickBestOf,
+    this.onPickPointsPerGame,
   });
 
   final MatchState state;
@@ -326,6 +337,11 @@ class _LiveScoreboard extends StatelessWidget {
   /// Called when the user picks the best-of series length. Null once the match
   /// has started (the format can no longer change).
   final void Function(int)? onPickBestOf;
+
+  /// Called when the user picks the per-game point target (11 modern / 21
+  /// classic). Null once the match has started (the format can no longer
+  /// change).
+  final void Function(int)? onPickPointsPerGame;
 
   @override
   Widget build(BuildContext context) {
@@ -378,6 +394,11 @@ class _LiveScoreboard extends StatelessWidget {
             _ServerPicker(server: state.server, onPick: onPickServer!),
           if (onPickBestOf != null)
             _FormatPicker(bestOf: state.bestOf, onPick: onPickBestOf!),
+          if (onPickPointsPerGame != null)
+            _GameLengthPicker(
+              pointsPerGame: state.pointsPerGame,
+              onPick: onPickPointsPerGame!,
+            ),
         ],
       ),
     );
@@ -447,6 +468,47 @@ class _FormatPicker extends StatelessWidget {
               child: ChoiceChip(
                 label: Text('$n'),
                 selected: bestOf == n,
+                onSelected: (_) => onPick(n),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lets the user pick the per-game point target before the match starts, so a
+/// classic 21-point game can be scored instead of always the modern 11-point
+/// default. The whole scoring pipeline already reads [MatchState.pointsPerGame]
+/// (deuce, game/match-point cues, per-game breakdown), so this only exposes the
+/// existing capability the format machinery already supports.
+class _GameLengthPicker extends StatelessWidget {
+  const _GameLengthPicker({required this.pointsPerGame, required this.onPick});
+
+  final int pointsPerGame;
+  final void Function(int) onPick;
+
+  static const _options = [11, 21];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Play to:',
+            style: theme.textTheme.labelMedium?.copyWith(color: Colors.white70),
+          ),
+          const SizedBox(width: 8),
+          for (final n in _options)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: ChoiceChip(
+                label: Text('$n'),
+                selected: pointsPerGame == n,
                 onSelected: (_) => onPick(n),
               ),
             ),

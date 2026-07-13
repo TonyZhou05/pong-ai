@@ -406,6 +406,15 @@ behind a `VisionService` interface. This lets us:
      preserving the chosen server, `MatchController.setMatchFormat()` exposes it,
      and `CameraMatchScreen`'s scoreboard shows a "Best of: 3/5/7" chip picker
      alongside the first-server picker while the match hasn't started.
+   - **[done — iteration 101]** Game-length selection. Iteration 72 wired only
+     the best-of dimension of `setMatchFormat`; the per-game point target stayed
+     locked to the modern 11-point default even though `setMatchFormat` and the
+     whole scoring pipeline (deuce, game/match-point cues, per-game breakdown)
+     already read `MatchState.pointsPerGame`, so a classic 21-point game was
+     unreachable from the UI. `CameraMatchScreen`'s scoreboard now shows a
+     "Play to: 11/21" chip picker (`_GameLengthPicker` → `setMatchFormat(pointsPerGame:)`)
+     beside the best-of picker while the match hasn't started — pure last-mile
+     wiring of a capability the engine already supported.
    - **[done — iteration 74]** Manual point correction. The live match could
      only auto-score from the ball path, resolve an *undetermined* in-flight
      loss, or `undo` — but if the vision missed a rally entirely (occlusion,
