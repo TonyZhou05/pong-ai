@@ -603,6 +603,45 @@ void main() {
   );
 
   testWidgets(
+    'a scored point speaks the umpire call and captions it under the score',
+    (tester) async {
+      final vision = YoloVisionService();
+      final spoken = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // No calibrator so the first scripted rally scores immediately.
+            matchControllerBuilder: MatchController.new,
+            onAnnounce: spoken.add,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Nothing spoken before the first point.
+      expect(spoken, isEmpty);
+
+      // The first scripted rally awards Player A a point (1–0).
+      for (final frame in demoMatchFrames().take(13)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      // The umpire call fired through the injected sink and is captioned on
+      // screen so the table-side player is told the score.
+      expect(spoken, contains('Player A, 1–0.'));
+      expect(find.text('Player A, 1–0.'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'pausing freezes scoring during a break and resuming restores it',
     (tester) async {
       final vision = YoloVisionService();

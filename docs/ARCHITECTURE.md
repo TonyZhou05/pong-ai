@@ -335,6 +335,22 @@ behind a `VisionService` interface. This lets us:
        tracking overlay behind a centred "PAUSED" cue while paused, so it's
        unmistakable the app is deliberately not scoring rather than having lost
        tracking. `startNewMatch` clears the paused state for a rematch.
+     - **[done — iteration 108]** Spoken score announcer. With the phone propped
+       table-side the players stand across the table and cannot read the
+       on-screen scoreboard, so every prior iteration's *visual*-only score
+       surface left them with no way to know a point registered — a real umpire
+       (and apps like Ball AI) *call the score out loud*. `MatchAnnouncer`
+       (`core/analysis/match_announcer.dart`) is the pure, testable half: fed
+       each new `MatchState`, it emits the umpire-style call the *forward*
+       transition warrants — a point call ("Player A, 5–3." / "3 all."), a game
+       call ("Game to Player A. 1 game all."), or a match call ("Match to Player
+       A, 3 games to 2.") — or `null` for an unchanged/undone score. It is
+       Flutter- and audio-free; `CameraMatchScreen` feeds it after every scoring
+       action and routes the call through an injectable `onAnnounce` sink
+       (default: a `HapticFeedback` + `SystemSound` click cue) so a text-to-speech
+       engine can be dropped in as a one-line change (the same injectable-seam
+       pattern as `VisionModelProfile`), and captions the latest call under the
+       scoreboard so the on-screen readout matches what was called out.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking

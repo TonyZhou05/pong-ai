@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 import '../../core/analysis/ball_tracker.dart';
+import '../../core/analysis/match_announcer.dart';
 import '../../core/analysis/match_controller.dart';
 import '../../core/analysis/match_insights.dart';
 import '../../core/analysis/match_report.dart';
@@ -48,6 +49,7 @@ class CameraMatchScreen extends StatefulWidget {
     this.matchControllerBuilder,
     this.model = defaultVisionModel,
     this.historyStoreLoader = defaultSessionHistoryStore,
+    this.onAnnounce,
   });
 
   /// The camera-backed frame source. Defaults to one whose adapter decodes
@@ -76,6 +78,13 @@ class CameraMatchScreen extends StatefulWidget {
   /// in-memory fake.
   final Future<SessionHistoryStore> Function() historyStoreLoader;
 
+  /// Sink for the umpire-style spoken score call emitted after each scored
+  /// point/game (see [MatchAnnouncer]). Defaults to a haptic + system-click
+  /// cue so a table-side phone gives audible/tactile feedback that a point
+  /// registered; injectable so a text-to-speech engine can be dropped in (or a
+  /// test can capture the calls) as a one-line change.
+  final void Function(String call)? onAnnounce;
+
   @override
   State<CameraMatchScreen> createState() => _CameraMatchScreenState();
 }
@@ -86,6 +95,14 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
 
   StreamSubscription<FrameResult>? _sub;
   final List<PointDecision> _recentCalls = [];
+
+  /// Turns each forward score change into an umpire-style spoken call, so a
+  /// player standing across the table (who can't read the scoreboard) hears the
+  /// score after every rally.
+  final MatchAnnouncer _announcer = MatchAnnouncer();
+
+  /// The most recent spoken call, shown as a caption under the scoreboard.
+  String? _lastCall;
 
   /// The most recent frame's detections, drawn as a live tracking overlay on the
   /// camera preview so the user can see what the pipeline is following.
@@ -147,19 +164,43 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       }
       if (_controller.score.isMatchOver) _vision.stop();
     });
+    _maybeAnnounce();
+  }
+
+  /// Feed the current score to the announcer; on a forward change, speak the
+  /// umpire call (via the injectable sink) and caption it under the scoreboard.
+  /// Safe to call after any state change — an undo/unchanged state announces
+  /// nothing but still keeps the announcer's baseline in sync.
+  void _maybeAnnounce() {
+    final call = _announcer.onState(_controller.score);
+    if (call == null) return;
+    (widget.onAnnounce ?? _defaultAnnounce)(call);
+    if (mounted) setState(() => _lastCall = call);
+  }
+
+  /// Default spoken-call sink: a tactile + audible cue so a table-side phone
+  /// signals that a point registered even though no one is watching the screen.
+  void _defaultAnnounce(String call) {
+    HapticFeedback.mediumImpact();
+    SystemSound.play(SystemSoundType.click);
   }
 
   void _resolve(PointDecision decision, Player winner) {
     setState(() => _controller.resolveUndetermined(decision, winner));
+    _maybeAnnounce();
   }
 
   void _undo() {
-    if (_controller.undo()) setState(() {});
+    if (_controller.undo()) {
+      setState(() {});
+      _maybeAnnounce();
+    }
   }
 
   void _manualPoint(Player winner) {
     setState(() => _controller.awardManualPoint(winner));
     if (_controller.score.isMatchOver) _vision.stop();
+    _maybeAnnounce();
   }
 
   /// Start a fresh match on the same (already-calibrated) table without leaving
@@ -172,6 +213,9 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       _recentCalls.clear();
       _lastFrame = null;
       _predictedBall = null;
+      // Re-seed the announcer so the reset to 0–0 isn't spoken as a change.
+      _announcer.reset();
+      _lastCall = null;
     });
     _vision.start();
   }
@@ -275,6 +319,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
               right: 0,
               child: _LiveScoreboard(
                 state: state,
+                announcement: _lastCall,
                 calibrating: _controller.isCalibrating,
                 calibrationProgress: _controller.calibrationProgress,
                 calibrationStalled: _controller.isCalibrationStalled,
@@ -365,6 +410,7 @@ class _LiveScoreboard extends StatelessWidget {
   const _LiveScoreboard({
     required this.state,
     required this.calibrating,
+    this.announcement,
     this.calibrationProgress = 1,
     this.calibrationStalled = false,
     this.changeEndsPending = false,
@@ -375,6 +421,11 @@ class _LiveScoreboard extends StatelessWidget {
 
   final MatchState state;
   final bool calibrating;
+
+  /// The most recent umpire-style spoken call (see [MatchAnnouncer]), shown as
+  /// a caption under the score so the on-screen readout matches what the phone
+  /// just called out. Null before the first point.
+  final String? announcement;
 
   /// Whether the players are due to physically change ends (the app just
   /// swapped its side→player mapping between games / at the deciding-game
@@ -445,6 +496,26 @@ class _LiveScoreboard extends StatelessWidget {
               ),
             ],
           ),
+          if (announcement != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.campaign,
+                    size: 14,
+                    color: Colors.white70,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    announcement!,
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
           if (MatchSituation(state).bannerLabel case final banner?)
             _PointPressureBanner(
               label: banner,
