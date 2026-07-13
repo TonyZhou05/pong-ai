@@ -124,6 +124,17 @@ void main() {
       }
     }
 
+    // Two left-half double bounces award the right-half player two points — used
+    // to hand the *other* player a game so a 1–1 deciding game can be reached.
+    void winGameOnLeft(MatchController mc, {required int startT}) {
+      for (final f in _doubleBounceOn(0.25, startT: startT)) {
+        mc.onFrame(f);
+      }
+      for (final f in _doubleBounceOn(0.25, startT: startT + 1000)) {
+        mc.onFrame(f);
+      }
+    }
+
     test('flips side→player attribution after a completed game (opt-in)', () {
       final mc = MatchController(
         engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
@@ -171,6 +182,75 @@ void main() {
       mc.undo(); // undo the game-winning point
       expect(mc.score.gamesA, 0);
       expect(mc.referee.leftPlayer, Player.a);
+    });
+
+    test('changes ends mid deciding game once a player reaches half the points',
+        () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      // Game 1: A (left) wins → ends switch, left becomes B.
+      winGameOnRight(mc, startT: 0);
+      // Game 2: B (now left) wins → ends switch back, left becomes A.
+      winGameOnRight(mc, startT: 3000);
+      expect(mc.score.gamesA, 1);
+      expect(mc.score.gamesB, 1);
+      expect(mc.referee.leftPlayer, Player.a); // decider starts with A on left
+
+      // Deciding game (mid = 1): the first right-side point awards A and, because
+      // A reached the midpoint, the players change ends → left becomes B.
+      for (final f in _doubleBounceOn(0.75, startT: 6000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+      expect(mc.referee.leftPlayer, Player.b);
+
+      // The SAME physical right-side double bounce now awards B — the player
+      // standing on the right after the mid-game end change.
+      for (final f in _doubleBounceOn(0.75, startT: 7000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsB, 1);
+      expect(mc.referee.leftPlayer, Player.b); // fires only once per game
+    });
+
+    test('mid deciding-game end change stays off by default', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+      );
+      winGameOnRight(mc, startT: 0); // A wins game 1
+      winGameOnLeft(mc, startT: 3000); // B wins game 2 → games 1–1
+      expect(mc.score.gamesA, 1);
+      expect(mc.score.gamesB, 1);
+      expect(mc.referee.leftPlayer, Player.a);
+
+      // Deciding game: A reaches the midpoint, but with switching off there is no
+      // end change, so the right-side point still awards A.
+      for (final f in _doubleBounceOn(0.75, startT: 6000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.referee.leftPlayer, Player.a);
+      expect(mc.score.pointsA, 1);
+    });
+
+    test('undo reverses a deciding-game mid-game end change', () {
+      final mc = MatchController(
+        engine: ScoringEngine(pointsPerGame: 2, bestOf: 3),
+        switchEndsBetweenGames: true,
+      );
+      winGameOnRight(mc, startT: 0);
+      winGameOnRight(mc, startT: 3000);
+      expect(mc.referee.leftPlayer, Player.a);
+
+      for (final f in _doubleBounceOn(0.75, startT: 6000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.referee.leftPlayer, Player.b); // mid-game switch fired
+
+      mc.undo(); // undo the midpoint-crossing point
+      expect(mc.score.pointsA, 0);
+      expect(mc.referee.leftPlayer, Player.a); // switch reversed
     });
   });
 

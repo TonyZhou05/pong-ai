@@ -279,8 +279,17 @@ behind a `VisionService` interface. This lets us:
      point completes a game — so a real multi-game match keeps attributing
      bounces to the correct player instead of mis-scoring every even game. Off
      by default (scripted synthetic clips never physically switch ends); the
-     live-camera `CameraMatchScreen` enables it. Refinement still open: the
-     deciding game's mid-game switch at the first player to reach 5 points.
+     live-camera `CameraMatchScreen` enables it.
+   - **[done — iteration 62]** Deciding-game mid-game end change (ITTF 2.13.4).
+     In the last possible game the players *also* swap ends the first time
+     someone reaches half the game points (5 in an 11-point game), so the second
+     half of a decider is played from the swapped ends. `MatchController` fires a
+     once-per-decider mid-game `switchEnds()` (latched, reversed symmetrically on
+     `undo`) when an awarded point puts a player at/over `pointsPerGame ~/ 2` in
+     the 1–1-games (best-of-N) deciding game — gated behind the same
+     `switchEndsBetweenGames` flag so scripted clips stay unchanged. Movement
+     analytics still using the game-1 `leftPlayer` across end changes remains a
+     follow-up.
 5. **[done — iteration 8]** Benchmark harness: JSON `ClipFixture` format +
    `BenchmarkRunner` scoring the pipeline's point accuracy against labeled
    clips, ready for SPIN/OpenTTGames conversion.

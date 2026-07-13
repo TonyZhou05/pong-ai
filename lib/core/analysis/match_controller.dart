@@ -71,6 +71,13 @@ class MatchController {
 
   bool _calibrated = false;
 
+  /// Whether the once-per-deciding-game mid-game end change has already fired.
+  /// In the last possible game the players also change ends the first time
+  /// someone reaches half the game points (ITTF 2.13.4), a switch distinct from
+  /// the between-games one. Latched so it fires exactly once and can be reversed
+  /// symmetrically on [undo]; reset whenever a new game begins.
+  bool _midGameEndsSwitched = false;
+
   /// Whether the controller is still in the calibration warm-up (no points are
   /// scored yet). Always false when no [calibrator] was supplied.
   bool get isCalibrating => calibrator != null && !_calibrated;
@@ -272,15 +279,49 @@ class MatchController {
     }
   }
 
-  /// After a point is awarded, flip the referee's side→player mapping if the
-  /// award just completed a game (and the match is still going) — the players
-  /// change ends between games. Opt-in via [switchEndsBetweenGames].
+  /// After a point is awarded, flip the referee's side→player mapping when the
+  /// players change ends. Opt-in via [switchEndsBetweenGames]. Two triggers:
+  ///
+  /// * **Between games** — the award just completed a game (and the match is
+  ///   still going): the players swap ends for the next game.
+  /// * **Mid deciding game** — in the last possible game the players also change
+  ///   ends the first time someone reaches half the game points (ITTF 2.13.4),
+  ///   so the second half of a decider is played from the swapped ends.
   void _maybeSwitchEnds(int gamesBefore) {
     if (!switchEndsBetweenGames) return;
-    final gamesAfter = engine.state.gamesA + engine.state.gamesB;
-    if (gamesAfter > gamesBefore && !engine.state.isMatchOver) {
-      referee.switchEnds();
+    final state = engine.state;
+    final gamesAfter = state.gamesA + state.gamesB;
+    if (gamesAfter > gamesBefore) {
+      // A game just completed. Change ends for the next game (unless the match
+      // is over), and clear the mid-game latch for the fresh game.
+      if (!state.isMatchOver) referee.switchEnds();
+      _midGameEndsSwitched = false;
+      return;
     }
+    // No game completed: within the deciding game, change ends the first time a
+    // player reaches half the points needed to win.
+    if (!_midGameEndsSwitched &&
+        _isDecidingGame(state) &&
+        _reachedDecidingMidpoint(state)) {
+      referee.switchEnds();
+      _midGameEndsSwitched = true;
+    }
+  }
+
+  /// Whether [s] is the last possible ("deciding") game of the match — both
+  /// players one game short of the match. For a best-of-1 this is the only game.
+  bool _isDecidingGame(MatchState s) {
+    final gamesToWin = (s.bestOf ~/ 2) + 1;
+    return s.gamesA == gamesToWin - 1 && s.gamesB == gamesToWin - 1;
+  }
+
+  /// Whether some player has reached (>=) half the game points, the ITTF
+  /// deciding-game change-ends threshold (5 in an 11-point game).
+  bool _reachedDecidingMidpoint(MatchState s) {
+    final mid = s.pointsPerGame ~/ 2;
+    if (mid < 1) return false;
+    final hi = s.pointsA > s.pointsB ? s.pointsA : s.pointsB;
+    return hi >= mid;
   }
 
   /// Undo the most recent scored point. Returns true if something was undone.
@@ -290,12 +331,23 @@ class MatchController {
     final undone = engine.undo();
     if (!undone) return false;
     if (_points.isNotEmpty) _points.removeLast();
-    // If undoing crosses a game boundary back down (and that game hadn't ended
-    // the match — a match-winning point never triggered a forward end change),
-    // flip the ends back so the referee mapping stays symmetric with [onFrame].
+    // Keep the referee's side→player mapping symmetric with [onFrame]'s forward
+    // end changes.
     if (switchEndsBetweenGames) {
-      final gamesAfter = engine.state.gamesA + engine.state.gamesB;
-      if (gamesBefore > gamesAfter && !wasMatchOver) referee.switchEnds();
+      final state = engine.state;
+      final gamesAfter = state.gamesA + state.gamesB;
+      if (gamesBefore > gamesAfter && !wasMatchOver) {
+        // Undo crossed a game boundary back down (a match-winning point never
+        // triggered a forward end change): reverse the between-games switch.
+        referee.switchEnds();
+      } else if (_midGameEndsSwitched &&
+          _isDecidingGame(state) &&
+          !_reachedDecidingMidpoint(state)) {
+        // Undo dropped the deciding game back below the mid-game threshold:
+        // reverse the mid-game switch.
+        referee.switchEnds();
+        _midGameEndsSwitched = false;
+      }
     }
     return true;
   }
