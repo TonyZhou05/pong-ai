@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/analysis/match_controller.dart';
+import '../../core/analysis/match_summary.dart';
 import '../../core/analysis/rally_referee.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
@@ -106,6 +107,8 @@ class _MatchScreenState extends State<MatchScreen> {
                 decision: pending.first,
                 onPick: (winner) => _resolve(pending.first, winner),
               )
+            else if (state.isMatchOver)
+              _SummaryPanel(summary: _controller.summary)
             else
               _CallFeed(calls: _recentCalls, matchOver: state.isMatchOver),
           ],
@@ -322,6 +325,74 @@ class _CallFeed extends StatelessWidget {
               Text('• ${_describe(c)}', style: theme.textTheme.bodyMedium),
         ],
       ),
+    );
+  }
+}
+
+/// Post-match performance breakdown, shown once the match is over.
+class _SummaryPanel extends StatelessWidget {
+  const _SummaryPanel({required this.summary});
+
+  final MatchSummary summary;
+
+  static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final winner = summary.matchWinner;
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.surfaceContainerHighest,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            winner == null
+                ? 'Match summary'
+                : '${_name(winner)} wins the match',
+            style: theme.textTheme.titleMedium,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${summary.totalPoints} points played',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (final player in Player.values)
+                Expanded(child: _PlayerStatColumn(summary: summary, player: player)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlayerStatColumn extends StatelessWidget {
+  const _PlayerStatColumn({required this.summary, required this.player});
+
+  final MatchSummary summary;
+  final Player player;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _SummaryPanel._name(player),
+          style: theme.textTheme.labelLarge,
+        ),
+        Text('${summary.pointsWonBy(player)} pts won'),
+        Text('${summary.forcedErrorsWonBy(player)} forced errors'),
+        Text('${summary.openPlayPointsWonBy(player)} open play'),
+        Text('longest run: ${summary.longestStreakFor(player)}'),
+      ],
     );
   }
 }

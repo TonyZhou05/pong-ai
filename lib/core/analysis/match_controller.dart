@@ -17,6 +17,7 @@ library;
 import '../scoring/scoring_engine.dart';
 import '../vision/detection.dart';
 import 'ball_tracker.dart';
+import 'match_summary.dart';
 import 'rally_referee.dart';
 
 class MatchController {
@@ -38,8 +39,24 @@ class MatchController {
   final List<PointDecision> _undetermined = [];
   List<PointDecision> get undetermined => List.unmodifiable(_undetermined);
 
+  /// The ordered log of every point actually awarded, in [engine.awardPoint]
+  /// order. Kept in sync with the score (including [undo]) so it can drive the
+  /// post-match [summary].
+  final List<ScoredPoint> _points = [];
+  List<ScoredPoint> get points => List.unmodifiable(_points);
+
   /// The current match score.
   MatchState get score => engine.state;
+
+  /// Performance analysis over the points scored so far.
+  MatchSummary get summary =>
+      MatchSummary(points: points, finalState: engine.state);
+
+  void _record(Player winner, PointReason reason, int timestampMs) {
+    _points.add(
+      ScoredPoint(winner: winner, reason: reason, timestampMs: timestampMs),
+    );
+  }
 
   /// Feed one vision frame through the pipeline.
   ///
@@ -54,6 +71,7 @@ class MatchController {
 
       if (decision.isDecisive) {
         engine.awardPoint(decision.winner!);
+        _record(decision.winner!, decision.reason, decision.timestampMs);
       } else {
         _undetermined.add(decision);
       }
@@ -71,9 +89,14 @@ class MatchController {
   void resolveUndetermined(PointDecision decision, Player winner) {
     if (_undetermined.remove(decision)) {
       engine.awardPoint(winner);
+      _record(winner, decision.reason, decision.timestampMs);
     }
   }
 
   /// Undo the most recent scored point. Returns true if something was undone.
-  bool undo() => engine.undo();
+  bool undo() {
+    final undone = engine.undo();
+    if (undone && _points.isNotEmpty) _points.removeLast();
+    return undone;
+  }
 }
