@@ -259,6 +259,17 @@ behind a `VisionService` interface. This lets us:
        is offered until the first shot is graded and rebuilds the `ShotAnalyzer`
        on a `TrainingConfig.copyWith(playerSide:)`, flipping both the target band
        and the shot-segmentation target half; it locks away once scoring begins.
+     - **[done — iteration 105]** Pause / resume (training). The live training
+       camera is always-on just like the match path, so a break in play (ball
+       retrieval, warm-up hits, a rest) could be graded as phantom shots — the
+       training analog of the iteration-104 match pause gap. `CameraTrainingScreen`
+       gains an AppBar pause/resume toggle: while paused `_onFrame` drops every
+       frame (no grading) and a centred "PAUSED" cue freezes the overlay. Pausing
+       calls a new `ShotAnalyzer.resetTracking()` — which clears the in-flight
+       trajectory and stroke-in-progress state (tracker, `_prev`, `_outgoing`,
+       `_peakSpeed`) while keeping every recorded `Shot` — so a ball that was
+       mid-flight before the break can't bleed into the next graded stroke. Finish
+       and Restart both clear the paused state.
      - **[done — iteration 91]** Live game-point / match-point cue.
        `core/scoring/match_situation.dart` (`MatchSituation`) derives, from a
        `MatchState` snapshot alone, whether a side is one point from winning the

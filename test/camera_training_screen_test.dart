@@ -214,6 +214,52 @@ void main() {
   );
 
   testWidgets(
+    'pausing drops strokes; resuming grades again',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Pause the drill for a break in play.
+      await tester.tap(find.byTooltip('Pause drill'));
+      await tester.pump();
+      expect(find.text('PAUSED'), findsOneWidget);
+
+      // A full stroke fed during the break must NOT be graded.
+      for (final frame in trainingSessionFrames().take(6)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      expect(find.text('Waiting for the first shot…'), findsOneWidget);
+
+      // Resume clears the banner and re-enables grading.
+      await tester.tap(find.byTooltip('Resume drill'));
+      await tester.pump();
+      expect(find.text('PAUSED'), findsNothing);
+
+      // The same stroke now grades — the pre-break tracker state was cleared, so
+      // it's segmented as a fresh, complete stroke.
+      for (final frame in trainingSessionFrames().take(6)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      expect(find.text('1 shots'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'live training overlay draws the player box, ball, then a ghost ball',
     (tester) async {
       final vision = YoloVisionService();

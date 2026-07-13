@@ -543,14 +543,23 @@ class ShotAnalyzer {
     return ((y - geo.top) / span).clamp(0.0, 1.0);
   }
 
-  /// Forget all session state (e.g. to start a new drill).
-  void reset() {
+  /// Forget the in-flight trajectory and stroke-in-progress state while keeping
+  /// every recorded [Shot] (and miss count). Called when a drill is paused so a
+  /// ball that was mid-flight before a break — or warm-up hits during it — can't
+  /// bleed into the next graded stroke, without discarding the session so far.
+  /// The training-mode analog of [MatchController.pause]'s tracker reset.
+  void resetTracking() {
     _tracker.reset();
-    _shots.clear();
-    _misses = 0;
     _prev = null;
     _outgoing = false;
     _peakSpeed = 0;
     _lastSpeedKmh = null;
+  }
+
+  /// Forget all session state (e.g. to start a new drill).
+  void reset() {
+    resetTracking();
+    _shots.clear();
+    _misses = 0;
   }
 }

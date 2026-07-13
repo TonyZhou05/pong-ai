@@ -99,6 +99,12 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   double? _currentSpeedKmh;
 
   bool _finished = false;
+
+  /// True while the drill is paused for a break in play. The camera keeps
+  /// running; [_onFrame] just drops frames so warm-up hits or ball retrieval
+  /// during the break aren't graded as shots. Mirrors the live match pause.
+  bool _paused = false;
+
   final List<Shot> _recentShots = [];
 
   @override
@@ -117,6 +123,9 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   }
 
   void _onFrame(FrameResult frame) {
+    // While paused the analyzer ignores frames (no grading); freeze the overlay
+    // on the last live frame so incidental motion during a break can't score.
+    if (_paused) return;
     final shot = _analyzer.onFrame(frame);
     _quality.observe(frame);
     if (!mounted) return;
@@ -151,9 +160,28 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
     });
   }
 
+  /// Pause / resume shot grading for a break in play (retrieving stray balls,
+  /// warm-up hits, a rest). The camera keeps running; the analyzer just stops
+  /// consuming frames. Pausing resets the tracker so a ball that was mid-flight
+  /// before the break can't bleed into the next graded stroke, while every shot
+  /// recorded so far is kept. Mirrors the live match pause.
+  void _togglePause() {
+    setState(() {
+      _paused = !_paused;
+      if (_paused) {
+        _analyzer.resetTracking();
+        _predictedBall = null;
+        _currentSpeedKmh = null;
+      }
+    });
+  }
+
   void _finish() {
     _vision.stop();
-    setState(() => _finished = true);
+    setState(() {
+      _finished = true;
+      _paused = false;
+    });
   }
 
   void _restart() {
@@ -162,6 +190,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
     setState(() {
       _recentShots.clear();
       _finished = false;
+      _paused = false;
       _lastFrame = null;
       _predictedBall = null;
       _currentSpeedKmh = null;
@@ -193,6 +222,14 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
       appBar: AppBar(
         title: const Text('Live Training'),
         actions: [
+          // Pause grading for a break in play so incidental motion (ball
+          // retrieval, warm-up hits) isn't graded. Hidden once the session ends.
+          if (!_finished)
+            IconButton(
+              icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
+              tooltip: _paused ? 'Resume drill' : 'Pause drill',
+              onPressed: _togglePause,
+            ),
           IconButton(
             icon: Icon(_finished ? Icons.play_arrow : Icons.stop),
             tooltip: _finished ? 'Restart drill' : 'Finish session',
@@ -211,6 +248,12 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
               currentSpeedKmh: _currentSpeedKmh,
               config: _config,
             ),
+            // A break in play: show a clear "PAUSED" cue over the frozen preview
+            // so it's unmistakable the drill isn't grading rather than lost.
+            if (_paused && !_finished)
+              const Positioned.fill(
+                child: IgnorePointer(child: _PausedBanner()),
+              ),
             Positioned(
               top: 0,
               left: 0,
@@ -298,6 +341,46 @@ class _LiveSummaryHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A "PAUSED" cue shown centred over the frozen preview while shot grading is
+/// paused for a break in play, so it's unmistakable the drill is deliberately
+/// not grading rather than having lost tracking. Mirrors the match-screen cue.
+class _PausedBanner extends StatelessWidget {
+  const _PausedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.pause_circle_filled,
+              color: Colors.white,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'PAUSED',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
