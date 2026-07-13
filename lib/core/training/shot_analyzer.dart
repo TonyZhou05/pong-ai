@@ -314,9 +314,19 @@ class ShotAnalyzer {
   BallSample? _prev;
   bool _outgoing = false;
   double _peakSpeed = 0;
+  double? _lastSpeedKmh;
 
   /// All shots recorded so far, in order.
   List<Shot> get shots => List.unmodifiable(_shots);
+
+  /// The most recent per-frame ball speed, scaled to real-world **km/h** via the
+  /// table ruler — the live "radar gun" reading a training overlay can flash
+  /// beside the ball as it flies, the practice-mode companion to the whole-shot
+  /// [Shot.speedKmh]. `null` before any two-frame reading exists and after a
+  /// [BallLostEvent] clears the trajectory (so a detector dropout doesn't leave a
+  /// stale number). Callers should still only display it while the ball is in
+  /// view, mirroring the live match screen's readout gating.
+  double? get currentSpeedKmh => _lastSpeedKmh;
 
   /// A live summary over the shots recorded so far.
   TrainingSummary get summary => TrainingSummary(List.of(_shots));
@@ -338,6 +348,7 @@ class ShotAnalyzer {
       if (prev != null && sample.timestampMs > prev.timestampMs) {
         final dt = (sample.timestampMs - prev.timestampMs) / 1000.0;
         frameSpeed = (sample.x - prev.x).abs() / dt;
+        _lastSpeedKmh = frameSpeed * config.metersPerUnitX * 3.6;
       }
       _prev = sample;
     }
@@ -352,6 +363,7 @@ class ShotAnalyzer {
       } else if (event is BallLostEvent) {
         _outgoing = false;
         _peakSpeed = 0;
+        _lastSpeedKmh = null;
       } else if (event is BounceEvent &&
           event.side == config.targetSide &&
           _outgoing) {
@@ -416,5 +428,6 @@ class ShotAnalyzer {
     _prev = null;
     _outgoing = false;
     _peakSpeed = 0;
+    _lastSpeedKmh = null;
   }
 }

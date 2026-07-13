@@ -128,6 +128,28 @@ void main() {
       expect(shot.speedKmh, greaterThan(20));
     });
 
+    test('currentSpeedKmh exposes the latest per-frame reading, cleared on loss',
+        () {
+      final analyzer = ShotAnalyzer();
+      // No reading before two frames establish a velocity.
+      expect(analyzer.currentSpeedKmh, isNull);
+      analyzer.onFrame(_frame(0, 0.30, 0.40));
+      expect(analyzer.currentSpeedKmh, isNull);
+
+      // A second frame 0.30 x-units / 33 ms later → a live km/h reading.
+      analyzer.onFrame(_frame(33, 0.60, 0.40));
+      final reading = analyzer.currentSpeedKmh;
+      expect(reading, isNotNull);
+      // 0.30 units / 0.033 s · 2.74 m · 3.6 ≈ 89 km/h.
+      expect(reading!, closeTo(0.30 / (33 / 1000.0) * 2.74 * 3.6, 1e-6));
+
+      // Losing the ball clears the stale reading so no ghost km/h lingers.
+      for (final f in _gap(66)) {
+        analyzer.onFrame(f);
+      }
+      expect(analyzer.currentSpeedKmh, isNull);
+    });
+
     test('a narrower calibrated table span reads a slower km/h', () {
       // Same motion, but the table only spans half the frame → half the metres
       // per x-unit → half the km/h.

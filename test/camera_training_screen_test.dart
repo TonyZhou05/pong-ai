@@ -278,4 +278,61 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets(
+    'live training overlay flashes a km/h readout on the moving ball',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // No reading before two frames establish a ball velocity.
+      vision.onFrame(
+        const FrameResult(
+          timestampMs: 33,
+          ball: Detection(
+            label: 'ball',
+            confidence: 0.9,
+            box: BBox(0.40, 0.50, 0.02, 0.02),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('km/h'), findsNothing);
+
+      // A second moving-ball frame yields a live radar-gun label.
+      vision.onFrame(
+        const FrameResult(
+          timestampMs: 66,
+          ball: Detection(
+            label: 'ball',
+            confidence: 0.9,
+            box: BBox(0.55, 0.50, 0.02, 0.02),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('km/h'), findsOneWidget);
+
+      // A ball dropout hides the (now stale) reading with the ball.
+      vision.onFrame(const FrameResult(timestampMs: 99));
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('km/h'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

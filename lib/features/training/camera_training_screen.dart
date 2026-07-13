@@ -93,6 +93,11 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   /// trajectory has been dropped. Mirrors the live match overlay.
   ({double x, double y})? _predictedBall;
 
+  /// The latest live ball-speed reading (km/h) beside the tracked ball — the
+  /// "radar gun" number, mirroring the live match overlay. Null when the ball is
+  /// out of view. See [ShotAnalyzer.currentSpeedKmh].
+  double? _currentSpeedKmh;
+
   bool _finished = false;
   final List<Shot> _recentShots = [];
 
@@ -120,6 +125,9 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
       _predictedBall = frame.ball == null
           ? _analyzer.tracker.estimateBallAt(frame.timestampMs)
           : null;
+      // Only surface the reading while the ball is in view, so a detector
+      // dropout doesn't freeze a stale km/h next to a vanished ball.
+      _currentSpeedKmh = frame.ball == null ? null : _analyzer.currentSpeedKmh;
       if (shot != null) {
         _recentShots.add(shot);
         if (_recentShots.length > 5) {
@@ -139,6 +147,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
       _analyzer = ShotAnalyzer(config: _config);
       _recentShots.clear();
       _predictedBall = null;
+      _currentSpeedKmh = null;
     });
   }
 
@@ -155,6 +164,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
       _finished = false;
       _lastFrame = null;
       _predictedBall = null;
+      _currentSpeedKmh = null;
     });
     _vision.start();
   }
@@ -198,6 +208,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
             _TargetOverlay(
               frame: _lastFrame,
               predictedBall: _predictedBall,
+              currentSpeedKmh: _currentSpeedKmh,
               config: _config,
             ),
             Positioned(
@@ -340,11 +351,17 @@ class _TargetOverlay extends StatelessWidget {
   const _TargetOverlay({
     required this.frame,
     required this.predictedBall,
+    required this.currentSpeedKmh,
     required this.config,
   });
 
   final FrameResult? frame;
   final ({double x, double y})? predictedBall;
+
+  /// The latest ball-speed reading (km/h), drawn beside the tracked ball. Null
+  /// when there's no reading or the ball is out of view.
+  final double? currentSpeedKmh;
+
   final TrainingConfig config;
 
   @override
@@ -401,7 +418,7 @@ class _TargetOverlay extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (ball != null)
+              if (ball != null) ...[
                 Positioned(
                   left: ball.box.centerX * w - 7,
                   top: ball.box.centerY * h - 7,
@@ -414,7 +431,27 @@ class _TargetOverlay extends StatelessWidget {
                       border: Border.all(color: Colors.black54),
                     ),
                   ),
-                )
+                ),
+                // Live "radar gun" km/h readout beside the tracked ball.
+                if (currentSpeedKmh != null)
+                  Positioned(
+                    left: ball.box.centerX * w + 10,
+                    top: ball.box.centerY * h - 8,
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      color: Colors.black54,
+                      child: Text(
+                        '${currentSpeedKmh!.round()} km/h',
+                        style: const TextStyle(
+                          color: Color(0xFFFFEB3B),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+              ]
               // A dimmed "ghost" ball extrapolated through a detector dropout.
               else if (ghost != null)
                 Positioned(

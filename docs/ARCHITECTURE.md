@@ -824,6 +824,17 @@ behind a `VisionService` interface. This lets us:
      and `report()` gains a "Ball speed: N km/h top, M km/h avg" line (omitted
      when no shot carries a scale), so the physical pace flows into both training
      screens' on-screen summary and Copy-report export with zero widget changes.
+     - **[done — iteration 76]** Live training km/h readout. `ShotAnalyzer`
+       already computed a per-frame horizontal ball speed to track each flight's
+       peak, but only surfaced it at shot *completion* as `Shot.speedKmh` — so
+       during a rally there was no live "radar gun" number like the iteration-75
+       match overlay flashes. `ShotAnalyzer.currentSpeedKmh` now exposes the most
+       recent per-frame reading scaled through the same `metersPerUnitX` ruler
+       (null before two frames establish a velocity and cleared on `BallLost` /
+       `reset`), and `CameraTrainingScreen`'s `_TargetOverlay` renders it as a
+       "N km/h" label beside the tracked ball — drawn only while the ball is in
+       view so a detector dropout doesn't freeze a stale number, reaching live
+       speed-readout parity with the match screen.
    - **[done — iteration 30]** Training tempo / rhythm analytics
      (`core/training/shot_analyzer.dart`). Each `Shot` has carried a
      `timestampMs` since iteration 6, but `TrainingSummary` only ever reduced it
