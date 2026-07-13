@@ -15,7 +15,11 @@
 /// just happened — a point call ("Player A, 5–3."), a game call
 /// ("Game to Player A. 1 game all."), or a match call ("Match to Player A, 3
 /// games to 2.") — or `null` when nothing announce-worthy changed (an unchanged
-/// frame, or an undo that walked the score *back*).
+/// frame, or an undo that walked the score *back*). When a point leaves a side
+/// one point from the game or match, the point call is suffixed with a spoken
+/// pressure cue ("Player A, 10–8. Game point Player A.") — the audible parity of
+/// the visual game-point/match-point banner, so a player who can't read the
+/// scoreboard still hears the climax coming.
 ///
 /// It is deliberately Flutter- and audio-free: the actual speaking/haptic cue
 /// lives behind an injectable sink in the UI layer, so a text-to-speech engine
@@ -24,6 +28,7 @@
 /// logic, which is unit-tested against synthetic score sequences.
 library;
 
+import '../scoring/match_situation.dart';
 import '../scoring/scoring_engine.dart';
 
 /// Turns a stream of [MatchState] snapshots into umpire-style spoken calls.
@@ -75,13 +80,49 @@ class MatchAnnouncer {
   /// The within-game point call: the leading player named first, or "N all" on
   /// a tie — friendlier for a spoken cue than the strict server-first umpire
   /// numeric, since the app tracks anonymous seats A/B rather than named
-  /// players.
+  /// players. When the new score leaves a side one point from the game or the
+  /// match, the call is suffixed with a spoken pressure cue ("Game point Player
+  /// A." / "Match point Player B.") — the audible parity of the visual
+  /// game-point/match-point banner, which is exactly what a player standing
+  /// across the table (who can't read the scoreboard) needs to hear.
   String _pointCall(MatchState s) {
-    if (s.pointsA == s.pointsB) return '${s.pointsA} all.';
-    final leader = s.pointsA > s.pointsB ? Player.a : Player.b;
-    final hi = s.pointsFor(leader);
-    final lo = s.pointsFor(leader.other);
-    return '${_name(leader)}, $hi–$lo.';
+    final String base;
+    if (s.pointsA == s.pointsB) {
+      base = '${s.pointsA} all.';
+    } else {
+      final leader = s.pointsA > s.pointsB ? Player.a : Player.b;
+      final hi = s.pointsFor(leader);
+      final lo = s.pointsFor(leader.other);
+      base = '${_name(leader)}, $hi–$lo.';
+    }
+    final pressure = _pressureCue(s);
+    return pressure == null ? base : '$base $pressure';
+  }
+
+  /// The spoken game-point / match-point cue for [s], or `null` when neither
+  /// side is one point away. Mirrors [MatchSituation] (which mirrors the
+  /// [ScoringEngine] win rule) so the cue can never disagree with the score, and
+  /// voices the count ("Double game point Player A.", "Triple match point Player
+  /// B.") the same way the visual banner does.
+  String? _pressureCue(MatchState s) {
+    final situation = MatchSituation(s);
+    final candidate = situation.candidate;
+    if (candidate == null) return null;
+    final kind = situation.isMatchPoint ? 'match point' : 'game point';
+    final n = situation.pointCount;
+    final String phrase;
+    switch (n) {
+      case 1:
+        phrase = kind;
+      case 2:
+        phrase = 'double $kind';
+      case 3:
+        phrase = 'triple $kind';
+      default:
+        phrase = '$n ${kind}s';
+    }
+    final capitalized = phrase[0].toUpperCase() + phrase.substring(1);
+    return '$capitalized ${_name(candidate)}.';
   }
 
   /// The games-standing clause of a game call ("1 game all", "Player A leads 2

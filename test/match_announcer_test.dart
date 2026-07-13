@@ -88,6 +88,49 @@ void main() {
       expect(announcer.onState(_state(pointsB: 1)), 'Player B, 1–0.');
     });
 
+    test('suffixes a game-point cue when a side is one point away', () {
+      final announcer = MatchAnnouncer()..onState(_state(pointsA: 9, pointsB: 9));
+      expect(
+        announcer.onState(_state(pointsA: 10, pointsB: 9)),
+        'Player A, 10–9. Game point Player A.',
+      );
+    });
+
+    test('voices multiple consecutive chances (double/triple game point)', () {
+      final announcer =
+          MatchAnnouncer()..onState(_state(pointsB: 9, pointsA: 7));
+      expect(
+        announcer.onState(_state(pointsB: 10, pointsA: 7)),
+        'Player B, 10–7. Triple game point Player B.',
+      );
+    });
+
+    test('suffixes a match-point cue in the deciding-game climax', () {
+      final announcer = MatchAnnouncer()
+        ..onState(_state(gamesA: 2, gamesB: 2, pointsA: 9, pointsB: 9));
+      expect(
+        announcer.onState(_state(gamesA: 2, gamesB: 2, pointsA: 10, pointsB: 9)),
+        'Player A, 10–9. Match point Player A.',
+      );
+    });
+
+    test('adds a game-point cue at deuce advantage', () {
+      final announcer =
+          MatchAnnouncer()..onState(_state(pointsA: 10, pointsB: 10));
+      expect(
+        announcer.onState(_state(pointsA: 11, pointsB: 10)),
+        'Player A, 11–10. Game point Player A.',
+      );
+    });
+
+    test('no pressure cue when neither side is one point away', () {
+      final announcer = MatchAnnouncer()..onState(_state(pointsA: 5, pointsB: 3));
+      expect(
+        announcer.onState(_state(pointsA: 6, pointsB: 3)),
+        'Player A, 6–3.',
+      );
+    });
+
     test('drives through a real ScoringEngine game to the game call', () {
       final engine = ScoringEngine();
       final announcer = MatchAnnouncer()..onState(engine.state);

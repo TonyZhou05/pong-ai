@@ -365,6 +365,19 @@ behind a `VisionService` interface. This lets us:
        engine can be dropped in as a one-line change (the same injectable-seam
        pattern as `VisionModelProfile`), and captions the latest call under the
        scoreboard so the on-screen readout matches what was called out.
+       - **[done — iteration 110]** Spoken game/match-point pressure cue. The
+         announcer called the score after each point but never voiced the
+         *pressure* — so the audible channel lagged the visual
+         game-point/match-point banner (iterations 91/92) that has flashed
+         "MATCH POINT A" during play for a while. A point that leaves a side one
+         point from the game or match now suffixes its call with a spoken cue
+         ("Player A, 10–8. Double game point Player A." / "…Match point Player
+         B."), derived from `MatchSituation` (which mirrors the `ScoringEngine`
+         win rule, so the cue can never disagree with the score) and voiced with
+         the same single/double/triple count phrasing as the banner. It flows
+         through the existing `onAnnounce` sink and scoreboard caption with no
+         UI change, so a player across the table who can't read the scoreboard
+         now *hears* the climax coming.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking
