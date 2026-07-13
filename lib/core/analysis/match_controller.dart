@@ -19,6 +19,7 @@ import '../vision/detection.dart';
 import 'ball_tracker.dart';
 import 'match_summary.dart';
 import 'player_movement.dart';
+import 'rally_analyzer.dart';
 import 'rally_referee.dart';
 import 'table_calibrator.dart';
 
@@ -90,6 +91,13 @@ class MatchController {
   /// Footwork / positioning metrics for [player] over the match so far.
   PlayerMovementStats movementFor(Player player) => _movement.statsFor(player);
 
+  /// Rally-length analytics (strokes/duration per point) over the match so far.
+  /// Like the movement analytics it is live-only — it is not rewound by [undo].
+  final RallyAnalyzer _rallies = RallyAnalyzer();
+
+  /// Aggregate rally-length statistics accumulated so far.
+  RallyStats get rallyStats => _rallies.stats;
+
   void _record(Player winner, PointReason reason, int timestampMs) {
     _points.add(
       ScoredPoint(winner: winner, reason: reason, timestampMs: timestampMs),
@@ -119,6 +127,7 @@ class MatchController {
 
     final decisions = <PointDecision>[];
     for (final event in _tracker.update(frame)) {
+      _rallies.observe(event);
       final decision = referee.update(event);
       if (decision == null) continue;
 
@@ -129,6 +138,7 @@ class MatchController {
         _undetermined.add(decision);
       }
       decisions.add(decision);
+      _rallies.endRally(decision);
 
       // A rally just ended; start the next one from a clean trajectory.
       _tracker.reset();

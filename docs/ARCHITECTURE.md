@@ -206,4 +206,13 @@ behind a `VisionService` interface. This lets us:
      (`movementFor(player)`), rebuilt on the calibrated geometry so
      side-assignment uses the inferred net line, and surfaced in the Match
      screen's post-match summary panel.
+   - **[done — iteration 17]** `RallyAnalyzer`
+     (`core/analysis/rally_analyzer.dart`): folds each rally's `BallTracker`
+     events and the `RallyReferee`'s ending `PointDecision` into per-rally
+     records (stroke count = net crossings, duration, winner/reason) and an
+     aggregate `RallyStats` — rally count, average/longest strokes, average
+     duration, and short (≤2) / medium (3–5) / long (≥6) buckets, the
+     rally-length breakdown match apps headline. Wired live into
+     `MatchController` (`rallyStats`, live-only like the movement analytics — not
+     rewound by `undo`) and surfaced in the Match screen's post-match summary.
 7. Training mode: shot segmentation + quality grading.

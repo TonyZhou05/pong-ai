@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/analysis/match_controller.dart';
 import '../../core/analysis/match_summary.dart';
 import '../../core/analysis/player_movement.dart';
+import '../../core/analysis/rally_analyzer.dart';
 import '../../core/analysis/rally_referee.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
@@ -121,6 +122,7 @@ class _MatchScreenState extends State<MatchScreen> {
             else if (state.isMatchOver)
               _SummaryPanel(
                 summary: _controller.summary,
+                rallies: _controller.rallyStats,
                 movement: {
                   for (final p in Player.values) p: _controller.movementFor(p),
                 },
@@ -370,9 +372,16 @@ class _CallFeed extends StatelessWidget {
 
 /// Post-match performance breakdown, shown once the match is over.
 class _SummaryPanel extends StatelessWidget {
-  const _SummaryPanel({required this.summary, required this.movement});
+  const _SummaryPanel({
+    required this.summary,
+    required this.rallies,
+    required this.movement,
+  });
 
   final MatchSummary summary;
+
+  /// Rally-length analytics (avg/longest strokes) over the match.
+  final RallyStats rallies;
 
   /// Per-player footwork/positioning metrics mined from the pose model.
   final Map<Player, PlayerMovementStats> movement;
@@ -401,6 +410,12 @@ class _SummaryPanel extends StatelessWidget {
             '${summary.totalPoints} points played',
             style: theme.textTheme.bodyMedium,
           ),
+          if (rallies.rallyCount > 0)
+            Text(
+              'Rallies: avg ${rallies.averageStrokes.toStringAsFixed(1)} '
+              'strokes, longest ${rallies.longestStrokes}',
+              style: theme.textTheme.bodyMedium,
+            ),
           const SizedBox(height: 8),
           Row(
             children: [
