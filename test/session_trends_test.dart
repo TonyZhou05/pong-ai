@@ -44,6 +44,7 @@ StoredSession _match(
   int? longestStrokes,
   double? averageStrokes,
   double? maxKmh,
+  double? averageKmh,
   String? winner,
   int? durationMs,
 }) =>
@@ -63,7 +64,11 @@ StoredSession _match(
             if (longestStrokes != null) 'longestStrokes': longestStrokes,
             if (averageStrokes != null) 'averageStrokes': averageStrokes,
           },
-        if (maxKmh != null) 'ballSpeed': {'maxKmh': maxKmh},
+        if (maxKmh != null || averageKmh != null)
+          'ballSpeed': {
+            if (maxKmh != null) 'maxKmh': maxKmh,
+            if (averageKmh != null) 'averageKmh': averageKmh,
+          },
       },
     );
 
@@ -584,6 +589,33 @@ void main() {
         _match('m2', t1, averageStrokes: 5.0),
       ]).report();
       expect(report, contains('Average rally: 4.5 strokes'));
+    });
+
+    test('averages the per-match typical ball speed across matches', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, averageKmh: 30.0),
+        _match('m2', t1, averageKmh: 40.0),
+        _match('m3', t2), // no ball speed recorded
+      ]);
+      // Unweighted mean of the two matches that recorded an average speed.
+      expect(trends.averageMatchBallSpeedKmh, closeTo(35.0, 1e-9));
+    });
+
+    test('averageMatchBallSpeedKmh is null when no match tracked speed', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, totalPoints: 12),
+        _match('m2', t1, winner: 'A'),
+      ]);
+      expect(trends.averageMatchBallSpeedKmh, isNull);
+    });
+
+    test('report surfaces the typical ball speed', () {
+      final report = SessionTrends.fromSessions([
+        _match('m1', t0, maxKmh: 80.0, averageKmh: 40.0),
+        _match('m2', t1, maxKmh: 88.0, averageKmh: 50.0),
+      ]).report();
+      expect(report, contains('Fastest ball: 88.0 km/h'));
+      expect(report, contains('Average ball: 45.0 km/h'));
     });
   });
 

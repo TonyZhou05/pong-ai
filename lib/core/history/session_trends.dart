@@ -111,6 +111,7 @@ class MatchTrendPoint {
     this.totalPoints,
     this.durationMs,
     this.maxBallSpeedKmh,
+    this.averageBallSpeedKmh,
     this.longestRallyStrokes,
     this.averageRallyStrokes,
     this.winner,
@@ -127,6 +128,11 @@ class MatchTrendPoint {
 
   /// Peak ball speed in km/h, null if the match tracked no scaled ball speed.
   final double? maxBallSpeedKmh;
+
+  /// Mean ball speed in km/h across the match's tracked rallies, null if the
+  /// match tracked no scaled ball speed — the per-match *typical* pace,
+  /// complementing the peak [maxBallSpeedKmh].
+  final double? averageBallSpeedKmh;
 
   /// Longest rally in strokes, null if no rally data was recorded.
   final int? longestRallyStrokes;
@@ -155,6 +161,8 @@ class MatchTrendPoint {
       durationMs: summary is Map ? _asInt(summary['durationMs']) : null,
       maxBallSpeedKmh:
           ballSpeed is Map ? _asDouble(ballSpeed['maxKmh']) : null,
+      averageBallSpeedKmh:
+          ballSpeed is Map ? _asDouble(ballSpeed['averageKmh']) : null,
       longestRallyStrokes:
           rallies is Map ? _asInt(rallies['longestStrokes']) : null,
       averageRallyStrokes:
@@ -433,6 +441,22 @@ class SessionTrends {
     return best;
   }
 
+  /// Typical ball speed (km/h) across saved matches — the unweighted mean of
+  /// each match's own average ball speed, so it reads as "how fast the ball
+  /// usually travels" over the tracked history, complementing the peak
+  /// [fastestMatchBallSpeedKmh]. Null if no match recorded a scaled speed.
+  double? get averageMatchBallSpeedKmh {
+    var total = 0.0;
+    var n = 0;
+    for (final m in matchSessions) {
+      final a = m.averageBallSpeedKmh;
+      if (a == null) continue;
+      total += a;
+      n++;
+    }
+    return n == 0 ? null : total / n;
+  }
+
   /// Longest rally (in strokes) tracked across every saved match. Null if no
   /// match recorded rally data.
   int? get longestMatchRallyStrokes {
@@ -615,6 +639,10 @@ class SessionTrends {
     final speed = fastestMatchBallSpeedKmh;
     if (speed != null) {
       lines.add('Fastest ball: ${speed.toStringAsFixed(1)} km/h');
+    }
+    final avgSpeed = averageMatchBallSpeedKmh;
+    if (avgSpeed != null) {
+      lines.add('Average ball: ${avgSpeed.toStringAsFixed(1)} km/h');
     }
   }
 

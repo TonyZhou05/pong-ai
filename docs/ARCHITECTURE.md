@@ -751,6 +751,15 @@ behind a `VisionService` interface. This lets us:
      `bestOnTargetStreak` (personal-best "in a row" across every session that
      tracked it), surfaced as a "Best on-target streak: N in a row" `report()`
      line and a "· streak N" segment on the Training-progress card's Best line.
+   - **[done — iteration 84]** Match career *typical* ball speed. `MatchTrendPoint`
+     parsed each match's peak `ballSpeed.maxKmh` (surfaced as
+     `fastestMatchBallSpeedKmh`) but discarded the emitted `ballSpeed.averageKmh`.
+     Added `MatchTrendPoint.averageBallSpeedKmh` parsing plus
+     `SessionTrends.averageMatchBallSpeedKmh` (unweighted mean of each match's own
+     average ball speed — the "how fast the ball usually travels" complement to the
+     peak fastest-ball), surfaced as an "Average ball: N.N km/h" `report()` line and
+     an "avg N.N km/h" chip on the history screen's Match-record card. Mirrors the
+     iteration-83 peak-vs-typical split for rally length.
    - **[done — iteration 83]** Match career *typical* rally length. `MatchTrendPoint`
      parsed each match's peak `rallies.longestStrokes` (surfaced as
      `longestMatchRallyStrokes`) but discarded the emitted `rallies.averageStrokes`.
