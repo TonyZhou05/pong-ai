@@ -330,6 +330,63 @@ void main() {
   );
 
   testWidgets(
+    'live placement warning appears on poor tracking and clears when fixed',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // No calibrator so tracking-health accrues on every live frame.
+            matchControllerBuilder: MatchController.new,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // No warning before enough evidence has accumulated.
+      expect(find.text('Poor tracking'), findsNothing);
+
+      // Feed a run of empty frames (no ball, no players) — a badly-placed phone
+      // that sees neither the table nor the ball. Once the trailing window is
+      // full of poor frames the nudge appears.
+      for (var t = 0; t < 12; t++) {
+        vision.onFrame(FrameResult(timestampMs: 33 * (t + 1), people: const []));
+        await tester.pump();
+      }
+      expect(find.text('Poor tracking'), findsOneWidget);
+      expect(find.textContaining('out of frame'), findsOneWidget);
+
+      // Now the phone is repositioned: healthy frames (both players + a clear
+      // ball) slide the poor frames out of the window and the nudge clears.
+      for (var t = 12; t < 45; t++) {
+        vision.onFrame(
+          FrameResult(
+            timestampMs: 33 * (t + 1),
+            ball: const Detection(
+              label: 'ball',
+              confidence: 0.95,
+              box: BBox(0.20, 0.50, 0.02, 0.02),
+            ),
+            people: const [
+              PersonPose(box: BBox(0.10, 0.30, 0.12, 0.50), keypoints: []),
+              PersonPose(box: BBox(0.75, 0.30, 0.12, 0.50), keypoints: []),
+            ],
+          ),
+        );
+        await tester.pump();
+      }
+      expect(find.text('Poor tracking'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'manual +point button hand-awards a missed rally to the score',
     (tester) async {
       final vision = YoloVisionService();

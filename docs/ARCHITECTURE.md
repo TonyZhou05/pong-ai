@@ -602,6 +602,18 @@ behind a `VisionService` interface. This lets us:
      calibration so it spans the whole session), surfaced as a "Tracking
      quality: grade …" line in the Match screen's post-match summary, and added
      as a "Tracking quality" section to the exported `buildMatchReport`.
+     - **[done — iteration 90]** Live "reposition the phone" nudge. The
+       whole-session rates above accumulate from frame 1, so once a bad early
+       placement is fixed the cumulative grade never recovers — useless as a
+       *live* signal, and it was only ever surfaced post-match anyway. The
+       analyzer now also keeps a trailing window of the last `recentWindow`
+       frames (default 30) and exposes `recentQualityScore` / `recentGrade` /
+       `recentHint` plus an `isPlacementPoor` flag (enough recent evidence and a
+       window score at grade D or worse), which reflects the *current* placement
+       and recovers on its own once it improves. `CameraMatchScreen` renders a
+       `_PlacementWarning` banner mid-match whenever `isPlacementPoor`, showing
+       the live hint so the user fixes a bad phone position while it still
+       matters instead of only learning it failed in the end-of-match summary.
    - **[done — iteration 25]** `buildMatchReport`
      (`core/analysis/match_report.dart`): the unified, exportable text report.
      Every prior analytics layer — the `MatchSummary` scoring breakdown,

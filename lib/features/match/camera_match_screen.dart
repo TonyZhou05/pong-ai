@@ -239,6 +239,20 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                     _controller.matchNotStarted ? _setBestOf : null,
               ),
             ),
+            // Live "reposition the phone" nudge: while the match is on, if the
+            // trailing-window detection health is poor (ball/players frequently
+            // out of frame) surface the placement hint so the user can fix the
+            // phone position instead of only learning it failed at match end.
+            if (!state.isMatchOver &&
+                _controller.trackingQuality.isPlacementPoor)
+              Align(
+                alignment: const Alignment(0, -0.35),
+                child: IgnorePointer(
+                  child: _PlacementWarning(
+                    hint: _controller.trackingQuality.recentHint,
+                  ),
+                ),
+              ),
             if (pending.isNotEmpty)
               Positioned(
                 bottom: 0,
@@ -675,6 +689,55 @@ class _LiveCallFeed extends StatelessWidget {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Live "reposition the phone" nudge shown mid-match when the trailing-window
+/// detection health is poor, so the user can fix a bad phone placement while it
+/// still matters rather than only discovering it in the end-of-match summary.
+class _PlacementWarning extends StatelessWidget {
+  const _PlacementWarning({required this.hint});
+
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade900.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.white),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Poor tracking',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(color: Colors.white),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hint,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: Colors.white),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

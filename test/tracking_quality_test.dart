@@ -111,6 +111,63 @@ void main() {
     expect(a.report(), contains('player visible in 30% of frames'));
   });
 
+  group('live trailing-window placement signals', () {
+    test('no recent data until recentMinFrames observed', () {
+      final a = TrackingQualityAnalyzer(recentMinFrames: 5);
+      for (var t = 0; t < 4; t++) {
+        a.observe(_frame(t, players: 0)); // poor frames, but too few
+      }
+      expect(a.hasRecentData, isFalse);
+      expect(a.isPlacementPoor, isFalse); // not enough evidence yet
+      a.observe(_frame(4, players: 0));
+      expect(a.hasRecentData, isTrue);
+      expect(a.isPlacementPoor, isTrue);
+    });
+
+    test('recent window flags poor placement, then recovers when fixed', () {
+      final a = TrackingQualityAnalyzer(recentWindow: 10, recentMinFrames: 5);
+      // 10 poor frames: no players, no ball -> trailing score 0.
+      for (var t = 0; t < 10; t++) {
+        a.observe(_frame(t, players: 0));
+      }
+      expect(a.isPlacementPoor, isTrue);
+      expect(a.recentGrade, 'F');
+      expect(a.recentHint, contains('Both players'));
+
+      // 10 good frames slide the poor ones out of the window entirely.
+      for (var t = 10; t < 20; t++) {
+        a.observe(_frame(t, ballConf: 0.95, players: 2));
+      }
+      expect(a.recentBallDetectionRate, 1.0);
+      expect(a.recentPlayerVisibilityRate, 1.0);
+      expect(a.recentQualityScore, closeTo(0.99, 1e-9));
+      expect(a.isPlacementPoor, isFalse);
+      expect(a.recentGrade, 'A');
+
+      // The cumulative (whole-session) score is still dragged down by the bad
+      // first half, so it lags well behind the recovered live window — which is
+      // exactly why the live nudge uses a trailing window rather than the total.
+      expect(a.qualityScore, lessThan(a.recentQualityScore));
+      expect(a.qualityScore, closeTo(0.59, 1e-9)); // 0.4*.5 + 0.2*.95 + 0.4*.5
+    });
+
+    test('recent window is bounded and reset clears it', () {
+      final a = TrackingQualityAnalyzer(recentWindow: 3, recentMinFrames: 1);
+      for (var t = 0; t < 10; t++) {
+        a.observe(_frame(t, ballConf: 0.9, players: 2));
+      }
+      // Only the last 3 frames feed the recent rate even after 10 observed.
+      expect(a.recentBallDetectionRate, 1.0);
+      expect(a.frameCount, 10);
+
+      a.reset();
+      expect(a.hasRecentData, isFalse);
+      expect(a.recentQualityScore, 0);
+      expect(a.recentGrade, 'N/A');
+      expect(a.isPlacementPoor, isFalse);
+    });
+  });
+
   test('report and reset', () {
     final a = TrackingQualityAnalyzer();
     a.observe(_frame(0, ballConf: 0.9, players: 2));
