@@ -564,6 +564,14 @@ behind a `VisionService` interface. This lets us:
      Rendering splits from math via the pure, unit-tested `progressChartPoints`
      seam (per-session score → normalized `[0,1]×[0,1]` plot coordinates, rising
      line = improving) and a thin `_ProgressPainter`.
+   - **[done — iteration 54]** Shot-speed progression. `TrainingTrendPoint`
+     parsed each session's peak `maxSpeedKmh` but `SessionTrends` only reduced it
+     to a personal-best `bestMaxSpeedKmh` — the first→latest *trend* was the
+     captured-but-unconsumed signal (the km/h analog of iteration 49's
+     consistency deltas). Added `speedImprovement` (latest − first km/h over the
+     sessions that scaled pace, positive = hitting harder), a "Shot speed: up N
+     km/h" `report()` line, and a "Speed up N km/h" segment on the
+     Training-progress card's trend line.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 51]** Coaching feedback (`core/training/

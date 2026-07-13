@@ -248,6 +248,13 @@ class _TrendsHeader extends StatelessWidget {
         '${(rhythm.abs() * 100).round()}%',
       );
     }
+    final speed = trends.speedImprovement;
+    if (speed != null && speed.abs() > 0.05) {
+      parts.add(
+        'Speed ${speed > 0 ? 'up' : 'down'} '
+        '${speed.abs().toStringAsFixed(1)} km/h',
+      );
+    }
     return parts.isEmpty ? null : parts.join(' · ');
   }
 }

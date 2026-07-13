@@ -176,6 +176,24 @@ void main() {
       expect(trends.rhythmConsistencyImprovement, isNull);
     });
 
+    test('speedImprovement is latest minus first km/h, skipping unscaled', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', maxSpeedKmh: 70.0),
+        _training('b', t1, averageScore: 0.6, grade: 'B'),
+        _training('c', t2, averageScore: 0.7, grade: 'A', maxSpeedKmh: 88.5),
+      ]);
+      // Skips the middle session with no km/h; first 70.0 → latest 88.5.
+      expect(trends.speedImprovement, closeTo(18.5, 1e-9));
+    });
+
+    test('speedImprovement is null without two scaled sessions', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', maxSpeedKmh: 72.0),
+        _training('b', t2, averageScore: 0.7, grade: 'A'),
+      ]);
+      expect(trends.speedImprovement, isNull);
+    });
+
     test('report reflects the improvement trend and best session', () {
       final trends = SessionTrends.fromSessions([
         _training('a', t0, averageScore: 0.50, grade: 'C'),
@@ -214,6 +232,14 @@ void main() {
       final report = trends.report();
       expect(report, contains('Placement consistency: tighter'));
       expect(report, contains('Rhythm consistency: up +25%'));
+    });
+
+    test('report surfaces the shot-speed trend', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.50, grade: 'C', maxSpeedKmh: 68.0),
+        _training('b', t2, averageScore: 0.80, grade: 'A', maxSpeedKmh: 84.0),
+      ]);
+      expect(trends.report(), contains('Shot speed: up 16.0 km/h'));
     });
 
     test('report handles an empty history', () {

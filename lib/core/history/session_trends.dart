@@ -164,6 +164,16 @@ class SessionTrends {
     return best;
   }
 
+  /// Change in peak physical shot speed (km/h) from the first to the latest
+  /// session that recorded a scaled pace: returns `latest − first`, so a
+  /// positive value means the player is hitting harder over the tracked
+  /// history. Null unless at least two sessions carry a km/h speed.
+  double? get speedImprovement {
+    final series = _metricSeries((p) => p.maxSpeedKmh);
+    if (series.length < 2) return null;
+    return series.last - series.first;
+  }
+
   /// Change in landing-placement consistency (population stddev of shot depth)
   /// from the first to the latest session that recorded it. Depth stddev is
   /// *lower-is-tighter*, so this returns `first − latest`: a positive value
@@ -234,6 +244,16 @@ class SessionTrends {
     final topSpeed = bestMaxSpeedKmh;
     if (topSpeed != null) {
       lines.add('Fastest shot: ${topSpeed.toStringAsFixed(1)} km/h');
+    }
+
+    final speedTrend = speedImprovement;
+    if (speedTrend != null) {
+      final verb = speedTrend > 0.05
+          ? 'up ${speedTrend.toStringAsFixed(1)} km/h'
+          : (speedTrend < -0.05
+              ? 'down ${speedTrend.abs().toStringAsFixed(1)} km/h'
+              : 'flat');
+      lines.add('Shot speed: $verb');
     }
 
     final depthTrend = depthConsistencyImprovement;
