@@ -725,6 +725,32 @@ void main() {
       expect(report, contains('Fastest ball: 88.0 km/h'));
       expect(report, contains('Average ball: 45.0 km/h'));
     });
+
+    test('matchBallSpeedImprovement is latest minus first peak, skipping '
+        'unscaled matches', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, maxKmh: 70.0),
+        _match('m2', t1), // no ball speed recorded — skipped
+        _match('m3', t2, maxKmh: 84.0),
+      ]);
+      expect(trends.matchBallSpeedImprovement, closeTo(14.0, 1e-9));
+    });
+
+    test('matchBallSpeedImprovement is null without two scaled matches', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, maxKmh: 70.0),
+        _match('m2', t1), // only one match carries a km/h speed
+      ]);
+      expect(trends.matchBallSpeedImprovement, isNull);
+    });
+
+    test('report surfaces the ball-pace trend line', () {
+      final report = SessionTrends.fromSessions([
+        _match('m1', t0, maxKmh: 70.0, averageKmh: 40.0),
+        _match('m2', t1, maxKmh: 84.0, averageKmh: 50.0),
+      ]).report();
+      expect(report, contains('Ball pace: up 14.0 km/h'));
+    });
   });
 
   group('SessionTrends match win record', () {

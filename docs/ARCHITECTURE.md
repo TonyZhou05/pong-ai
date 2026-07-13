@@ -1151,6 +1151,18 @@ behind a `VisionService` interface. This lets us:
      `averageMatchBallSpeedKmh`), surfaced as a "Typical shot speed: N.N km/h"
      `report()` line and a "· typical N.N km/h" segment on the Training-progress
      card's Best line.
+   - **[done — iteration 123]** Match career ball-*pace progression*. The match
+     career section carried only cumulative totals (fastest/typical ball, longest/
+     typical rally, head-to-head, focus counts) — no *over-time trend*, unlike the
+     training section's `speedImprovement`/`accuracyImprovement`/… "up/down/flat"
+     deltas. Added `SessionTrends.matchBallSpeedImprovement` (latest − first peak
+     ball speed over the matches that recorded one, via a new `_matchMetricSeries`
+     helper — the match-side twin of the training `_metricSeries`/`speedImprovement`),
+     so a table's play reads as "the ball is being hit harder in recent matches."
+     Like `averageMatchBallSpeedKmh` it is a table-level power trend (either player
+     can own the fastest shot), not a per-person progression. Surfaced as a "Ball
+     pace: up/down/flat N.N km/h" `report()` line and a "pace ↑/↓ N.N km/h" chip on
+     the history screen's Match-record card.
    - **[done — iteration 84]** Match career *typical* ball speed. `MatchTrendPoint`
      parsed each match's peak `ballSpeed.maxKmh` (surfaced as
      `fastestMatchBallSpeedKmh`) but discarded the emitted `ballSpeed.averageKmh`.

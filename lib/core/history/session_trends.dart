@@ -500,6 +500,19 @@ class SessionTrends {
     return n == 0 ? null : total / n;
   }
 
+  /// Change in peak ball speed (km/h) from the first to the latest saved match
+  /// that recorded a scaled speed: returns `latest − first`, so a positive value
+  /// means the ball is being hit harder in recent matches than in early ones —
+  /// the match-side twin of training's [speedImprovement]. Like
+  /// [averageMatchBallSpeedKmh] this is a table-level power trend (the fastest
+  /// shot in a match can be by either player), not a per-person progression.
+  /// Null unless at least two matches carry a km/h speed.
+  double? get matchBallSpeedImprovement {
+    final series = _matchMetricSeries((m) => m.maxBallSpeedKmh);
+    if (series.length < 2) return null;
+    return series.last - series.first;
+  }
+
   /// Longest rally (in strokes) tracked across every saved match. Null if no
   /// match recorded rally data.
   int? get longestMatchRallyStrokes {
@@ -687,6 +700,18 @@ class SessionTrends {
     return out;
   }
 
+  /// The recorded values of a nullable per-match metric, in save order (oldest
+  /// first), skipping matches that did not record it — the match-side twin of
+  /// [_metricSeries].
+  List<double> _matchMetricSeries(double? Function(MatchTrendPoint) select) {
+    final out = <double>[];
+    for (final m in matchSessions) {
+      final v = select(m);
+      if (v != null) out.add(v);
+    }
+    return out;
+  }
+
   /// A short human-readable progression summary, mirroring the text-report style
   /// of the per-session analytics.
   String report() {
@@ -818,6 +843,15 @@ class SessionTrends {
     final avgSpeed = averageMatchBallSpeedKmh;
     if (avgSpeed != null) {
       lines.add('Average ball: ${avgSpeed.toStringAsFixed(1)} km/h');
+    }
+    final paceTrend = matchBallSpeedImprovement;
+    if (paceTrend != null) {
+      final verb = paceTrend > 0.05
+          ? 'up ${paceTrend.toStringAsFixed(1)} km/h'
+          : (paceTrend < -0.05
+              ? 'down ${paceTrend.abs().toStringAsFixed(1)} km/h'
+              : 'flat');
+      lines.add('Ball pace: $verb');
     }
     if (hasRecurringMatchFocus) {
       lines.add(

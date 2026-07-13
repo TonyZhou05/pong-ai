@@ -318,6 +318,12 @@ class _MatchSummaryCard extends StatelessWidget {
     if (speed != null) chips.add('fastest ${speed.toStringAsFixed(1)} km/h');
     final avgSpeed = trends.averageMatchBallSpeedKmh;
     if (avgSpeed != null) chips.add('avg ${avgSpeed.toStringAsFixed(1)} km/h');
+    final paceTrend = trends.matchBallSpeedImprovement;
+    if (paceTrend != null && paceTrend.abs() > 0.05) {
+      chips.add(
+        'pace ${paceTrend > 0 ? '↑' : '↓'} ${paceTrend.abs().toStringAsFixed(1)} km/h',
+      );
+    }
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
       child: Padding(
