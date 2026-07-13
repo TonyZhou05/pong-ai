@@ -62,6 +62,19 @@ class MatchSituation {
     return state.gamesFor(p) + 1 >= _gamesToWinMatch;
   }
 
+  /// Whether the current game is the *deciding game* — the final possible game
+  /// of the match, with both players one game short of winning (e.g. 2–2 in a
+  /// best-of-5, 1–1 in a best-of-3). Unlike [isMatchPoint] (one *point* away),
+  /// this holds for the whole final game, so the scoreboard can flag "we're into
+  /// the decider" from the game's first point. A best-of-1 has no decider
+  /// context (its sole game is trivially last), so this is always false there.
+  bool get isDecidingGame {
+    if (state.isMatchOver) return false;
+    final needed = _gamesToWinMatch;
+    if (needed < 2) return false;
+    return state.gamesA == needed - 1 && state.gamesB == needed - 1;
+  }
+
   /// The pressure level of the next point.
   PointPressure get pressure {
     if (candidate == null) return PointPressure.none;
@@ -97,5 +110,14 @@ class MatchSituation {
     }
     final capitalized = phrase[0].toUpperCase() + phrase.substring(1);
     return '$capitalized $who';
+  }
+
+  /// The scoreboard banner to display: the game/match-point [label] when a side
+  /// is one point away, otherwise "Deciding game" for the whole final game, or
+  /// `null` when there is no notable context. Game/match point takes precedence
+  /// so the climax of the decider still reads "Match point", not just the
+  /// persistent decider context.
+  String? get bannerLabel {
+    return label ?? (isDecidingGame ? 'Deciding game' : null);
   }
 }

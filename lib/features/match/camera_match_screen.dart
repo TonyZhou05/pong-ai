@@ -351,7 +351,7 @@ class _LiveScoreboard extends StatelessWidget {
               ),
             ],
           ),
-          if (MatchSituation(state).label case final banner?)
+          if (MatchSituation(state).bannerLabel case final banner?)
             _PointPressureBanner(
               label: banner,
               matchPoint: MatchSituation(state).isMatchPoint,

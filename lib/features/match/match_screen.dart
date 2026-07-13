@@ -212,7 +212,7 @@ class _Scoreboard extends StatelessWidget {
               ),
             ],
           ),
-          if (situation.label case final banner?)
+          if (situation.bannerLabel case final banner?)
             _PointPressureBanner(
               label: banner,
               matchPoint: situation.isMatchPoint,

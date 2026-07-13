@@ -272,6 +272,15 @@ behind a `VisionService` interface. This lets us:
        headline "you're one away" scoreboard cue apps like Ball AI show during
        play, previously only reconstructable post-match from the game-point
        analytics in `MatchSummary`.
+     - **[done — iteration 92]** Live deciding-game context. `MatchSituation`
+       now also derives `isDecidingGame` — the final possible game of the match,
+       with both players one game short of winning (2–2 in a best-of-5, 1–1 in a
+       best-of-3; never for a best-of-1). Its `bannerLabel` getter surfaces the
+       game/match-point `label` when a side is one point away, otherwise
+       "Deciding game" for the whole final game, and both scoreboards render it
+       through the existing `_PointPressureBanner` so the decider context shows
+       from the game's first point (game/match point still takes precedence at
+       the climax).
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking

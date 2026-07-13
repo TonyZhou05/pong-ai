@@ -111,6 +111,50 @@ void main() {
     });
   });
 
+  group('MatchSituation deciding game', () {
+    test('best-of-5 at 2-2 games is the deciding game', () {
+      final s = MatchSituation(_state(gamesA: 2, gamesB: 2, pointsA: 3));
+      expect(s.isDecidingGame, isTrue);
+      // No side one point away yet, so the banner shows the decider context.
+      expect(s.label, isNull);
+      expect(s.bannerLabel, 'Deciding game');
+    });
+
+    test('best-of-3 at 1-1 games is the deciding game', () {
+      final s = MatchSituation(_state(gamesA: 1, gamesB: 1, bestOf: 3));
+      expect(s.isDecidingGame, isTrue);
+      expect(s.bannerLabel, 'Deciding game');
+    });
+
+    test('not the deciding game before both reach the penultimate game', () {
+      expect(MatchSituation(_state(gamesA: 2, gamesB: 1)).isDecidingGame, isFalse);
+      expect(MatchSituation(_state(gamesA: 1, gamesB: 1)).isDecidingGame, isFalse);
+    });
+
+    test('best-of-1 has no deciding-game context', () {
+      final s = MatchSituation(_state(bestOf: 1));
+      expect(s.isDecidingGame, isFalse);
+      expect(s.bannerLabel, isNull);
+    });
+
+    test('a finished match is never the deciding game', () {
+      final s = MatchSituation(
+        _state(gamesA: 3, gamesB: 2, isMatchOver: true),
+      );
+      expect(s.isDecidingGame, isFalse);
+      expect(s.bannerLabel, isNull);
+    });
+
+    test('match point in the decider takes banner precedence over the context',
+        () {
+      // best-of-5, 2-2 games, A at 10-9 → match point wins the whole match.
+      final s = MatchSituation(_state(gamesA: 2, gamesB: 2, pointsA: 10, pointsB: 9));
+      expect(s.isDecidingGame, isTrue);
+      expect(s.isMatchPoint, isTrue);
+      expect(s.bannerLabel, 'Match point A');
+    });
+  });
+
   test('a finished match reports no pressure', () {
     final s = MatchSituation(
       _state(pointsA: 11, pointsB: 5, gamesA: 3, isMatchOver: true),
