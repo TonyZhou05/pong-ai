@@ -969,6 +969,19 @@ behind a `VisionService` interface. This lets us:
      panel, can surface each player's "focus next" cue. The training JSON export
      (`buildTrainingReportJson`) gained the same `coaching` section from
      `TrainingFeedback` (iteration 51), closing the parallel gap.
+   - **[done — iteration 121]** OS share sheet (`core/share/report_share.dart`).
+     Both the match and training reports could only ever be *copied to the
+     clipboard* (or persisted to on-device history) — there was no way to hand
+     the summary straight to a coach/friend via Messages, email, etc. The
+     `defaultShareReport` sink (backed by the `share_plus` plugin's
+     `SharePlus.instance.share`) now opens the platform share sheet with the same
+     human-readable text report, wired as a **Share** action alongside Copy
+     report / Export JSON on all four summary surfaces (`MatchScreen`,
+     `CameraMatchScreen`, `TrainingScreen`, `CameraTrainingScreen`). Like
+     `SpeechAnnouncer`, the platform-channel call is guarded so a device without
+     a share provider — or a headless widget test — degrades to a silent no-op;
+     the sink is an injectable `ShareReportSink` typedef so a test verifies the
+     shared text/subject without touching the channel.
    - **[done — iteration 45]** `SessionHistoryStore`
      (`core/history/session_history_store.dart`): the across-session *memory* the
      structured exports were built for. Iterations 38/39 made the match and

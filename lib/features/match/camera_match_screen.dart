@@ -17,6 +17,7 @@ import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
 import '../../core/scoring/match_situation.dart';
 import '../../core/scoring/scoring_engine.dart';
+import '../../core/share/report_share.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/vision_model_profile.dart';
 import '../../core/vision/yolo_vision_service.dart';
@@ -51,6 +52,7 @@ class CameraMatchScreen extends StatefulWidget {
     this.model = defaultVisionModel,
     this.historyStoreLoader = defaultSessionHistoryStore,
     this.onAnnounce,
+    this.shareReport = defaultShareReport,
   });
 
   /// The camera-backed frame source. Defaults to one whose adapter decodes
@@ -85,6 +87,11 @@ class CameraMatchScreen extends StatefulWidget {
   /// registered; injectable so a text-to-speech engine can be dropped in (or a
   /// test can capture the calls) as a one-line change.
   final void Function(String call)? onAnnounce;
+
+  /// Hands the composed text report to the OS share sheet ("send to a coach").
+  /// Defaults to the `share_plus`-backed sink; tests inject a fake that records
+  /// the shared text.
+  final ShareReportSink shareReport;
 
   @override
   State<CameraMatchScreen> createState() => _CameraMatchScreenState();
@@ -533,6 +540,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                   controller: _controller,
                   historyStoreLoader: widget.historyStoreLoader,
                   onPlayAgain: _playAgain,
+                  shareReport: widget.shareReport,
                 ),
               )
             else
@@ -1228,11 +1236,15 @@ class _MatchOverPanel extends StatelessWidget {
     required this.controller,
     required this.historyStoreLoader,
     required this.onPlayAgain,
+    required this.shareReport,
   });
 
   final MatchController controller;
   final Future<SessionHistoryStore> Function() historyStoreLoader;
   final VoidCallback onPlayAgain;
+
+  /// Hands the composed text report to the OS share sheet.
+  final ShareReportSink shareReport;
 
   static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
 
@@ -1263,6 +1275,13 @@ class _MatchOverPanel extends StatelessWidget {
     );
     messenger.showSnackBar(
       const SnackBar(content: Text('JSON summary copied to clipboard')),
+    );
+  }
+
+  Future<void> _shareReport(BuildContext context) async {
+    await shareReport(
+      buildMatchReport(controller),
+      subject: 'Table tennis match summary',
     );
   }
 
@@ -1430,6 +1449,11 @@ class _MatchOverPanel extends StatelessWidget {
                     icon: const Icon(Icons.copy, size: 18),
                     label: const Text('Copy report'),
                     onPressed: () => _copyReport(context),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.ios_share, size: 18),
+                    label: const Text('Share'),
+                    onPressed: () => _shareReport(context),
                   ),
                 ],
               ),

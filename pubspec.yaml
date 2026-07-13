@@ -17,6 +17,7 @@ dependencies:
   path_provider: ^2.1.6
   # On-device text-to-speech so the umpire/coach announcer voices calls aloud.
   flutter_tts: ^4.2.5
+  share_plus: ^13.2.0
 
 dev_dependencies:
   flutter_test:

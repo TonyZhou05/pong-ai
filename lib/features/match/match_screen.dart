@@ -16,6 +16,7 @@ import '../../core/analysis/rally_referee.dart';
 import '../../core/analysis/tracking_quality.dart';
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
+import '../../core/share/report_share.dart';
 import '../../core/scoring/match_situation.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
@@ -39,6 +40,7 @@ class MatchScreen extends StatefulWidget {
     this.visionServiceBuilder,
     this.matchControllerBuilder,
     this.historyStoreLoader = defaultSessionHistoryStore,
+    this.shareReport = defaultShareReport,
   });
 
   /// Builds the frame source. Defaults to the scripted demo replay.
@@ -51,6 +53,11 @@ class MatchScreen extends StatefulWidget {
   /// Resolves the store the "Save to history" action writes to. Defaults to the
   /// on-device documents-directory store; tests inject an in-memory fake.
   final Future<SessionHistoryStore> Function() historyStoreLoader;
+
+  /// Hands the composed text report to the OS share sheet ("send to a coach").
+  /// Defaults to the `share_plus`-backed sink; tests inject a fake that records
+  /// the shared text.
+  final ShareReportSink shareReport;
 
   @override
   State<MatchScreen> createState() => _MatchScreenState();
@@ -171,6 +178,7 @@ class _MatchScreenState extends State<MatchScreen> {
                   reportJson: matchReportJsonString(_controller),
                   reportJsonMap: buildMatchReportJson(_controller),
                   historyStoreLoader: widget.historyStoreLoader,
+                  shareReport: widget.shareReport,
                 ),
               )
             else
@@ -477,6 +485,7 @@ class _SummaryPanel extends StatelessWidget {
     required this.reportJson,
     required this.reportJsonMap,
     required this.historyStoreLoader,
+    required this.shareReport,
   });
 
   final MatchSummary summary;
@@ -517,6 +526,9 @@ class _SummaryPanel extends StatelessWidget {
   /// Resolves the store the "Save to history" action writes to.
   final Future<SessionHistoryStore> Function() historyStoreLoader;
 
+  /// Hands the composed text report to the OS share sheet.
+  final ShareReportSink shareReport;
+
   static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
 
   Future<void> _saveToHistory(BuildContext context) async {
@@ -534,6 +546,10 @@ class _SummaryPanel extends StatelessWidget {
     messenger.showSnackBar(
       const SnackBar(content: Text('Report copied to clipboard')),
     );
+  }
+
+  Future<void> _shareReport(BuildContext context) async {
+    await shareReport(reportText, subject: 'Table tennis match summary');
   }
 
   Future<void> _copyJson(BuildContext context) async {
@@ -691,6 +707,11 @@ class _SummaryPanel extends StatelessWidget {
                   icon: const Icon(Icons.copy, size: 18),
                   label: const Text('Copy report'),
                   onPressed: () => _copyReport(context),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.ios_share, size: 18),
+                  label: const Text('Share'),
+                  onPressed: () => _shareReport(context),
                 ),
               ],
             ),

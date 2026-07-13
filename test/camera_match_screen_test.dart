@@ -130,6 +130,49 @@ void main() {
   );
 
   testWidgets(
+    'Share hands the composed match report to the injected share sink',
+    (tester) async {
+      final vision = YoloVisionService();
+      final shared = <({String text, String? subject})>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            matchControllerBuilder: () =>
+                MatchController(engine: ScoringEngine(pointsPerGame: 3, bestOf: 1)),
+            shareReport: (text, {subject}) async {
+              shared.add((text: text, subject: subject));
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      for (final frame in demoMatchFrames()) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      expect(find.textContaining('wins the match'), findsOneWidget);
+      await tester.ensureVisible(find.text('Share'));
+      await tester.tap(find.text('Share'));
+      await tester.pump();
+
+      expect(shared, hasLength(1));
+      expect(shared.single.subject, 'Table tennis match summary');
+      // The shared text is the same human-readable report as Copy report.
+      expect(shared.single.text, contains('Player A'));
+      expect(shared.single.text, isNotEmpty);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'Play again resets the score and resumes scoring on the same screen',
     (tester) async {
       final vision = YoloVisionService();

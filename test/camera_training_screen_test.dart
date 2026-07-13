@@ -255,6 +255,48 @@ void main() {
   );
 
   testWidgets(
+    'live training Share hands the composed report to the injected share sink',
+    (tester) async {
+      final vision = YoloVisionService();
+      final shared = <({String text, String? subject})>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            autoCalibrate: false,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            shareReport: (text, {subject}) async {
+              shared.add((text: text, subject: subject));
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      for (final frame in trainingSessionFrames().take(6)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      await tester.tap(find.byTooltip('Finish session'));
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('Share'));
+      await tester.tap(find.text('Share'));
+      await tester.pump();
+
+      expect(shared, hasLength(1));
+      expect(shared.single.subject, 'Table tennis training summary');
+      expect(shared.single.text, isNotEmpty);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'player-side picker is shown pre-session and hides after the first shot',
     (tester) async {
       final vision = YoloVisionService();

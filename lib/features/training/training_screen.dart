@@ -7,6 +7,7 @@ import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/tracking_quality.dart';
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
+import '../../core/share/report_share.dart';
 import '../../core/training/shot_analyzer.dart';
 import '../../core/training/training_feedback.dart';
 import '../../core/training/training_report_json.dart';
@@ -31,6 +32,7 @@ class TrainingScreen extends StatefulWidget {
     this.visionServiceBuilder,
     this.config = const TrainingConfig(),
     this.historyStoreLoader = defaultSessionHistoryStore,
+    this.shareReport = defaultShareReport,
   });
 
   /// Builds the frame source. Defaults to the scripted training replay.
@@ -42,6 +44,10 @@ class TrainingScreen extends StatefulWidget {
   /// Resolves the store the "Save to history" action writes to. Defaults to the
   /// on-device documents-directory store; tests inject a temp-dir store.
   final Future<SessionHistoryStore> Function() historyStoreLoader;
+
+  /// Hands the composed text report to the OS share sheet. Defaults to the
+  /// `share_plus`-backed sink; tests inject a fake that records the text.
+  final ShareReportSink shareReport;
 
   @override
   State<TrainingScreen> createState() => _TrainingScreenState();
@@ -144,6 +150,7 @@ class _TrainingScreenState extends State<TrainingScreen> {
                   config: widget.config,
                   quality: _quality,
                   historyStoreLoader: widget.historyStoreLoader,
+                  shareReport: widget.shareReport,
                 ),
               )
             else
@@ -323,12 +330,27 @@ class _SessionReport extends StatelessWidget {
     required this.config,
     required this.quality,
     required this.historyStoreLoader,
+    required this.shareReport,
   });
 
   final TrainingSummary summary;
   final TrainingConfig config;
   final TrackingQualityAnalyzer quality;
   final Future<SessionHistoryStore> Function() historyStoreLoader;
+
+  /// Hands the composed text report to the OS share sheet.
+  final ShareReportSink shareReport;
+
+  /// The full text report shared / copied — session summary plus coaching
+  /// feedback and any tracking-quality note.
+  String _reportText() {
+    final feedback = TrainingFeedback(summary, config: config);
+    return [
+      summary.report(),
+      if (feedback.hasData) feedback.report(),
+      if (quality.hasData) quality.report(),
+    ].join('\n\n');
+  }
 
   Future<void> _saveToHistory(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -344,15 +366,16 @@ class _SessionReport extends StatelessWidget {
 
   Future<void> _copyReport(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    final feedback = TrainingFeedback(summary, config: config);
-    final text = [
-      summary.report(),
-      if (feedback.hasData) feedback.report(),
-      if (quality.hasData) quality.report(),
-    ].join('\n\n');
-    await Clipboard.setData(ClipboardData(text: text));
+    await Clipboard.setData(ClipboardData(text: _reportText()));
     messenger.showSnackBar(
       const SnackBar(content: Text('Report copied to clipboard')),
+    );
+  }
+
+  Future<void> _shareReport(BuildContext context) async {
+    await shareReport(
+      _reportText(),
+      subject: 'Table tennis training summary',
     );
   }
 
@@ -422,6 +445,11 @@ class _SessionReport extends StatelessWidget {
                     icon: const Icon(Icons.data_object, size: 18),
                     label: const Text('Export JSON'),
                     onPressed: () => _exportJson(context),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.ios_share, size: 18),
+                    label: const Text('Share'),
+                    onPressed: () => _shareReport(context),
                   ),
                 ],
               ),
