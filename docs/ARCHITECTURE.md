@@ -91,10 +91,20 @@ A `benchmark/` harness runs the pipeline over labeled clips and emits these
 numbers so we can compare model swaps objectively. It is implemented (pure Dart,
 runs in `flutter test`): `lib/core/benchmark/` defines the JSON `ClipFixture`
 format and `BenchmarkRunner`; `benchmark/` holds the clip corpus and the format
-docs. So far it scores the **rally/scoring** stage (point-total and ordered
-point accuracy vs. ground truth); ball-detection and pose metrics land once the
-live model is wired and real annotated clips are converted in. See
-[`../benchmark/README.md`](../benchmark/README.md).
+docs. Two evaluation stages exist:
+
+- **Scoring** (`BenchmarkRunner`) — point-total and ordered point accuracy of
+  the tracker→referee→scoring pipeline vs. ground truth.
+- **Perception** (`DetectionBenchmark`, iteration 15) — per-frame **ball
+  detection** precision / recall / F1 at a loose IoU 0.3 (mean IoU + centre
+  error on matches) and **player pose** detection rate + PCK / mean keypoint
+  error, computed by comparing the pipeline's predicted `FrameResult`s to a
+  clip's optional per-frame `groundTruthFrames`. This directly scores "how well
+  does the model track the players/ball," the objective's stated priority. It
+  runs the moment an annotated clip carries ground-truth frames — no camera
+  needed.
+
+See [`../benchmark/README.md`](../benchmark/README.md).
 
 ---
 

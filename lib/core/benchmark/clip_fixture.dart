@@ -60,6 +60,7 @@ class ClipFixture {
     required this.name,
     required this.frames,
     required this.groundTruth,
+    this.groundTruthFrames,
     this.source = 'unknown',
     this.fps = 30,
     this.netX = 0.5,
@@ -91,13 +92,20 @@ class ClipFixture {
   final int pointsPerGame;
   final int bestOf;
 
-  /// The replayed vision frames, in timestamp order.
+  /// The replayed vision frames, in timestamp order. These are the pipeline's
+  /// *predicted* detections (what the model output / what we replay).
   final List<FrameResult> frames;
+
+  /// Optional per-frame *ground-truth* detections, index-aligned with [frames],
+  /// used by the perception benchmark ([DetectionBenchmark]) to score ball/pose
+  /// accuracy. Null when the clip only carries a scoring outcome.
+  final List<FrameResult>? groundTruthFrames;
 
   final ClipGroundTruth groundTruth;
 
   factory ClipFixture.fromJson(Map<String, dynamic> json) {
     final rawFrames = (json['frames'] as List<dynamic>? ?? const []);
+    final rawGtFrames = json['groundTruthFrames'] as List<dynamic>?;
     return ClipFixture(
       name: json['name'] as String? ?? 'unnamed',
       source: json['source'] as String? ?? 'unknown',
@@ -109,6 +117,9 @@ class ClipFixture {
       bestOf: (json['bestOf'] as num?)?.toInt() ?? 5,
       frames: rawFrames
           .map((f) => _frameFromJson(f as Map<String, dynamic>))
+          .toList(growable: false),
+      groundTruthFrames: rawGtFrames
+          ?.map((f) => _frameFromJson(f as Map<String, dynamic>))
           .toList(growable: false),
       groundTruth: ClipGroundTruth.fromJson(
         json['groundTruth'] as Map<String, dynamic>,
@@ -127,6 +138,9 @@ class ClipFixture {
         'bestOf': bestOf,
         'groundTruth': groundTruth.toJson(),
         'frames': frames.map(_frameToJson).toList(),
+        if (groundTruthFrames != null)
+          'groundTruthFrames':
+              groundTruthFrames!.map(_frameToJson).toList(),
       };
 }
 

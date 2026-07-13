@@ -1,20 +1,30 @@
 # pong-ai benchmark harness
 
-This directory holds the offline **scoring-accuracy** evaluation promised in
-[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §2. It replays labeled clips
-through the exact same `BallTracker → RallyReferee → ScoringEngine` pipeline the
-live camera drives (via `MatchController`) and compares the auto-detected
-outcome to ground truth. It is pure Dart — no camera, no plugin — so it runs in
-`flutter test`.
+This directory holds the offline evaluation promised in
+[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §2, in two stages:
+
+- **Scoring accuracy** — replays labeled clips through the exact same
+  `BallTracker → RallyReferee → ScoringEngine` pipeline the live camera drives
+  (via `MatchController`) and compares the auto-detected outcome to ground truth.
+- **Perception accuracy** — compares the pipeline's per-frame predicted
+  detections to per-frame ground truth: **ball** precision/recall/F1 (loose IoU
+  0.3) and **player pose** detection rate + PCK. This is the metric that answers
+  the objective's priority — "how well does the model track the players/ball."
+
+It is pure Dart — no camera, no plugin — so it all runs in `flutter test`.
 
 ## Pieces
 
 - `lib/core/benchmark/clip_fixture.dart` — `ClipFixture`, the JSON representation
-  of one labeled clip (per-frame detections + ground-truth score).
+  of one labeled clip (per-frame predicted detections + ground-truth score, plus
+  optional per-frame ground-truth detections in `groundTruthFrames`).
 - `lib/core/benchmark/benchmark_runner.dart` — `BenchmarkRunner` /
-  `BenchmarkResult` / `BenchmarkSuiteResult`: runs fixtures and emits metrics.
+  `BenchmarkResult` / `BenchmarkSuiteResult`: scoring-accuracy metrics.
+- `lib/core/benchmark/detection_metrics.dart` — `DetectionBenchmark` /
+  `BallDetectionMetrics` / `PoseDetectionMetrics`: per-frame perception metrics.
 - `clips/` — the fixture corpus (start with `synthetic_demo.json`).
-- `test/benchmark_test.dart` — regression tests over the harness.
+- `test/benchmark_test.dart`, `test/detection_metrics_test.dart` — regression
+  tests over the harness.
 
 ## Fixture format (`clips/*.json`)
 
@@ -47,10 +57,15 @@ outcome to ground truth. It is pure Dart — no camera, no plugin — so it runs
 - All coordinates are **normalized `[0,1]`**, `box` is `[left, top, width, height]`,
   and `y` increases downward (the vision-model convention).
 - `t` is milliseconds; the tracker uses it for velocity, so keep it monotonic.
+- `frames` are the pipeline's **predictions**. To also score perception, add a
+  parallel `groundTruthFrames` array (same per-frame shape, index-aligned with
+  `frames`) holding the *true* ball/people boxes and keypoints. Ground-truth
+  keypoints with `conf == 0` are treated as unlabeled/occluded and skipped by
+  PCK, the standard convention. Omit `groundTruthFrames` for scoring-only clips.
 
 ## Metrics
 
-Per clip (`BenchmarkResult`):
+Per clip, scoring (`BenchmarkResult`):
 
 - **Final score correct** — detected per-player point totals equal ground truth.
 - **Point-total error** — L1 distance between detected and true `(A, B)`.
@@ -61,6 +76,16 @@ Per clip (`BenchmarkResult`):
 
 Aggregated (`BenchmarkSuiteResult`): clips scored exactly, mean point recall,
 and total undetermined rallies.
+
+Per clip, perception (`DetectionBenchmarkResult`, when `groundTruthFrames` is
+present):
+
+- **Ball** — precision, recall, F1 at IoU ≥ 0.3, plus mean IoU and mean centre
+  error over matched frames. A detection that overlaps the true ball below the
+  IoU threshold is counted as both a false positive and a false negative.
+- **Pose** — person detection rate (matched / ground-truth people, greedily
+  matched by box IoU ≥ 0.5), PCK (fraction of visible keypoints within a
+  normalized distance of 0.05), and mean keypoint error.
 
 ## Adding real clips
 
@@ -73,7 +98,11 @@ dataset or a side-angle match video into a fixture:
    not detected so the tracker's gap/loss handling is exercised realistically.
 3. **Label the ground truth** from the clip's scoreboard: fill `pointsA/pointsB`
    (and `pointWinners` if you scored rally-by-rally).
-4. Drop the file in `clips/` and it is picked up by the harness.
+4. **(Optional) For perception scoring**, add `groundTruthFrames` from the
+   dataset's own per-frame annotations (OpenTTGames ships true ball positions;
+   SPIN ships ball + pose) so `DetectionBenchmark` can score how well the model
+   detector matched them — that is the direct model-quality comparison.
+5. Drop the file in `clips/` and it is picked up by the harness.
 
 Recommended sources (see ARCHITECTURE §2): **OpenTTGames** (ball position +
 bounce/net/empty event labels → straightforward `frames` + ground truth),
