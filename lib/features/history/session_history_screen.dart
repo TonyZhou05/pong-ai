@@ -220,10 +220,32 @@ class _TrendsHeader extends StatelessWidget {
               '${trends.bestMaxSpeedKmh != null ? ' · fastest ${trends.bestMaxSpeedKmh!.toStringAsFixed(1)} km/h' : ''}',
               style: theme.textTheme.bodyMedium,
             ),
+            if (_consistencyLine(trends) case final line?) ...[
+              const SizedBox(height: 4),
+              Text(line, style: theme.textTheme.bodyMedium),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  /// A compact "Placement tighter · Rhythm up 12%" style line summarising the
+  /// consistency progression, or null if neither metric has enough sessions.
+  static String? _consistencyLine(SessionTrends trends) {
+    final parts = <String>[];
+    final depth = trends.depthConsistencyImprovement;
+    if (depth != null && depth.abs() > 0.0005) {
+      parts.add('Placement ${depth > 0 ? 'tighter' : 'looser'}');
+    }
+    final rhythm = trends.rhythmConsistencyImprovement;
+    if (rhythm != null && rhythm.abs() > 0.0005) {
+      parts.add(
+        'Rhythm ${rhythm > 0 ? 'up' : 'down'} '
+        '${(rhythm.abs() * 100).round()}%',
+      );
+    }
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 }
 

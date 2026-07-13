@@ -149,6 +149,33 @@ void main() {
       expect(noSpeed.bestMaxSpeedKmh, isNull);
     });
 
+    test('depthConsistencyImprovement is first minus latest (tighter=+)', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', depthConsistency: 0.08),
+        _training('b', t1, averageScore: 0.6, grade: 'B'),
+        _training('c', t2, averageScore: 0.7, grade: 'A', depthConsistency: 0.03),
+      ]);
+      // Skips the session with no depth metric; first 0.08 → latest 0.03.
+      expect(trends.depthConsistencyImprovement, closeTo(0.05, 1e-9));
+    });
+
+    test('rhythmConsistencyImprovement is latest minus first (steadier=+)', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', rhythmConsistency: 0.6),
+        _training('b', t2, averageScore: 0.7, grade: 'A', rhythmConsistency: 0.9),
+      ]);
+      expect(trends.rhythmConsistencyImprovement, closeTo(0.3, 1e-9));
+    });
+
+    test('consistency improvements are null without two recording sessions', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', depthConsistency: 0.05),
+        _training('b', t2, averageScore: 0.7, grade: 'A'),
+      ]);
+      expect(trends.depthConsistencyImprovement, isNull);
+      expect(trends.rhythmConsistencyImprovement, isNull);
+    });
+
     test('report reflects the improvement trend and best session', () {
       final trends = SessionTrends.fromSessions([
         _training('a', t0, averageScore: 0.50, grade: 'C'),
@@ -163,6 +190,30 @@ void main() {
       expect(report, contains('up +30%'));
       expect(report, contains('Best session: grade A'));
       expect(report, contains('90.0 km/h'));
+    });
+
+    test('report surfaces placement and rhythm consistency trends', () {
+      final trends = SessionTrends.fromSessions([
+        _training(
+          'a',
+          t0,
+          averageScore: 0.50,
+          grade: 'C',
+          depthConsistency: 0.09,
+          rhythmConsistency: 0.60,
+        ),
+        _training(
+          'b',
+          t2,
+          averageScore: 0.80,
+          grade: 'A',
+          depthConsistency: 0.04,
+          rhythmConsistency: 0.85,
+        ),
+      ]);
+      final report = trends.report();
+      expect(report, contains('Placement consistency: tighter'));
+      expect(report, contains('Rhythm consistency: up +25%'));
     });
 
     test('report handles an empty history', () {

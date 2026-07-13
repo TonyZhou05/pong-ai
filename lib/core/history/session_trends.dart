@@ -164,6 +164,38 @@ class SessionTrends {
     return best;
   }
 
+  /// Change in landing-placement consistency (population stddev of shot depth)
+  /// from the first to the latest session that recorded it. Depth stddev is
+  /// *lower-is-tighter*, so this returns `first − latest`: a positive value
+  /// means placement got tighter (improved). Null unless at least two sessions
+  /// carry the metric.
+  double? get depthConsistencyImprovement {
+    final series = _metricSeries((p) => p.depthConsistency);
+    if (series.length < 2) return null;
+    return series.first - series.last;
+  }
+
+  /// Change in metronome rhythm consistency ([0,1], *higher-is-steadier*) from
+  /// the first to the latest session that recorded it: returns `latest − first`,
+  /// so a positive value means the drill tempo got steadier. Null unless at
+  /// least two sessions carry the metric.
+  double? get rhythmConsistencyImprovement {
+    final series = _metricSeries((p) => p.rhythmConsistency);
+    if (series.length < 2) return null;
+    return series.last - series.first;
+  }
+
+  /// The recorded values of a nullable per-session metric, in session order
+  /// (oldest first), skipping sessions that did not record it.
+  List<double> _metricSeries(double? Function(TrainingTrendPoint) select) {
+    final out = <double>[];
+    for (final p in trainingSessions) {
+      final v = select(p);
+      if (v != null) out.add(v);
+    }
+    return out;
+  }
+
   /// A short human-readable progression summary, mirroring the text-report style
   /// of the per-session analytics.
   String report() {
@@ -202,6 +234,22 @@ class SessionTrends {
     final topSpeed = bestMaxSpeedKmh;
     if (topSpeed != null) {
       lines.add('Fastest shot: ${topSpeed.toStringAsFixed(1)} km/h');
+    }
+
+    final depthTrend = depthConsistencyImprovement;
+    if (depthTrend != null) {
+      final verb = depthTrend > 0.0005
+          ? 'tighter'
+          : (depthTrend < -0.0005 ? 'looser' : 'flat');
+      lines.add('Placement consistency: $verb');
+    }
+
+    final rhythmTrend = rhythmConsistencyImprovement;
+    if (rhythmTrend != null) {
+      final verb = rhythmTrend > 0.0005
+          ? 'up ${_signedPct(rhythmTrend)}'
+          : (rhythmTrend < -0.0005 ? 'down ${_signedPct(rhythmTrend)}' : 'flat');
+      lines.add('Rhythm consistency: $verb');
     }
     return lines.join('\n');
   }

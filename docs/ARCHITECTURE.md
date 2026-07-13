@@ -527,6 +527,15 @@ behind a `VisionService` interface. This lets us:
      maps only — pure Dart, no Flutter/plugin, unit-tested end-to-end. The
      history screen surfaces it as a compact "Training progress" card shown once
      ≥ 2 drills are saved.
+   - **[done — iteration 49]** Consistency progression. `TrainingTrendPoint`
+     already parsed each session's `depthConsistency` (placement stddev, lower =
+     tighter) and `rhythmConsistency` (metronome score, higher = steadier), but
+     `SessionTrends` only trended average-score and km/h — those two signals were
+     captured-but-unconsumed. Added `depthConsistencyImprovement` (first − latest,
+     positive = tighter placement) and `rhythmConsistencyImprovement` (latest −
+     first, positive = steadier tempo), each computed over the sessions that
+     actually recorded the metric, with matching `report()` lines and a compact
+     "Placement tighter · Rhythm up N%" line on the Training-progress card.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 44]** Training-mode tracking-quality / detection-health.
