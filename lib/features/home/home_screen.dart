@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../match/match_screen.dart';
+
 /// Landing screen: pick between refereeing a live match and training mode.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -28,7 +30,11 @@ class HomeScreen extends StatelessWidget {
                 icon: Icons.sports_tennis,
                 title: 'Match',
                 subtitle: 'Auto-referee: track players, ball and score.',
-                onTap: () {},
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const MatchScreen(),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               _ModeCard(
@@ -63,7 +69,8 @@ class _ModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         leading: Icon(icon, size: 36),
         title: Text(title, style: Theme.of(context).textTheme.titleLarge),
         subtitle: Text(subtitle),

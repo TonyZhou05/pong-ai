@@ -64,4 +64,16 @@ class MatchController {
     }
     return decisions;
   }
+
+  /// Manually award an [undetermined] point the referee could not attribute
+  /// (e.g. a ball smashed out of play). Removes it from [undetermined] and
+  /// applies it to the score. No-op if [decision] is not pending.
+  void resolveUndetermined(PointDecision decision, Player winner) {
+    if (_undetermined.remove(decision)) {
+      engine.awardPoint(winner);
+    }
+  }
+
+  /// Undo the most recent scored point. Returns true if something was undone.
+  bool undo() => engine.undo();
 }
