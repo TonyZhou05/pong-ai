@@ -113,10 +113,18 @@ class NetCrossEvent extends TrackerEvent {
 /// The ball detection was lost for longer than the allowed gap; the current
 /// trajectory (velocity estimate) has been dropped.
 class BallLostEvent extends TrackerEvent {
-  const BallLostEvent(super.timestampMs);
+  const BallLostEvent(super.timestampMs, {this.lostOutside});
+
+  /// When the ball's last tracked position was already past the table's outer
+  /// edge, the side it exited over (left of the left edge / right of the
+  /// right edge); null when it vanished over the playing area. Lets the
+  /// referee distinguish "flew long past the baseline" (out of bounds) from a
+  /// mid-air detection dropout.
+  final TableSide? lostOutside;
 
   @override
-  String toString() => 'BallLost(@$timestampMs)';
+  String toString() => 'BallLost(@$timestampMs'
+      '${lostOutside == null ? '' : ', outside $lostOutside'})';
 }
 
 /// Incrementally consumes ball detections and emits [TrackerEvent]s.
@@ -143,10 +151,12 @@ class BallTracker {
     this.minBounceSpeed = 0.004,
     this.maxGapFrames = 6,
     this.maxJump,
+    this.netBounceExclusion = 0,
     BallTrajectoryFilter? filter,
   })  : assert(minBounceSpeed >= 0),
         assert(maxGapFrames >= 0),
         assert(maxJump == null || maxJump > 0),
+        assert(netBounceExclusion >= 0),
         _filter = filter ?? BallTrajectoryFilter();
 
   final TableGeometry geometry;
@@ -168,6 +178,15 @@ class BallTracker {
   /// stays far below it while a detection latching onto something across the
   /// table does not.
   final double? maxJump;
+
+  /// Reject a bounce whose apex lies within this normalized x-distance of the
+  /// net line. A downward-then-upward reversal *at* the net plane is usually
+  /// the ball clipping the net (or the sampled trajectory kinking as it
+  /// crosses), not a table landing — and such a phantom bounce pairs with a
+  /// real one into a bogus double-bounce point. `0` (the default) disables the
+  /// exclusion, preserving historical behaviour; real bounces do land near the
+  /// net (drop shots), so keep the zone tight (e.g. `0.03`).
+  final double netBounceExclusion;
 
   /// Constant-velocity Kalman smoother/predictor kept in lock-step with the
   /// accepted samples so we can estimate the ball's position through detector
@@ -317,14 +336,36 @@ class BallTracker {
     if (_prev == null) return const [];
     _missedFrames++;
     if (_missedFrames > maxGapFrames) {
-      _prev = null;
-      _lastVy = null;
-      _missedFrames = 0;
-      _outlierCount = 0;
-      _filter.reset();
-      return [BallLostEvent(timestampMs)];
+      return [_loseBall(timestampMs)];
     }
     return const [];
+  }
+
+  /// Drop the current trajectory and report the loss, noting whether the last
+  /// tracked position had already left the table's x-extent.
+  BallLostEvent _loseBall(int timestampMs) {
+    final last = _prev!;
+    TableSide? lostOutside;
+    if (last.x < geometry.left) {
+      lostOutside = TableSide.left;
+    } else if (last.x > geometry.right) {
+      lostOutside = TableSide.right;
+    }
+    _prev = null;
+    _lastVy = null;
+    _missedFrames = 0;
+    _outlierCount = 0;
+    _filter.reset();
+    return BallLostEvent(timestampMs, lostOutside: lostOutside);
+  }
+
+  /// Force-ends the in-flight trajectory (if any), as when the frame source
+  /// itself ends — a footage clip playing out with the ball still tracked. The
+  /// rally can't continue without frames, so the ball is declared lost *now*
+  /// instead of never, letting the referee resolve the rally.
+  List<TrackerEvent> flush(int timestampMs) {
+    if (_prev == null) return const [];
+    return [_loseBall(timestampMs)];
   }
 
   NetCrossEvent? _detectNetCross(BallSample prev, BallSample now) {
@@ -345,7 +386,12 @@ class BallTracker {
     if (vyPrev == null) return null;
     final descending = vyPrev > minBounceSpeed;
     final ascending = vyNow < -minBounceSpeed;
-    if (descending && ascending && geometry.containsSurface(apex.x, apex.y)) {
+    final awayFromNet = netBounceExclusion == 0 ||
+        (apex.x - geometry.netX).abs() >= netBounceExclusion;
+    if (descending &&
+        ascending &&
+        awayFromNet &&
+        geometry.containsSurface(apex.x, apex.y)) {
       return BounceEvent(
         apex.timestampMs,
         apex.x,

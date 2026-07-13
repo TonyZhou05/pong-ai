@@ -14,18 +14,21 @@ import '../../core/analysis/player_movement.dart';
 import '../../core/analysis/rally_analyzer.dart';
 import '../../core/analysis/rally_referee.dart';
 import '../../core/analysis/tracking_quality.dart';
+import '../../core/benchmark/clip_fixture.dart';
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
 import '../../core/share/report_share.dart';
 import '../../core/scoring/match_situation.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
+import '../../core/vision/position_synced_vision_service.dart';
 import '../../core/vision/replay_vision_service.dart';
 import '../../core/vision/synthetic_frames.dart';
 import '../../core/vision/vision_service.dart';
 import '../summary/momentum_chart.dart';
 import '../summary/player_map.dart';
 import '../summary/shot_map.dart';
+import 'footage_demo.dart';
 
 /// Live match screen: streams vision frames through the [MatchController] and
 /// renders the running score, the tracked ball, and the referee's calls.
@@ -34,14 +37,37 @@ import '../summary/shot_map.dart';
 /// `ultralytics_yolo` camera runtime) can supply their own [VisionService]. It
 /// defaults to a [ReplayVisionService] playing a scripted demo match so the
 /// whole pipeline is visible in-app without a camera.
+///
+/// When a [footage] demo is supplied the screen instead plays a *real*
+/// side-recorded match video and overlays the recorded per-frame player/ball
+/// identification on the actual pixels, replaying the detections in lock-step
+/// with the video's playback clock (a [PositionSyncedVisionService]) so the
+/// overlays — and the scoring pipeline consuming the same frames — can never
+/// drift from the footage.
 class MatchScreen extends StatefulWidget {
   const MatchScreen({
     super.key,
+    this.footage,
+    this.footagePlayerBuilder,
+    this.footageFixtureLoader = loadFootageFixture,
     this.visionServiceBuilder,
     this.matchControllerBuilder,
     this.historyStoreLoader = defaultSessionHistoryStore,
     this.shareReport = defaultShareReport,
   });
+
+  /// When set, the screen shows this real recorded clip with detection
+  /// overlays instead of the schematic synthetic-replay table.
+  final FootageDemo? footage;
+
+  /// Builds the video playback surface for [footage]. Defaults to the real
+  /// `video_player`-backed [VideoFootagePlayer]; tests inject a fake whose
+  /// position the test drives (no platform channel headlessly).
+  final FootagePlayer Function()? footagePlayerBuilder;
+
+  /// Loads the [footage] detection-track fixture. Defaults to the asset
+  /// bundle; tests inject an in-memory fixture.
+  final Future<ClipFixture> Function(String asset) footageFixtureLoader;
 
   /// Builds the frame source. Defaults to the scripted demo replay.
   final VisionService Function()? visionServiceBuilder;
@@ -64,8 +90,19 @@ class MatchScreen extends StatefulWidget {
 }
 
 class _MatchScreenState extends State<MatchScreen> {
-  late final VisionService _vision;
-  late final MatchController _controller;
+  late VisionService _vision;
+  late MatchController _controller;
+
+  /// Whether [_vision]/[_controller] are initialized. Immediate on the
+  /// synthetic path; set once the async footage load completes on the footage
+  /// path (dispose must not touch the late fields before then).
+  bool _ready = false;
+
+  /// Footage-mode state: the video playback seam and the loaded detection
+  /// track (kept so Replay can rebuild a fresh scoring pipeline).
+  FootagePlayer? _player;
+  ClipFixture? _fixture;
+  Object? _footageError;
 
   StreamSubscription<FrameResult>? _sub;
   FrameResult? _lastFrame;
@@ -79,10 +116,131 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.footage != null) {
+      _initFootage();
+      return;
+    }
     _controller = widget.matchControllerBuilder?.call() ?? MatchController();
     _vision = widget.visionServiceBuilder?.call() ??
         ReplayVisionService(demoMatchFrames());
+    _ready = true;
     _startVision();
+  }
+
+  /// Builds the scoring pipeline configured for the recorded clip, tuned for a
+  /// *sparse* recorded detection track (real footage tracks the ball in only a
+  /// fraction of frames, unlike the dense synthetic clips):
+  ///
+  ///  * the fixture's full [ClipFixture.geometry] (net line + table-surface
+  ///    band), so a direction change beyond the table's edge — a paddle hit,
+  ///    the ball sailing out — can't register as a bounce and mis-award the
+  ///    point;
+  ///  * `maxGapFrames: 30` (~1 s): mid-rally detection gaps are routine in a
+  ///    sparse track, and the default 6 turns each one into a phantom
+  ///    rally-ending ball-loss (the score visibly incrementing mid-rally);
+  ///  * default `minBounceSpeed`: with the table band gating off-table
+  ///    reversals, the default threshold is right — raising it was measured
+  ///    to *miss real bounces* whose 30 fps sampling lands near the apex
+  ///    (flattening the incoming Δy), which then mis-arms the referee's
+  ///    out-of-bounds inference on the next crossing pair;
+  ///  * `netBounceExclusion: 0.03`: a y-reversal at the net plane is the net
+  ///    interfering (a clip, or the sampled trajectory kinking as it crosses),
+  ///    not a table landing — verified against the dataset's labeled bounces;
+  ///  * no `maxJump` gate: after a long gap the Kalman prediction has drifted,
+  ///    so the gate would reject the *real* ball on reappearance and starve
+  ///    the tracker into a bogus ball-loss (the live camera path keeps it —
+  ///    its detections arrive every frame, where the gate's assumption holds);
+  ///  * `postPointCooldown: 15` (~0.5 s): after a point the ball keeps
+  ///    bouncing/rolling; without a cool-down those leftovers seed a phantom
+  ///    rally that fizzles into a spurious "who won?" prompt.
+  MatchController _footageController(ClipFixture clip) => MatchController(
+        tracker: BallTracker(
+          geometry: clip.geometry,
+          maxGapFrames: 30,
+          netBounceExclusion: 0.03,
+        ),
+        referee: RallyReferee(leftPlayer: clip.leftPlayer),
+        engine: ScoringEngine(
+          firstServer: clip.firstServer,
+          pointsPerGame: clip.pointsPerGame,
+          bestOf: clip.bestOf,
+        ),
+        postPointCooldown: 15,
+      );
+
+  Future<void> _initFootage() async {
+    final demo = widget.footage!;
+    FootagePlayer? player;
+    try {
+      final fixture = await widget.footageFixtureLoader(demo.fixtureAsset);
+      player = widget.footagePlayerBuilder?.call() ??
+          VideoFootagePlayer(demo.videoAsset);
+      await player.initialize();
+      if (!mounted) {
+        await player.dispose();
+        return;
+      }
+      final readyPlayer = player; // non-null from here on
+      _fixture = fixture;
+      _player = readyPlayer;
+      _controller =
+          widget.matchControllerBuilder?.call() ?? _footageController(fixture);
+      _vision = PositionSyncedVisionService(
+        fixture.frames,
+        positionMs: () => readyPlayer.position.inMilliseconds,
+      );
+      setState(() => _ready = true);
+      await _startVision();
+      await readyPlayer.play();
+    } catch (e) {
+      // Initialization failed (e.g. no video runtime); release the player if
+      // the screen never took ownership of it.
+      if (!identical(player, _player)) await player?.dispose();
+      if (mounted) setState(() => _footageError = e);
+    }
+  }
+
+  Future<void> _togglePlayback() async {
+    final player = _player;
+    if (player == null) return;
+    if (player.isPlaying) {
+      await player.pause();
+    } else {
+      await player.play();
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// Rewinds the footage and replays it through a *fresh* scoring pipeline, so
+  /// a second viewing doesn't double-score the same rallies.
+  Future<void> _replayFootage() async {
+    final player = _player;
+    final fixture = _fixture;
+    if (player == null || fixture == null) return;
+    await _vision.stop();
+    await player.pause();
+    await player.seekToStart();
+    // On some platforms (web in particular) the seek is applied
+    // asynchronously: the player keeps *reporting* the old end-of-clip
+    // position for a few frames. Restarting the position-synced replay
+    // against that stale clock would instantly flush every frame into the
+    // fresh controller — an instant bogus score and a dead overlay for the
+    // whole second viewing. Wait for the rewind to actually land first.
+    for (var i = 0;
+        i < 40 && player.position > const Duration(milliseconds: 100);
+        i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+    }
+    if (!mounted) return;
+    setState(() {
+      _controller =
+          widget.matchControllerBuilder?.call() ?? _footageController(fixture);
+      _recentCalls.clear();
+      _lastFrame = null;
+      _predictedBall = null;
+    });
+    await _vision.start();
+    await player.play();
   }
 
   Future<void> _startVision() async {
@@ -92,13 +250,30 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   void _onFrame(FrameResult frame) {
-    final decisions = _controller.onFrame(frame);
+    var decisions = _controller.onFrame(frame);
+    // Capture the overlay's ghost estimate before any end-of-footage flush
+    // resets the tracker, so the final frame still draws its prediction.
+    final predictedBall = frame.ball == null
+        ? _controller.tracker.estimateBallAt(frame.timestampMs)
+        : null;
+    // This is the footage's final detection frame: a rally still in flight
+    // can never continue, so let the referee resolve it now instead of
+    // leaving the clip's last rally forever unscored. (Compared against the
+    // frame itself — not the replay service's cursor, which can already be
+    // exhausted while earlier frames are still being delivered.)
+    final lastT = _fixture?.frames.isEmpty ?? true
+        ? null
+        : _fixture!.frames.last.timestampMs;
+    if (_player != null && lastT != null && frame.timestampMs >= lastT) {
+      final flushed = _controller.finishPlay();
+      if (flushed.isNotEmpty) {
+        decisions = [...decisions, ...flushed];
+      }
+    }
     if (!mounted) return;
     setState(() {
       _lastFrame = frame;
-      _predictedBall = frame.ball == null
-          ? _controller.tracker.estimateBallAt(frame.timestampMs)
-          : null;
+      _predictedBall = predictedBall;
       _recentCalls.addAll(decisions);
       if (_recentCalls.length > 5) {
         _recentCalls.removeRange(0, _recentCalls.length - 5);
@@ -110,7 +285,19 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   void _resolve(PointDecision decision, Player winner) {
-    setState(() => _controller.resolveUndetermined(decision, winner));
+    setState(() {
+      _controller.resolveUndetermined(decision, winner);
+      // Reflect the award in the call feed too — the entry was logged as
+      // "Undetermined" when the referee surfaced it.
+      final i = _recentCalls.indexOf(decision);
+      if (i != -1) {
+        _recentCalls[i] = PointDecision(
+          winner: winner,
+          reason: decision.reason,
+          timestampMs: decision.timestampMs,
+        );
+      }
+    });
   }
 
   void _undo() {
@@ -120,12 +307,26 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   void dispose() {
     _sub?.cancel();
-    _vision.dispose();
+    if (_ready) _vision.dispose();
+    _player?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_ready) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Match')),
+        body: Center(
+          child: _footageError == null
+              ? const CircularProgressIndicator()
+              : Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text('Could not load footage: $_footageError'),
+                ),
+        ),
+      );
+    }
     final state = _controller.score;
     final pending = _controller.undetermined;
 
@@ -144,9 +345,25 @@ class _MatchScreenState extends State<MatchScreen> {
         child: Column(
           children: [
             _Scoreboard(state: state),
+            _BounceCounter(
+              rally: _controller.currentRallyBounces,
+              total: _controller.bounceCount,
+            ),
             const SizedBox(height: 8),
             Expanded(
-              child: _TableView(frame: _lastFrame, predictedBall: _predictedBall),
+              child: _player == null
+                  ? _TableView(
+                      frame: _lastFrame,
+                      predictedBall: _predictedBall,
+                    )
+                  : _FootageView(
+                      player: _player!,
+                      frame: _lastFrame,
+                      predictedBall: _predictedBall,
+                      netX: _controller.geometry.netX,
+                      onTogglePlay: _togglePlayback,
+                      onReplay: _replayFootage,
+                    ),
             ),
             if (pending.isNotEmpty)
               _UndeterminedPrompt(
@@ -420,6 +637,232 @@ class _TableView extends StatelessWidget {
   }
 }
 
+/// Live table-bounce readout: how many times the ball has bounced on the table
+/// in the rally being played right now, and across the whole match — the
+/// "rally count" companion to the scoreboard.
+class _BounceCounter extends StatelessWidget {
+  const _BounceCounter({required this.rally, required this.total});
+
+  /// Bounces in the current (in-flight) rally.
+  final int rally;
+
+  /// Total table bounces this match.
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.sports_baseball,
+            size: 14,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Bounces — rally: $rally · match: $total',
+            key: const ValueKey('bounceCounter'),
+            style: theme.textTheme.labelMedium
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Real recorded footage with the app's identification overlaid: each frame's
+/// player boxes (labelled by side) with pose keypoints, the detected ball (or
+/// the dimmed Kalman-predicted ghost through dropouts), and the calibrated net
+/// line — drawn in the same normalized [0,1] space the detections use, so the
+/// overlay sits exactly on the players/ball in the video.
+class _FootageView extends StatelessWidget {
+  const _FootageView({
+    required this.player,
+    required this.frame,
+    required this.predictedBall,
+    required this.netX,
+    required this.onTogglePlay,
+    required this.onReplay,
+  });
+
+  final FootagePlayer player;
+  final FrameResult? frame;
+
+  /// Kalman-extrapolated ball position shown (dimmed) when the detector lost
+  /// the ball this frame.
+  final ({double x, double y})? predictedBall;
+
+  /// The clip's calibrated net line (normalized frame x).
+  final double netX;
+
+  final Future<void> Function() onTogglePlay;
+  final Future<void> Function() onReplay;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: player.aspectRatio,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final h = constraints.maxHeight;
+              final ball = frame?.ball;
+              final ghost = ball == null ? predictedBall : null;
+              final people = frame?.people ?? const <PersonPose>[];
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    player.view,
+                    // Calibrated net line (from the clip's net-event geometry).
+                    Positioned(
+                      left: netX * w - 1,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(width: 2, color: Colors.white24),
+                    ),
+                    for (final (i, p) in people.indexed) ...[
+                      Positioned(
+                        key: ValueKey('footagePerson$i'),
+                        left: p.box.left * w,
+                        top: p.box.top * h,
+                        width: p.box.width * w,
+                        height: p.box.height * h,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: theme.colorScheme.tertiary,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: p.box.left * w,
+                        top: (p.box.top * h - 18).clamp(0.0, h),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          color: theme.colorScheme.tertiary,
+                          child: Text(
+                            'Player ${p.box.centerX < netX ? 'A' : 'B'}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onTertiary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Pose keypoints — the "identification" of the player,
+                      // not just a box.
+                      for (final k in p.keypoints)
+                        if (k.confidence > 0.5)
+                          Positioned(
+                            left: k.x * w - 2,
+                            top: k.y * h - 2,
+                            child: Container(
+                              width: 4,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.tertiary
+                                    .withValues(alpha: 0.9),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                    ],
+                    if (ball != null)
+                      Positioned(
+                        key: const ValueKey('footageBall'),
+                        left: ball.box.centerX * w - 7,
+                        top: ball.box.centerY * h - 7,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFFFFEB3B),
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (ghost != null)
+                      Positioned(
+                        key: const ValueKey('footageGhost'),
+                        left: ghost.x * w - 7,
+                        top: ghost.y * h - 7,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0x88FFEB3B)),
+                          ),
+                        ),
+                      ),
+                    Positioned(
+                      left: 8,
+                      bottom: 6,
+                      child: Text(
+                        ball != null
+                            ? 'ball locked'
+                            : ghost != null
+                                ? 'predicting…'
+                                : 'tracking…',
+                        style: theme.textTheme.labelSmall
+                            ?.copyWith(color: Colors.white70),
+                      ),
+                    ),
+                    Positioned(
+                      right: 4,
+                      bottom: 4,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'Replay footage',
+                            icon: const Icon(Icons.replay),
+                            color: Colors.white,
+                            onPressed: onReplay,
+                          ),
+                          IconButton(
+                            tooltip: player.isPlaying ? 'Pause' : 'Play',
+                            icon: Icon(
+                              player.isPlaying
+                                  ? Icons.pause_circle
+                                  : Icons.play_circle,
+                            ),
+                            color: Colors.white,
+                            onPressed: onTogglePlay,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Rolling list of the referee's recent point calls.
 class _CallFeed extends StatelessWidget {
   const _CallFeed({required this.calls, required this.matchOver});
@@ -437,6 +880,7 @@ class _CallFeed extends StatelessWidget {
       PointReason.doubleBounce => 'double bounce',
       PointReason.notReturned => 'not returned',
       PointReason.outOfPlay => 'out of play',
+      PointReason.outOfBounds => 'out of bounds',
       PointReason.manual => 'manual',
     };
     return '$who — $reason';

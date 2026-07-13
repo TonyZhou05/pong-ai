@@ -149,6 +149,103 @@ void main() {
     });
   });
 
+  group('RallyReferee — out of bounds (double crossing, no bounce)', () {
+    test('two crossings with no bounce between, then loss: the first shot '
+        'flew out — point to its receiver', () {
+      final ref = RallyReferee();
+      // B returns from the right; the ball crosses into the left, never
+      // lands, and dead-ball drift carries it back across before the track
+      // dies. B's shot missed the table.
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.right), // B's incoming ball lands legally
+        _cross(100, TableSide.right), // B's return crosses into the left...
+        _cross(600, TableSide.left), // ...and drifts back without landing
+        _lost(1500),
+      ]);
+      final d = decisions.single;
+      expect(d.reason, PointReason.outOfBounds);
+      expect(d.winner, Player.a, reason: 'the receiver on the left wins');
+      expect(
+        d.timestampMs,
+        100,
+        reason: 'stamped when the out shot crossed, not when the track died',
+      );
+    });
+
+    test('a bounce between two crossings is a legal exchange — no award', () {
+      final ref = RallyReferee();
+      final decisions = _run(ref, [
+        _cross(0, TableSide.right),
+        _bounce(50, TableSide.left), // the return landed: play goes on
+        _cross(100, TableSide.left),
+        _bounce(150, TableSide.right),
+      ]);
+      expect(decisions, isEmpty);
+    });
+
+    test('a single crossing then loss stays undetermined', () {
+      final ref = RallyReferee();
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.right),
+        _cross(100, TableSide.right),
+        _lost(1000),
+      ]);
+      expect(decisions.single.reason, PointReason.outOfPlay);
+      expect(decisions.single.winner, isNull);
+    });
+
+    test('three crossings without a bounce still award at the first', () {
+      final ref = RallyReferee();
+      final decisions = _run(ref, [
+        _cross(0, TableSide.left), // into the right: the shot that went out
+        _cross(300, TableSide.right),
+        _cross(600, TableSide.left),
+        _lost(1500),
+      ]);
+      final d = decisions.single;
+      expect(d.reason, PointReason.outOfBounds);
+      expect(d.winner, Player.b, reason: 'first crossing headed to the right');
+      expect(d.timestampMs, 0);
+    });
+  });
+
+  group('RallyReferee — out of bounds (lost past the table edge)', () {
+    test('crossed into a side, lost beyond that side\'s edge: out', () {
+      final ref = RallyReferee();
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.left),
+        _cross(100, TableSide.left), // heads into the right side...
+        // ...and the track dies already past the right edge: flew long.
+        const BallLostEvent(1000, lostOutside: TableSide.right),
+      ]);
+      final d = decisions.single;
+      expect(d.reason, PointReason.outOfBounds);
+      expect(d.winner, Player.b, reason: 'the right-side receiver wins');
+    });
+
+    test('lost beyond the edge it came FROM does not trigger the rule', () {
+      final ref = RallyReferee();
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.left),
+        _cross(100, TableSide.left),
+        const BallLostEvent(1000, lostOutside: TableSide.left),
+      ]);
+      // Falls through to the in-flight-loss path: undetermined.
+      expect(decisions.single.reason, PointReason.outOfPlay);
+      expect(decisions.single.winner, isNull);
+    });
+
+    test('a plain in-flight loss (no exit info) stays undetermined', () {
+      final ref = RallyReferee();
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.left),
+        _cross(100, TableSide.left),
+        _lost(1000),
+      ]);
+      expect(decisions.single.reason, PointReason.outOfPlay);
+    });
+  });
+
   group('RallyReferee — rally reset', () {
     test('referee resets after a decision so the next rally is independent', () {
       final ref = RallyReferee();

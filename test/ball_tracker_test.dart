@@ -107,6 +107,39 @@ void main() {
       expect(bounces.single.side, TableSide.left);
     });
 
+    test('netBounceExclusion rejects a reversal at the net plane', () {
+      // A down-then-up arc whose apex sits essentially on the net line
+      // (x=0.51 vs netX=0.5): with the exclusion on, this is treated as the
+      // ball clipping the net, not a table bounce.
+      final tracker = BallTracker(netBounceExclusion: 0.03);
+      final events = _run(tracker, [
+        _frame(0, 0.51, 0.40),
+        _frame(33, 0.51, 0.60),
+        _frame(66, 0.51, 0.55),
+      ]);
+      expect(events.whereType<BounceEvent>(), isEmpty);
+    });
+
+    test('netBounceExclusion keeps a bounce clear of the net', () {
+      final tracker = BallTracker(netBounceExclusion: 0.03);
+      final events = _run(tracker, [
+        _frame(0, 0.30, 0.40),
+        _frame(33, 0.30, 0.60),
+        _frame(66, 0.30, 0.55),
+      ]);
+      expect(events.whereType<BounceEvent>(), hasLength(1));
+    });
+
+    test('netBounceExclusion is off by default (at-net bounce still fires)', () {
+      final tracker = BallTracker();
+      final events = _run(tracker, [
+        _frame(0, 0.51, 0.40),
+        _frame(33, 0.51, 0.60),
+        _frame(66, 0.51, 0.55),
+      ]);
+      expect(events.whereType<BounceEvent>(), hasLength(1));
+    });
+
     test('ignores sub-threshold jitter as a bounce', () {
       final tracker = BallTracker(minBounceSpeed: 0.01);
       // Tiny oscillation below the threshold should not register.
@@ -268,6 +301,43 @@ void main() {
       // Duplicate/out-of-order frame: should be absorbed, not crash or cross.
       final events = tracker.update(_frame(100, 0.70, 0.5));
       expect(events, isEmpty);
+    });
+  });
+
+  group('BallTracker — flush and exit-side reporting', () {
+    test('flush ends an in-flight trajectory with a ball-lost', () {
+      final tracker = BallTracker();
+      _run(tracker, [_frame(0, 0.40, 0.5), _frame(33, 0.45, 0.5)]);
+      final events = tracker.flush(66);
+      expect(events.whereType<BallLostEvent>(), hasLength(1));
+      expect(tracker.lastSample, isNull, reason: 'trajectory dropped');
+      // A second flush has nothing to end.
+      expect(tracker.flush(99), isEmpty);
+    });
+
+    test('a loss past the table edge reports the exit side', () {
+      const geometry = TableGeometry(left: 0.2, right: 0.8);
+      final tracker = BallTracker(geometry: geometry, maxGapFrames: 2);
+      // Ball tracked heading out past the right edge, then gone.
+      _run(tracker, [
+        _frame(0, 0.70, 0.5),
+        _frame(33, 0.78, 0.52),
+        _frame(66, 0.86, 0.55), // beyond right edge (0.8)
+      ]);
+      final events = _run(tracker, [
+        _empty(99),
+        _empty(132),
+        _empty(165),
+      ]);
+      final lost = events.whereType<BallLostEvent>().single;
+      expect(lost.lostOutside, TableSide.right);
+    });
+
+    test('a loss over the playing surface reports no exit side', () {
+      final tracker = BallTracker(maxGapFrames: 2);
+      _run(tracker, [_frame(0, 0.40, 0.5), _frame(33, 0.45, 0.5)]);
+      final events = _run(tracker, [_empty(66), _empty(99), _empty(132)]);
+      expect(events.whereType<BallLostEvent>().single.lostOutside, isNull);
     });
   });
 

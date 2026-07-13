@@ -744,4 +744,140 @@ void main() {
       expect(mc.score.pointsA, 1);
     });
   });
+
+  group('MatchController — bounce counting', () {
+    test('table bounces are counted per rally and across the match', () {
+      final mc = MatchController();
+      // A double bounce = 2 table bounces, then the rally ends.
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      expect(mc.bounceCount, 2);
+      expect(
+        mc.currentRallyBounces,
+        0,
+        reason: 'the rally ended, so the in-rally count reset',
+      );
+
+      // Second rally adds to the match total.
+      for (final f in _doubleBounceOn(0.25, startT: 1000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.bounceCount, 4);
+      expect(mc.currentRallyBounces, 0);
+    });
+
+    test('an in-flight rally shows its running bounce count', () {
+      final mc = MatchController();
+      // One bounce, rally still going (no second bounce, no loss yet).
+      mc.onFrame(_frame(0, 0.75, 0.30));
+      mc.onFrame(_frame(33, 0.75, 0.50));
+      mc.onFrame(_frame(66, 0.75, 0.70));
+      mc.onFrame(_frame(99, 0.75, 0.50)); // apex reported -> bounce 1
+      expect(mc.currentRallyBounces, 1);
+      expect(mc.bounceCount, 1);
+    });
+
+    test('startNewMatch clears the bounce counters', () {
+      final mc = MatchController();
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      expect(mc.bounceCount, 2);
+      mc.startNewMatch();
+      expect(mc.bounceCount, 0);
+      expect(mc.currentRallyBounces, 0);
+    });
+  });
+
+  group('MatchController — finishPlay (end of footage)', () {
+    test('a rally still in flight at the end of the feed is resolved', () {
+      final mc = MatchController();
+      // Bounce on the right, ball still tracked when the feed ends: the
+      // right side never returned it.
+      mc.onFrame(_frame(0, 0.75, 0.30));
+      mc.onFrame(_frame(33, 0.75, 0.50));
+      mc.onFrame(_frame(66, 0.75, 0.70));
+      mc.onFrame(_frame(99, 0.75, 0.50)); // bounce right
+      final decisions = mc.finishPlay();
+      expect(decisions.single.reason, PointReason.notReturned);
+      expect(decisions.single.winner, Player.a);
+      expect(mc.score.pointsA, 1);
+    });
+
+    test('is a no-op when nothing is in flight', () {
+      final mc = MatchController();
+      expect(mc.finishPlay(), isEmpty);
+      // A decided rally leaves nothing pending either.
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      expect(mc.finishPlay(), isEmpty);
+      expect(mc.score.pointsA, 1);
+    });
+
+    test('is a no-op during the post-point cool-down', () {
+      final mc = MatchController(postPointCooldown: 3);
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      // Leftover ball motion keeps the cool-down armed at feed end.
+      mc.onFrame(_frame(300, 0.70, 0.55));
+      expect(mc.finishPlay(), isEmpty);
+      expect(mc.score.pointsA, 1, reason: 'no double-scoring at the end');
+    });
+  });
+
+  group('MatchController — post-point cool-down', () {
+    test('leftover ball motion right after a point is ignored', () {
+      final mc = MatchController(postPointCooldown: 3);
+      // Rally: double bounce on the right -> A scores.
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+
+      // After the point the ball keeps bouncing on the same spot (dying
+      // bounces before someone picks it up). Without the cool-down this
+      // exact sequence would double-bounce a phantom point.
+      for (final f in _doubleBounceOn(0.75, startT: 300)) {
+        expect(mc.onFrame(f), isEmpty);
+      }
+      expect(mc.score.pointsA, 1, reason: 'the leftovers must not score');
+      expect(mc.score.pointsB, 0);
+      expect(mc.undetermined, isEmpty);
+    });
+
+    test('cool-down clears after the ball leaves the frame; play resumes', () {
+      final mc = MatchController(postPointCooldown: 3);
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      // Leftover motion keeps the cool-down armed…
+      mc.onFrame(_frame(200, 0.70, 0.55));
+      // …until the ball has been gone for `postPointCooldown` frames.
+      for (var i = 0; i < 3; i++) {
+        mc.onFrame(_empty(300 + i * 33));
+      }
+      // The next real rally scores normally.
+      for (final f in _doubleBounceOn(0.25, startT: 1000)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+      expect(mc.score.pointsB, 1);
+    });
+
+    test('default (0) keeps the historical no-cool-down behaviour', () {
+      final mc = MatchController();
+      for (final f in _doubleBounceOn(0.75)) {
+        mc.onFrame(f);
+      }
+      // Back-to-back rally with no ball absence still scores immediately.
+      for (final f in _doubleBounceOn(0.25, startT: 300)) {
+        mc.onFrame(f);
+      }
+      expect(mc.score.pointsA, 1);
+      expect(mc.score.pointsB, 1);
+    });
+  });
 }

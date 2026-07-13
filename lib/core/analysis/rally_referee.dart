@@ -38,6 +38,12 @@ enum PointReason {
   /// null and the UI should ask the user.
   outOfPlay,
 
+  /// The ball crossed the net and play then ended without it *ever* touching
+  /// the receiving side's table — it crossed back (dead-ball drift) or was
+  /// lost. A legal shot must land before anything else happens, so the shot
+  /// flew out of bounds: point to the receiving side's player.
+  outOfBounds,
+
   /// The point was entered by the user, not inferred from the ball path — e.g.
   /// the vision pipeline missed a rally entirely and the user tapped a
   /// "+point" button to keep the score correct.
@@ -114,6 +120,18 @@ class RallyReferee {
   /// Whether the ball has crossed the net since [_lastBounceSide] was recorded.
   bool _crossedSinceBounce = false;
 
+  /// Net crossings since the last bounce. Two or more crossings with no bounce
+  /// between them are impossible in legal play — the *first* of them was a
+  /// shot that never landed (what "crossed back" is dead-ball drift after the
+  /// ball flew long). Counted so [_onBallLost] can award the out-of-bounds
+  /// point instead of surfacing an undetermined prompt.
+  int _crossesSinceBounce = 0;
+
+  /// Destination side and timestamp of the first crossing since the last
+  /// bounce — the shot that, if never answered by a bounce, went out.
+  TableSide? _firstUnansweredCrossTo;
+  int _firstUnansweredCrossT = 0;
+
   /// The player on a given side of the table.
   Player playerOn(TableSide side) =>
       side == TableSide.left ? leftPlayer : leftPlayer.other;
@@ -121,15 +139,20 @@ class RallyReferee {
   /// Process one rally event; returns a verdict if it ends the rally.
   PointDecision? update(TrackerEvent event) {
     return switch (event) {
-      NetCrossEvent() => _onNetCross(),
+      NetCrossEvent() => _onNetCross(event),
       BounceEvent() => _onBounce(event),
       BallLostEvent() => _onBallLost(event),
     };
   }
 
-  PointDecision? _onNetCross() {
+  PointDecision? _onNetCross(NetCrossEvent event) {
     // A successful crossing: the ball is now heading to the other side and the
     // previous bounce has been answered.
+    if (_crossesSinceBounce == 0) {
+      _firstUnansweredCrossTo = event.to;
+      _firstUnansweredCrossT = event.timestampMs;
+    }
+    _crossesSinceBounce++;
     _crossedSinceBounce = true;
     return null;
   }
@@ -147,10 +170,35 @@ class RallyReferee {
     // A legal bounce; remember it and wait for the return.
     _lastBounceSide = event.side;
     _crossedSinceBounce = false;
+    _crossesSinceBounce = 0;
+    _firstUnansweredCrossTo = null;
     return null;
   }
 
   PointDecision? _onBallLost(BallLostEvent event) {
+    // The ball crossed the net two or more times since the last bounce and
+    // play then stopped. A legal shot lands before anything else happens, so
+    // the *first* of those crossings was a shot that missed the table — it
+    // flew out of bounds, and the later crossing(s) were dead-ball drift.
+    // Point to the receiver it was heading at, stamped when the shot crossed.
+    if (_crossesSinceBounce >= 2 && _firstUnansweredCrossTo != null) {
+      return _decide(
+        winner: playerOn(_firstUnansweredCrossTo!),
+        reason: PointReason.outOfBounds,
+        timestampMs: _firstUnansweredCrossT,
+      );
+    }
+    // The ball crossed into a side, never bounced, and was last tracked
+    // already past that side's outer edge: it flew long over the baseline.
+    // Out of bounds — point to the receiver it was heading at.
+    if (_firstUnansweredCrossTo != null &&
+        event.lostOutside == _firstUnansweredCrossTo) {
+      return _decide(
+        winner: playerOn(_firstUnansweredCrossTo!),
+        reason: PointReason.outOfBounds,
+        timestampMs: event.timestampMs,
+      );
+    }
     if (_lastBounceSide != null && !_crossedSinceBounce) {
       // The ball bounced on a side and then vanished without coming back over
       // the net — that side never returned it.
@@ -160,7 +208,8 @@ class RallyReferee {
         timestampMs: event.timestampMs,
       );
     }
-    // Lost in flight (after a crossing, or before any bounce): undetermined.
+    // Lost in flight (after a single crossing, or before any bounce): the
+    // path alone cannot attribute it — undetermined, the UI asks the user.
     return _decide(
       winner: null,
       reason: PointReason.outOfPlay,
@@ -185,5 +234,7 @@ class RallyReferee {
   void reset() {
     _lastBounceSide = null;
     _crossedSinceBounce = false;
+    _crossesSinceBounce = 0;
+    _firstUnansweredCrossTo = null;
   }
 }

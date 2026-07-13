@@ -18,14 +18,19 @@ dependencies:
   # On-device text-to-speech so the umpire/coach announcer voices calls aloud.
   flutter_tts: ^4.2.5
   share_plus: ^13.2.0
+  video_player: ^2.12.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  fake_async: ^1.3.3
 
 flutter:
   uses-material-design: true
+  assets:
+    # Real-footage Match demo: OpenTTGames clip + its recorded detection track.
+    - assets/footage/
   # Bundled models are added in a later iteration.
   # assets:
   #   - assets/models/

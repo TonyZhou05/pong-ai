@@ -687,6 +687,137 @@ behind a `VisionService` interface. This lets us:
      (not a trivial 100%) while events and score stay perfect. Generated and
      self-verified against the real tracker/pipeline by
      `tool/gen_labeled_clip.dart`.
+   - **[done]** Real-footage Match demo on a real dataset clip. The Match
+     card now plays OpenTTGames `test_2` (30 s, 1080p120 side view, bundled at
+     `assets/footage/openttgames_test2.mp4`, re-encoded 960×540@30fps H.264)
+     with the app's identification overlaid on the actual pixels: per-frame
+     player boxes + 17 pose keypoints from **YOLO11n-pose**, and the ball from
+     the dataset's labeled positions fused with a **YOLO11n** detector
+     (`tool/extract_footage.py` regenerates both assets; the net line is
+     auto-derived as the median labeled ball x at the clip's `net` events →
+     netX 0.4906). The detection track ships as a standard `ClipFixture` JSON
+     whose frames are replayed by a `PositionSyncedVisionService`
+     (`core/vision/position_synced_vision_service.dart`): unlike
+     `ReplayVisionService`'s free-running timer it polls the *video player's
+     playback position* and emits exactly the frames playback has reached, so
+     pausing the video pauses the pipeline and the overlay can never drift
+     from the footage. `MatchScreen` gains an optional `footage` mode (video
+     via `video_player` behind an injectable `FootagePlayer` seam, plus an
+     in-memory fixture loader for tests) and builds its controller with the
+     same fixture-derived geometry/config composition `BenchmarkRunner.run`
+     uses; the Replay action rewinds and re-scores through a fresh pipeline.
+     The fixture also carries the clip's ground-truth ball frames and bounce
+     events, and its verified scoring outcome (0–2 to the right player, one
+     rally per my frame-by-frame review: rally 1 triple-bounces on the left
+     with the left player off-frame, rally 2's lob crosses and never lands).
+     It is still not added to `benchmark/clips/` because `BenchmarkRunner`
+     replays with the default dense-track tuning, which mis-scores sparse
+     real tracks (see below).
+     - **[done]** Correct scoring on the sparse real-footage track. The first
+       replay of the real clip exposed that every pipeline default assumes the
+       *dense* per-frame detections of the live camera / synthetic clips —
+       on a sparse recorded track (ball in ~40% of frames) the score visibly
+       incremented mid-rally and misattributed the turnover. Diagnosed by
+       replaying the fixture offline (`tool/debug_footage_scoring.dart`) and
+       comparing against the dataset's event labels + frame-by-frame video
+       review: (1) `maxGapFrames: 6` turned routine mid-rally detection gaps
+       into rally-ending ball-losses (26 phantom decisions in 30 s); (2) the
+       `maxJump` teleport gate rejected the *real* ball on reappearance after
+       a gap (the Kalman prediction having drifted), starving the tracker;
+       (3) with no table-surface band, a direction change beyond the table's
+       right edge registered as a bounce and awarded a phantom double-bounce
+       point to the wrong player — the exact misattribution the user saw;
+       (4) detector-sourced ball hits *between* rallies (the ball held in a
+       player's hand — real detections!) seeded phantom trajectories; and
+       (5) after a genuine point the ball's dying bounces re-triggered the
+       referee. Fixes: `ClipFixture` gains optional table-surface bounds
+       (`tableLeft/Right/Top/Bottom` + a `geometry` getter; the extractor
+       derives them from the labeled ball position at bounce events, since a
+       bounce necessarily happens on the table); the extractor gates detector
+       balls to labeled play windows and trims the clip to its two complete
+       rallies (26 s); `MatchController.postPointCooldown` (opt-in, default 0)
+       ignores ball events after a rally-ending decision until the ball has
+       left the frame for N consecutive frames — the real-world "ball keeps
+       bouncing after the point" gap, which the live camera path shares; and
+       the footage-mode controller tunes for sparseness (`maxGapFrames: 30`,
+       `minBounceSpeed: 0.008`, no `maxJump`, `postPointCooldown: 15`).
+       Result on the real clip: rally 1 auto-scores `B (doubleBounce)` at
+       9.5 s, rally 2 correctly routes to the undetermined "tap to award"
+       prompt (a lob out vs. a missed return is genuinely indistinguishable
+       from the ball path; the user confirmed the right player's hit flew out,
+       so the true resolution is a Player A point), and there are zero
+       phantom or misattributed points — verified offline against the
+       annotated ground truth (clip truth: 1–1, winners `[b, a]`).
+     - **[done]** Real-footage match corpus + Matches screen. Generalized the
+       extractor into `tool/extract_footage_corpus.py`: it segments every
+       downloaded OpenTTGames video (test_1/test_2/test_3) into per-rally
+       clips by clustering the ball-markup labels (>1.5 s gaps split
+       clusters), runs the same YOLO11n-pose + YOLO11n inference over each
+       segment, derives per-video netX/table bounds, and emits one
+       video+fixture pair per rally plus `assets/footage/manifest.json`
+       (`tool/rebuild_manifest.py` recomposes the manifest from the fixtures
+       on disk after multi-pass runs). Eleven segments ship (~10 MB total).
+       `MatchesScreen` (`features/matches/matches_screen.dart`, home's new
+       "Matches" card) lists them — title, duration, labeled bounce count —
+       and taps into the footage `MatchScreen`. A scoring sweep
+       (`tool/debug_footage_scoring.dart <fixture>`) over all 11 confirms at
+       most one decision per single-rally clip: an auto point, one
+       "tap to award" prompt, or none when the clip ends mid-rally.
+     - **[done]** Live bounce counter. `MatchController.bounceCount` /
+       `currentRallyBounces` count table bounces (the live "rally count"),
+       reset per rally on a decision and cleared by `startNewMatch`;
+       surfaced as a readout under the Match screen scoreboard.
+     - **[done]** Out-of-bounds inference — the referee now *decides* the
+       "ball flew out" rally that previously stalled on the undetermined
+       prompt (test_2 rally 2: the right player's hit missed the table).
+       `PointReason.outOfBounds`: at ball-loss, two or more net crossings
+       since the last bounce mean the *first* of them was a shot that never
+       landed — impossible in legal play otherwise — so that shot flew out
+       and the point goes to its receiver (what "crossed back" is dead-ball
+       drift), stamped at the out shot's crossing. Counted as a forced error
+       in the summary. Two supporting fixes were tuned against the dataset's
+       labeled bounces via `tool/dump_tracker_events.dart`: the footage path
+       keeps the *default* `minBounceSpeed` (raising it to 0.008 was measured
+       to miss a real soft-apex bounce in test_1_r1, which then mis-armed the
+       crossing-pair rule into a wrong decisive award — worse than a prompt),
+       and `BallTracker.netBounceExclusion` (opt-in, footage sets 0.03)
+       rejects a down-up reversal whose apex sits essentially on the net
+       line — the ball clipping the net (test_3_r1 had such a phantom fake a
+       double-bounce point 1.8 s into a live rally; the dataset's labels
+       confirm no bounce there). Corpus sweep after: the main two-rally demo
+       auto-scores 1–1 matching its verified truth with no prompt, 8/11
+       corpus clips auto-decide, one stays honestly undetermined, and clips
+       that end mid-rally decide nothing.
+     - **[done]** End-of-footage flush + exit-side out-of-bounds inference.
+       Three corpus clips (test_3 r2/r3/r5) never scored at all: their rallies
+       end within the clip's final second, so the ball-lost gap timeout
+       (`maxGapFrames`) couldn't elapse before the frames ran out — the score
+       silently never changed ("failed to identify the scoring").
+       `MatchController.finishPlay()` (backed by `BallTracker.flush()`) now
+       force-ends the in-flight trajectory when the frame feed itself ends —
+       the rally cannot continue without frames — letting the referee resolve
+       it; the footage `MatchScreen` calls it on the fixture's final frame
+       (compared against the frame's own timestamp, not the replay cursor,
+       which can already read exhausted while earlier frames are still being
+       delivered — a real race the widget tests caught) and the debug tool
+       mirrors it. Additionally `BallLostEvent.lostOutside` reports when the
+       ball's last tracked position was already past the table's outer edge,
+       and the referee turns "crossed into side S, never bounced, lost beyond
+       S's edge" into an out-of-bounds point for S's receiver (test_3_r3:
+       A's shot dives past the right edge straight at B — B's point, formerly
+       an unanswerable prompt). All five test_3 fixtures were relabeled with
+       frame-by-frame verified ground truth (r1 B, r2 A, r3 B, r4 B, r5 B);
+       the full-corpus sweep now scores **every labeled clip to its exact
+       verified truth with zero prompts and zero unscored rallies**.
+     - **[done]** Post-prompt replay robustness. Web video applies
+       `seekTo(0)` asynchronously, so Replay could restart the
+       position-synced replay against a stale end-of-clip clock — instantly
+       flushing every frame into the fresh controller and killing the second
+       viewing's overlays. `_replayFootage` now waits for the rewind to
+       actually land, and `PositionSyncedVisionService` re-syncs its cursor
+       whenever the playback clock jumps backwards. Resolving the
+       undetermined prompt also updates the call-feed entry from
+       "Undetermined" to the awarded player.
 6. Post-match summary + analytics charts.
    - **[done — iteration 16]** `PlayerMovementAnalyzer`
      (`core/analysis/player_movement.dart`): the first layer to consume the

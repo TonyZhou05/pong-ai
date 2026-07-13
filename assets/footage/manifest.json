@@ -1,0 +1,101 @@
+[
+ {
+  "id": "test_1_r1",
+  "title": "Test 1 \u2014 Rally 1",
+  "video": "assets/footage/test_1_r1.mp4",
+  "fixture": "assets/footage/test_1_r1.json",
+  "durationMs": 7200,
+  "bounces": 10,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_1_r2",
+  "title": "Test 1 \u2014 Rally 2",
+  "video": "assets/footage/test_1_r2.mp4",
+  "fixture": "assets/footage/test_1_r2.json",
+  "durationMs": 11700,
+  "bounces": 17,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_1_r3",
+  "title": "Test 1 \u2014 Rally 3",
+  "video": "assets/footage/test_1_r3.mp4",
+  "fixture": "assets/footage/test_1_r3.json",
+  "durationMs": 3533,
+  "bounces": 2,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_1_r4",
+  "title": "Test 1 \u2014 Rally 4",
+  "video": "assets/footage/test_1_r4.mp4",
+  "fixture": "assets/footage/test_1_r4.json",
+  "durationMs": 3800,
+  "bounces": 2,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_2_r1",
+  "title": "Test 2 \u2014 Rally 1",
+  "video": "assets/footage/test_2_r1.mp4",
+  "fixture": "assets/footage/test_2_r1.json",
+  "durationMs": 11600,
+  "bounces": 16,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_2_r2",
+  "title": "Test 2 \u2014 Rally 2",
+  "video": "assets/footage/test_2_r2.mp4",
+  "fixture": "assets/footage/test_2_r2.json",
+  "durationMs": 8200,
+  "bounces": 10,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_3_r1",
+  "title": "Test 3 \u2014 Rally 1",
+  "video": "assets/footage/test_3_r1.mp4",
+  "fixture": "assets/footage/test_3_r1.json",
+  "durationMs": 5733,
+  "bounces": 7,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_3_r2",
+  "title": "Test 3 \u2014 Rally 2",
+  "video": "assets/footage/test_3_r2.mp4",
+  "fixture": "assets/footage/test_3_r2.json",
+  "durationMs": 4500,
+  "bounces": 2,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_3_r3",
+  "title": "Test 3 \u2014 Rally 3",
+  "video": "assets/footage/test_3_r3.mp4",
+  "fixture": "assets/footage/test_3_r3.json",
+  "durationMs": 4700,
+  "bounces": 4,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_3_r4",
+  "title": "Test 3 \u2014 Rally 4",
+  "video": "assets/footage/test_3_r4.mp4",
+  "fixture": "assets/footage/test_3_r4.json",
+  "durationMs": 11200,
+  "bounces": 13,
+  "source": "OpenTTGames"
+ },
+ {
+  "id": "test_3_r5",
+  "title": "Test 3 \u2014 Rally 5",
+  "video": "assets/footage/test_3_r5.mp4",
+  "fixture": "assets/footage/test_3_r5.json",
+  "durationMs": 5300,
+  "bounces": 5,
+  "source": "OpenTTGames"
+ }
+]

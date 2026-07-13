@@ -14,6 +14,7 @@
 /// accuracy can be measured objectively and compared across model swaps.
 library;
 
+import '../analysis/ball_tracker.dart';
 import '../scoring/scoring_engine.dart';
 import '../vision/detection.dart';
 import 'event_metrics.dart';
@@ -66,6 +67,10 @@ class ClipFixture {
     this.source = 'unknown',
     this.fps = 30,
     this.netX = 0.5,
+    this.tableLeft,
+    this.tableRight,
+    this.tableTop,
+    this.tableBottom,
     this.leftPlayer = Player.a,
     this.firstServer = Player.a,
     this.pointsPerGame = 11,
@@ -85,6 +90,26 @@ class ClipFixture {
   /// Normalized x of the net line — the table geometry for this clip's camera
   /// placement.
   final double netX;
+
+  /// Optional normalized bounds of the table *surface* region in the frame.
+  /// When present, the pipeline should gate bounces to this band (a direction
+  /// change outside it — a paddle hit, or the ball beyond the table's edge —
+  /// is not a table bounce). Null means unknown: the full frame is assumed,
+  /// preserving the pre-existing fixture behaviour.
+  final double? tableLeft;
+  final double? tableRight;
+  final double? tableTop;
+  final double? tableBottom;
+
+  /// The [TableGeometry] this clip's camera placement implies: the calibrated
+  /// net line plus the surface band when annotated (full frame otherwise).
+  TableGeometry get geometry => TableGeometry(
+        netX: netX,
+        left: tableLeft ?? 0.0,
+        right: tableRight ?? 1.0,
+        top: tableTop ?? 0.0,
+        bottom: tableBottom ?? 1.0,
+      );
 
   /// Which player occupies the left half of the frame.
   final Player leftPlayer;
@@ -121,6 +146,10 @@ class ClipFixture {
       source: json['source'] as String? ?? 'unknown',
       fps: (json['fps'] as num?)?.toInt() ?? 30,
       netX: (json['netX'] as num?)?.toDouble() ?? 0.5,
+      tableLeft: (json['tableLeft'] as num?)?.toDouble(),
+      tableRight: (json['tableRight'] as num?)?.toDouble(),
+      tableTop: (json['tableTop'] as num?)?.toDouble(),
+      tableBottom: (json['tableBottom'] as num?)?.toDouble(),
       leftPlayer: _playerFromString(json['leftPlayer'] as String? ?? 'a'),
       firstServer: _playerFromString(json['firstServer'] as String? ?? 'a'),
       pointsPerGame: (json['pointsPerGame'] as num?)?.toInt() ?? 11,
@@ -145,6 +174,10 @@ class ClipFixture {
         'source': source,
         'fps': fps,
         'netX': netX,
+        if (tableLeft != null) 'tableLeft': tableLeft,
+        if (tableRight != null) 'tableRight': tableRight,
+        if (tableTop != null) 'tableTop': tableTop,
+        if (tableBottom != null) 'tableBottom': tableBottom,
         'leftPlayer': leftPlayer.name,
         'firstServer': firstServer.name,
         'pointsPerGame': pointsPerGame,

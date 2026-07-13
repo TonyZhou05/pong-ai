@@ -35,7 +35,9 @@ class MatchController {
     this.switchEndsBetweenGames = false,
     this.movementJitterThreshold = 0,
     this.calibrationStallFrames = 150,
+    this.postPointCooldown = 0,
   })  : assert(calibrationStallFrames > 0),
+        assert(postPointCooldown >= 0),
         _tracker = tracker ?? BallTracker(),
         referee = referee ?? RallyReferee(),
         engine = engine ?? ScoringEngine() {
@@ -117,6 +119,38 @@ class MatchController {
   /// resuming play, false otherwise (and always false when
   /// [switchEndsBetweenGames] is off).
   bool get changeEndsPending => _changeEndsPending;
+
+  /// When positive, a rally-ending decision starts a *cool-down*: ball events
+  /// are ignored until the ball has been absent from the frame for this many
+  /// consecutive frames. After a real point the ball doesn't vanish — it keeps
+  /// bouncing, rolls along the table, or is carried back for the next serve —
+  /// and without a cool-down those leftovers immediately seed a phantom
+  /// "rally" that fizzles into a bogus decision or a spurious manual-resolution
+  /// prompt. `0` (the default) keeps the historical behaviour, where the next
+  /// rally may start the moment any new trajectory appears (scripted synthetic
+  /// clips end their rallies cleanly, so they need no cool-down).
+  final int postPointCooldown;
+
+  /// Total table bounces detected this match (both sides) — the live "rally
+  /// count" readout. Like the rally/movement analytics it is live-only: not
+  /// rewound by [undo], cleared by [startNewMatch].
+  int _bounceCount = 0;
+
+  /// See [_bounceCount].
+  int get bounceCount => _bounceCount;
+
+  /// Table bounces within the current (in-flight) rally; resets to 0 the
+  /// moment a rally-ending decision fires.
+  int _currentRallyBounces = 0;
+
+  /// See [_currentRallyBounces].
+  int get currentRallyBounces => _currentRallyBounces;
+
+  /// Whether we are inside the post-point cool-down window.
+  bool _inPostPointCooldown = false;
+
+  /// Consecutive ball-less frames observed during the cool-down so far.
+  int _ballAbsentFrames = 0;
 
   /// Whether play is paused. While paused, [onFrame] ignores every frame — no
   /// scoring, no calibration, no analytics — so incidental ball motion during a
@@ -304,6 +338,24 @@ class MatchController {
       _applyCalibration(geometry);
     }
 
+    // Post-point cool-down: the rally just ended, but the ball is still in
+    // view (dying bounces, rolling along the table, carried back for the next
+    // serve). Ignore everything until it has left the frame for a stretch, so
+    // the leftovers can't seed a phantom rally.
+    if (_inPostPointCooldown) {
+      if (frame.ball == null) {
+        _ballAbsentFrames++;
+        if (_ballAbsentFrames >= postPointCooldown) {
+          _inPostPointCooldown = false;
+          // Start the next rally from a clean trajectory.
+          _tracker.reset();
+        }
+      } else {
+        _ballAbsentFrames = 0;
+      }
+      return const [];
+    }
+
     // Mine this frame's player poses for footwork/positioning analytics, and
     // its ball position for real-world speed. Runs only once scoring is live
     // (past any calibration warm-up), so the geometry used to attribute players
@@ -311,10 +363,32 @@ class MatchController {
     _movement.observe(frame);
     _ballSpeed.observe(frame);
 
+    return _processEvents(_tracker.update(frame));
+  }
+
+  /// Ends the frame feed (the footage clip played out, or the session is
+  /// closing) with a rally possibly still in flight. Without frames the rally
+  /// can never continue, so the tracker's in-flight trajectory is flushed as a
+  /// ball-loss and the referee resolves the rally now — otherwise a rally
+  /// ending in the clip's final second would simply never be scored. No-op
+  /// when nothing is in flight, paused, calibrating, or cooling down.
+  List<PointDecision> finishPlay() {
+    if (_paused || isCalibrating || _inPostPointCooldown) return const [];
+    return _processEvents(_tracker.flush(_lastTimestampMs));
+  }
+
+  /// Routes tracker events through analytics and the referee, applying any
+  /// rally-ending decision to the score — the shared back half of [onFrame]
+  /// and [finishPlay].
+  List<PointDecision> _processEvents(Iterable<TrackerEvent> events) {
     final decisions = <PointDecision>[];
-    for (final event in _tracker.update(frame)) {
+    for (final event in events) {
       _rallies.observe(event);
       _placement.observe(event);
+      if (event is BounceEvent) {
+        _bounceCount++;
+        _currentRallyBounces++;
+      }
       final decision = referee.update(event);
       if (decision == null) continue;
 
@@ -339,9 +413,17 @@ class MatchController {
       }
       decisions.add(decision);
       _rallies.endRally(decision);
+      _currentRallyBounces = 0;
 
       // A rally just ended; start the next one from a clean trajectory.
       _tracker.reset();
+
+      // And, when configured, wait for the leftover ball motion to clear
+      // before watching for the next rally.
+      if (postPointCooldown > 0) {
+        _inPostPointCooldown = true;
+        _ballAbsentFrames = 0;
+      }
     }
     return decisions;
   }
@@ -393,6 +475,10 @@ class MatchController {
     _midGameEndsSwitched = false;
     _changeEndsPending = false;
     _paused = false;
+    _inPostPointCooldown = false;
+    _ballAbsentFrames = 0;
+    _bounceCount = 0;
+    _currentRallyBounces = 0;
     _points.clear();
     _undetermined.clear();
     _tracker.reset();

@@ -135,6 +135,8 @@ void main() {
       (tester) async {
     await tester.pumpWidget(const PongAiApp());
 
+    // The home list has grown past the test viewport; scroll the card in.
+    await tester.ensureVisible(find.text('Training'));
     await tester.tap(find.text('Training'));
     await tester.pump(); // start the push transition
     await tester.pump(const Duration(milliseconds: 400)); // settle it

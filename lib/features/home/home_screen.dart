@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../history/session_history_screen.dart';
 import '../match/camera_match_screen.dart';
+import '../match/footage_demo.dart';
 import '../match/match_screen.dart';
+import '../matches/matches_screen.dart';
 import '../training/camera_training_screen.dart';
 import '../training/training_screen.dart';
 
@@ -44,10 +46,24 @@ class HomeScreen extends StatelessWidget {
               _ModeCard(
                 icon: Icons.sports_tennis,
                 title: 'Match',
-                subtitle: 'Demo replay: track players, ball and score.',
+                subtitle:
+                    'Real footage demo: watch the AI identify players and ball.',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => const MatchScreen(),
+                    builder: (_) =>
+                        const MatchScreen(footage: defaultFootageDemo),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ModeCard(
+                icon: Icons.video_library,
+                title: 'Matches',
+                subtitle:
+                    'Real recorded rallies with AI tracking, one tap each.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const MatchesScreen(),
                   ),
                 ),
               ),

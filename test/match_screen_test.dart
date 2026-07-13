@@ -123,7 +123,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('Match card on the home screen opens the match screen',
+  testWidgets('Match card on the home screen opens the footage match screen',
       (tester) async {
     await tester.pumpWidget(const PongAiApp());
 
@@ -131,9 +131,13 @@ void main() {
     await tester.pump(); // start the push transition
     await tester.pump(const Duration(milliseconds: 400)); // settle it
 
-    expect(find.text('Player A'), findsOneWidget);
+    // Lands on the Match screen. The bundled-footage demo is still loading —
+    // there is no video runtime headlessly — so only the frame of the screen
+    // (not the scoreboard) is asserted here; the footage pipeline itself is
+    // covered by footage_match_screen_test.dart with injected fakes.
+    expect(find.widgetWithText(AppBar, 'Match'), findsOneWidget);
 
-    // Dispose the pushed screen so its replay timer is cancelled.
+    // Dispose the pushed screen so any pending work is released.
     await tester.pumpWidget(const SizedBox());
   });
 }

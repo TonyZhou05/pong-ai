@@ -1103,6 +1103,7 @@ class _LiveCallFeed extends StatelessWidget {
       PointReason.doubleBounce => 'double bounce',
       PointReason.notReturned => 'not returned',
       PointReason.outOfPlay => 'out of play',
+      PointReason.outOfBounds => 'out of bounds',
       PointReason.manual => 'manual',
     };
     return '$who — $reason';

@@ -104,12 +104,13 @@ class MatchSummary {
   }
 
   /// Points [p] won because the opponent failed to keep the ball in play — a
-  /// double bounce or a shot that was never returned. These reflect [p]
-  /// forcing errors (pressure, placement, pace).
+  /// double bounce, a shot that was never returned, or a shot that flew out
+  /// of bounds. These reflect [p] forcing errors (pressure, placement, pace).
   int forcedErrorsWonBy(Player p) {
     final breakdown = reasonBreakdownFor(p);
     return breakdown[PointReason.doubleBounce]! +
-        breakdown[PointReason.notReturned]!;
+        breakdown[PointReason.notReturned]! +
+        breakdown[PointReason.outOfBounds]!;
   }
 
   /// Points [p] won that were settled in open play (lost-in-flight rallies the
