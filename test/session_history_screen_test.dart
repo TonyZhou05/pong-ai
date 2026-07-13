@@ -7,6 +7,7 @@ import 'package:pong_ai/core/history/session_history_store.dart';
 import 'package:pong_ai/core/vision/detection.dart';
 import 'package:pong_ai/core/vision/synthetic_frames.dart';
 import 'package:pong_ai/core/vision/vision_service.dart';
+import 'package:pong_ai/features/history/progress_chart.dart';
 import 'package:pong_ai/features/history/session_history_screen.dart';
 import 'package:pong_ai/features/training/training_screen.dart';
 
@@ -230,6 +231,8 @@ void main() {
       expect(find.text('Training progress'), findsOneWidget);
       expect(find.text('50% → 80%'), findsOneWidget);
       expect(find.byIcon(Icons.trending_up), findsOneWidget);
+      // The visual progression chart renders alongside the text summary.
+      expect(find.byType(ProgressChartView), findsOneWidget);
     });
 
     testWidgets('no trends header with a single saved drill', (tester) async {

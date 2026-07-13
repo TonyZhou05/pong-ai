@@ -536,6 +536,15 @@ behind a `VisionService` interface. This lets us:
      first, positive = steadier tempo), each computed over the sessions that
      actually recorded the metric, with matching `report()` lines and a compact
      "Placement tighter · Rhythm up N%" line on the Training-progress card.
+   - **[done — iteration 50]** Visual progress chart. `SessionTrends` was only
+     ever surfaced as a first→latest text delta, never as the *shape* of the
+     progression. `ProgressChartView`
+     (`lib/features/history/progress_chart.dart`) plots one point per saved
+     training drill (oldest → latest) as a line chart on the Training-progress
+     card, the across-session analog of the match-side `MomentumChartView`.
+     Rendering splits from math via the pure, unit-tested `progressChartPoints`
+     seam (per-session score → normalized `[0,1]×[0,1]` plot coordinates, rising
+     line = improving) and a thin `_ProgressPainter`.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 44]** Training-mode tracking-quality / detection-health.

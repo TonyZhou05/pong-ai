@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
 import '../../core/history/session_trends.dart';
+import 'progress_chart.dart';
 
 /// Browse, view and delete previously-saved match / training sessions.
 ///
@@ -224,6 +225,8 @@ class _TrendsHeader extends StatelessWidget {
               const SizedBox(height: 4),
               Text(line, style: theme.textTheme.bodyMedium),
             ],
+            const SizedBox(height: 12),
+            ProgressChartView(sessions: trends.trainingSessions),
           ],
         ),
       ),
