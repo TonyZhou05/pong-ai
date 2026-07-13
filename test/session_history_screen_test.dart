@@ -315,6 +315,32 @@ void main() {
       expect(find.textContaining('82.4 km/h'), findsOneWidget);
     });
 
+    testWidgets('match-record card shows the head-to-head win tally',
+        (tester) async {
+      final store = FakeHistoryStore();
+      await store.save(
+        kind: SessionKind.match,
+        report: {
+          'score': {'gamesA': 3, 'gamesB': 1, 'winner': 'A'},
+        },
+        at: DateTime(2026, 1, 1, 9),
+      );
+      await store.save(
+        kind: SessionKind.match,
+        report: {
+          'score': {'gamesA': 1, 'gamesB': 3, 'winner': 'B'},
+        },
+        at: DateTime(2026, 1, 2, 9),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(home: SessionHistoryScreen(store: store)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('A 1–1 B'), findsOneWidget);
+    });
+
     testWidgets('delete removes a session from the list', (tester) async {
       final store = FakeHistoryStore();
       await store.save(

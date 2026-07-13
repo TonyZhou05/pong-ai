@@ -318,6 +318,14 @@ class _MatchSummaryCard extends StatelessWidget {
               '${trends.matchCount == 1 ? 'match' : 'matches'} played',
               style: theme.textTheme.titleLarge,
             ),
+            if (trends.hasMatchWinRecord) ...[
+              const SizedBox(height: 4),
+              Text(
+                "Head-to-head · A ${trends.matchWinsBy('A')}–"
+                "${trends.matchWinsBy('B')} B",
+                style: theme.textTheme.bodyMedium,
+              ),
+            ],
             if (chips.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(chips.join(' · '), style: theme.textTheme.bodyMedium),

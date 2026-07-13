@@ -362,6 +362,33 @@ class SessionTrends {
     return best;
   }
 
+  /// How many saved matches finished with a recorded winner (an in-progress or
+  /// pre-winner-field match contributes nothing to the head-to-head record).
+  int get decidedMatchCount {
+    var n = 0;
+    for (final m in matchSessions) {
+      if (m.winner == 'A' || m.winner == 'B') n++;
+    }
+    return n;
+  }
+
+  /// Whether at least one saved match finished, so the A-vs-B head-to-head
+  /// record is worth surfacing.
+  bool get hasMatchWinRecord => decidedMatchCount > 0;
+
+  /// How many finished matches Player [key] (`A` / `B`) won across the saved
+  /// history — the cumulative head-to-head record. The phone tracks a fixed
+  /// left/right seat rather than a named person, so this is a seat-vs-seat
+  /// tally, but for a recurring two-player pairing it is exactly the running
+  /// series score they would keep by hand.
+  int matchWinsBy(String key) {
+    var n = 0;
+    for (final m in matchSessions) {
+      if (m.winner == key) n++;
+    }
+    return n;
+  }
+
   /// The recorded values of a nullable per-session metric, in session order
   /// (oldest first), skipping sessions that did not record it.
   List<double> _metricSeries(double? Function(TrainingTrendPoint) select) {
@@ -454,6 +481,11 @@ class SessionTrends {
   void _appendMatchSection(List<String> lines) {
     if (!hasMatchData) return;
     lines.add('Matches: $matchCount played');
+    if (hasMatchWinRecord) {
+      lines.add(
+        'Head-to-head: A ${matchWinsBy('A')}–${matchWinsBy('B')} B',
+      );
+    }
     final points = totalMatchPoints;
     if (points != null) lines.add('Points contested: $points');
     final rally = longestMatchRallyStrokes;

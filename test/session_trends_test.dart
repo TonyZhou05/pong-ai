@@ -398,4 +398,48 @@ void main() {
       expect(report, contains('Matches: 1 played'));
     });
   });
+
+  group('SessionTrends match win record', () {
+    test('tallies A vs B wins across finished matches', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, winner: 'A'),
+        _match('m2', t1, winner: 'B'),
+        _match('m3', t2, winner: 'A'),
+      ]);
+      expect(trends.hasMatchWinRecord, isTrue);
+      expect(trends.decidedMatchCount, 3);
+      expect(trends.matchWinsBy('A'), 2);
+      expect(trends.matchWinsBy('B'), 1);
+    });
+
+    test('ignores matches with no recorded winner', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, winner: 'A'),
+        _match('m2', t1), // unfinished / pre-winner-field
+      ]);
+      expect(trends.decidedMatchCount, 1);
+      expect(trends.matchWinsBy('A'), 1);
+      expect(trends.matchWinsBy('B'), 0);
+    });
+
+    test('no win record when no match finished', () {
+      final trends = SessionTrends.fromSessions([_match('m', t0)]);
+      expect(trends.hasMatchWinRecord, isFalse);
+      expect(trends.decidedMatchCount, 0);
+    });
+
+    test('report surfaces the head-to-head line', () {
+      final report = SessionTrends.fromSessions([
+        _match('m1', t0, winner: 'A'),
+        _match('m2', t1, winner: 'A'),
+        _match('m3', t2, winner: 'B'),
+      ]).report();
+      expect(report, contains('Head-to-head: A 2–1 B'));
+    });
+
+    test('report omits the head-to-head line for unfinished matches', () {
+      final report = SessionTrends.fromSessions([_match('m', t0)]).report();
+      expect(report, isNot(contains('Head-to-head')));
+    });
+  });
 }

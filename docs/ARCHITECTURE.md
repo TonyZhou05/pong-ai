@@ -622,6 +622,15 @@ behind a `VisionService` interface. This lets us:
      section and a "Match record" card on the history screen — the match-side
      analog of the training-progress card, turning the previously count-only
      match history into cumulative bests.
+   - **[done — iteration 60]** Match head-to-head win record. Iteration 56's
+     `MatchTrendPoint` parsed the match `winner` (`A`/`B`/null) but nothing ever
+     read it — the career section surfaced points/rally/speed bests only. Added
+     `matchWinsBy('A'|'B')`, `decidedMatchCount`, and a `hasMatchWinRecord`
+     guard that tally the finished matches into an A-vs-B seat-vs-seat record,
+     surfaced as a "Head-to-head: A N–M B" `report()` line and a line on the
+     "Match record" history card. For a recurring two-player pairing this is the
+     running series score they'd otherwise keep by hand; unfinished / older
+     (pre-winner-field) matches simply don't contribute.
 
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 51]** Coaching feedback (`core/training/
