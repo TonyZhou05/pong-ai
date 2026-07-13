@@ -157,6 +157,15 @@ behind a `VisionService` interface. This lets us:
      `YOLOView` widget in `MatchScreen` and bundle the exported
      `.tflite`/`.mlpackage` models.
 3. Ball Kalman tracker + rally/point event detection from detections.
+   - **[done — iteration 14]** `BallTrajectoryFilter`: a pure-Dart
+     constant-velocity Kalman smoother/predictor (two independent 1-D filters,
+     one per image axis) that fuses noisy detections and — the point of it —
+     *extrapolates* the ball's position through detector dropouts. Wired into
+     `BallTracker` (`estimateBallAt`/`estimatedVelocity`), kept in lock-step with
+     the accepted samples and reset on ball-lost/reset, so the live overlay draws
+     a predicted "ghost" ball through motion-blur gaps instead of freezing. It
+     runs alongside the raw-detection event logic — scoring still fires only on
+     real detections — so it is purely additive.
    - **[done — iteration 11]** `TableGeometry` table-surface calibration gating
      off-table bounces.
    - **[done — iteration 12]** `TableCalibrator`: pure-Dart auto-calibration

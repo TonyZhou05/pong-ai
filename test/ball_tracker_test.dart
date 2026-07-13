@@ -190,6 +190,58 @@ void main() {
     });
   });
 
+  group('BallTracker — Kalman prediction through gaps', () {
+    test('no estimate before the first detection', () {
+      final tracker = BallTracker();
+      expect(tracker.hasEstimate, isFalse);
+      expect(tracker.estimateBallAt(0), isNull);
+      expect(tracker.estimatedVelocity, isNull);
+    });
+
+    test('extrapolates the ball position across a detector dropout', () {
+      final tracker = BallTracker(maxGapFrames: 5);
+      // Steady rightward track at +0.05 x per 33 ms frame.
+      _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+        _frame(66, 0.30, 0.5),
+        _frame(99, 0.35, 0.5),
+      ]);
+      expect(tracker.hasEstimate, isTrue);
+      expect(tracker.estimatedVelocity!.vx, greaterThan(0));
+
+      // Ball is lost this frame; the estimate should extrapolate forward,
+      // landing past the last seen x rather than freezing on it.
+      tracker.update(_empty(132));
+      final est = tracker.estimateBallAt(132)!;
+      expect(est.x, greaterThan(0.35));
+      expect(est.x, closeTo(0.40, 0.03));
+      expect(est.y, closeTo(0.5, 0.02));
+    });
+
+    test('drops the estimate once the gap exceeds the tolerance', () {
+      final tracker = BallTracker(maxGapFrames: 2);
+      _run(tracker, [
+        _frame(0, 0.20, 0.5),
+        _frame(33, 0.25, 0.5),
+        _empty(66),
+        _empty(99),
+        _empty(132), // exceeds maxGapFrames -> BallLost, trajectory dropped
+      ]);
+      expect(tracker.hasEstimate, isFalse);
+      expect(tracker.estimateBallAt(132), isNull);
+    });
+
+    test('reset clears the trajectory estimate', () {
+      final tracker = BallTracker();
+      tracker.update(_frame(0, 0.4, 0.5));
+      tracker.update(_frame(33, 0.45, 0.5));
+      tracker.reset();
+      expect(tracker.hasEstimate, isFalse);
+      expect(tracker.estimateBallAt(66), isNull);
+    });
+  });
+
   group('BallTracker — state helpers', () {
     test('currentSide reflects the latest accepted sample', () {
       final tracker = BallTracker();

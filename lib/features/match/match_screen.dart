@@ -34,6 +34,11 @@ class _MatchScreenState extends State<MatchScreen> {
 
   StreamSubscription<FrameResult>? _sub;
   FrameResult? _lastFrame;
+
+  /// Kalman-extrapolated ball position for a frame whose detector lost the ball,
+  /// so the overlay can keep drawing it through motion-blur dropouts. Null when
+  /// the ball is visible or the trajectory has been dropped.
+  ({double x, double y})? _predictedBall;
   final List<PointDecision> _recentCalls = [];
 
   @override
@@ -55,6 +60,9 @@ class _MatchScreenState extends State<MatchScreen> {
     if (!mounted) return;
     setState(() {
       _lastFrame = frame;
+      _predictedBall = frame.ball == null
+          ? _controller.tracker.estimateBallAt(frame.timestampMs)
+          : null;
       _recentCalls.addAll(decisions);
       if (_recentCalls.length > 5) {
         _recentCalls.removeRange(0, _recentCalls.length - 5);
@@ -101,7 +109,9 @@ class _MatchScreenState extends State<MatchScreen> {
           children: [
             _Scoreboard(state: state),
             const SizedBox(height: 8),
-            Expanded(child: _TableView(frame: _lastFrame)),
+            Expanded(
+              child: _TableView(frame: _lastFrame, predictedBall: _predictedBall),
+            ),
             if (pending.isNotEmpty)
               _UndeterminedPrompt(
                 decision: pending.first,
@@ -207,9 +217,13 @@ class _ScoreSeparator extends StatelessWidget {
 /// A schematic top-down table with the net and the currently-tracked ball,
 /// plus any detected player boxes — the "Ball AI"-style live overlay.
 class _TableView extends StatelessWidget {
-  const _TableView({required this.frame});
+  const _TableView({required this.frame, this.predictedBall});
 
   final FrameResult? frame;
+
+  /// Kalman-extrapolated ball position shown (dimmed) when the detector lost the
+  /// ball this frame, so tracking stays visually continuous through blur.
+  final ({double x, double y})? predictedBall;
 
   @override
   Widget build(BuildContext context) {
@@ -223,6 +237,7 @@ class _TableView extends StatelessWidget {
             final w = constraints.maxWidth;
             final h = constraints.maxHeight;
             final ball = frame?.ball;
+            final ghost = ball == null ? predictedBall : null;
             return DecoratedBox(
               decoration: BoxDecoration(
                 color: const Color(0xFF0D3B12),
@@ -260,12 +275,30 @@ class _TableView extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                       ),
+                    )
+                  else if (ghost != null)
+                    Positioned(
+                      left: ghost.x * w - 6,
+                      top: ghost.y * h - 6,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: const Color(0x66FFEB3B),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xAAFFEB3B)),
+                        ),
+                      ),
                     ),
                   Positioned(
                     left: 8,
                     bottom: 6,
                     child: Text(
-                      ball == null ? 'tracking…' : 'ball locked',
+                      ball != null
+                          ? 'ball locked'
+                          : ghost != null
+                              ? 'predicting…'
+                              : 'tracking…',
                       style: theme.textTheme.labelSmall
                           ?.copyWith(color: Colors.white70),
                     ),

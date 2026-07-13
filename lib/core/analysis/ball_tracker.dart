@@ -14,6 +14,7 @@
 library;
 
 import '../vision/detection.dart';
+import 'ball_trajectory_filter.dart';
 
 /// Which half of the table the ball is over, split by the net.
 enum TableSide { left, right }
@@ -136,8 +137,10 @@ class BallTracker {
     this.geometry = const TableGeometry(),
     this.minBounceSpeed = 0.004,
     this.maxGapFrames = 6,
+    BallTrajectoryFilter? filter,
   })  : assert(minBounceSpeed >= 0),
-        assert(maxGapFrames >= 0);
+        assert(maxGapFrames >= 0),
+        _filter = filter ?? BallTrajectoryFilter();
 
   final TableGeometry geometry;
 
@@ -147,6 +150,12 @@ class BallTracker {
   /// How many consecutive frames without a detection are tolerated before the
   /// trajectory is considered broken.
   final int maxGapFrames;
+
+  /// Constant-velocity Kalman smoother/predictor kept in lock-step with the
+  /// accepted samples so we can estimate the ball's position through detector
+  /// dropouts (see [estimateBallAt]). It runs alongside — never replaces — the
+  /// raw-detection event logic, so scoring stays driven by real detections.
+  final BallTrajectoryFilter _filter;
 
   BallSample? _prev;
 
@@ -162,6 +171,22 @@ class BallTracker {
   TableSide? get currentSide =>
       _prev == null ? null : geometry.sideOf(_prev!.x);
 
+  /// Whether the Kalman filter holds a usable trajectory estimate.
+  bool get hasEstimate => _filter.hasEstimate;
+
+  /// Current estimated ball velocity in normalized units/second, or null before
+  /// enough detections have been seen.
+  ({double vx, double vy})? get estimatedVelocity => _filter.velocity;
+
+  /// Best estimate of the ball's normalized position at [timestampMs], using
+  /// the constant-velocity Kalman model. Returns the smoothed detection when the
+  /// ball is visible and an *extrapolated* position when it is not — so the live
+  /// overlay can keep drawing the ball through motion-blur dropouts (within
+  /// [maxGapFrames], after which the trajectory is dropped and this returns
+  /// null). Returns null before the first detection.
+  ({double x, double y})? estimateBallAt(int timestampMs) =>
+      _filter.estimateAt(timestampMs);
+
   /// Feed one frame; returns the events inferred from it (possibly empty).
   List<TrackerEvent> update(FrameResult frame) {
     final ball = frame.ball;
@@ -175,6 +200,7 @@ class BallTracker {
       ball.box.centerX,
       ball.box.centerY,
     );
+    _filter.observe(sample.timestampMs, sample.x, sample.y);
 
     final prev = _prev;
     if (prev == null) {
@@ -210,6 +236,7 @@ class BallTracker {
       _prev = null;
       _lastVy = null;
       _missedFrames = 0;
+      _filter.reset();
       return [BallLostEvent(timestampMs)];
     }
     return const [];
@@ -249,5 +276,6 @@ class BallTracker {
     _prev = null;
     _lastVy = null;
     _missedFrames = 0;
+    _filter.reset();
   }
 }
