@@ -228,6 +228,17 @@ class SessionTrends {
     return best;
   }
 
+  /// Total shots played across every saved training drill — a cumulative
+  /// "career" practice-volume stat, the training-side twin of
+  /// [totalMatchPoints]. 0 when no drill has been saved.
+  int get totalShotsPracticed {
+    var total = 0;
+    for (final p in trainingSessions) {
+      total += p.shotCount;
+    }
+    return total;
+  }
+
   /// Mean average-score across all training sessions, null if there are none.
   double? get meanScore {
     if (trainingSessions.isEmpty) return null;
@@ -484,6 +495,8 @@ class SessionTrends {
       'Best session: grade ${best.overallGrade} '
       '(${_pct(best.averageScore)}, ${best.shotCount} shots)',
     );
+
+    lines.add('Total shots practiced: $totalShotsPracticed');
 
     final topSpeed = bestMaxSpeedKmh;
     if (topSpeed != null) {

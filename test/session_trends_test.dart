@@ -143,6 +143,27 @@ void main() {
       );
     });
 
+    test('totalShotsPracticed sums shot counts across drills', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', shots: 6),
+        _training('b', t1, averageScore: 0.9, grade: 'A', shots: 10),
+        _training('c', t2, averageScore: 0.6, grade: 'B', shots: 8),
+      ]);
+      expect(trends.totalShotsPracticed, 24);
+    });
+
+    test('totalShotsPracticed is 0 with no training sessions', () {
+      expect(SessionTrends.fromSessions(const []).totalShotsPracticed, 0);
+    });
+
+    test('report includes total shots practiced', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', shots: 6),
+        _training('b', t2, averageScore: 0.7, grade: 'B', shots: 9),
+      ]);
+      expect(trends.report(), contains('Total shots practiced: 15'));
+    });
+
     test('best session picks the highest average score', () {
       final trends = SessionTrends.fromSessions([
         _training('a', t0, averageScore: 0.5, grade: 'C'),

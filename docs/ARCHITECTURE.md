@@ -751,6 +751,15 @@ behind a `VisionService` interface. This lets us:
      `bestOnTargetStreak` (personal-best "in a row" across every session that
      tracked it), surfaced as a "Best on-target streak: N in a row" `report()`
      line and a "· streak N" segment on the Training-progress card's Best line.
+   - **[done — iteration 81]** Training career practice-volume total. Iteration 56
+     added `totalMatchPoints` as the match-side cumulative "career" volume stat,
+     but training trends had no equivalent — the per-session `shotCount` was
+     parsed into `TrainingTrendPoint` yet only ever used to label individual
+     sessions, never summed across the history. Added
+     `SessionTrends.totalShotsPracticed` (sum of `shotCount` over every saved
+     drill, the training twin of `totalMatchPoints`), surfaced as a "Total shots
+     practiced: N" `report()` line and a "· N shots" segment on the
+     Training-progress card's Best line.
    - **[done — iteration 55]** Recurring coaching focus. Iteration 53 persisted
      each training session's coaching `focus` (its weakest dimension) into the
      structured export, but `SessionTrends` only ever mined numeric metrics —

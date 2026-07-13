@@ -218,7 +218,8 @@ class _TrendsHeader extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               'Best: grade ${trends.bestSession!.overallGrade} · '
-              '${trends.trainingCount} drills'
+              '${trends.trainingCount} drills · '
+              '${trends.totalShotsPracticed} shots'
               '${trends.bestMaxSpeedKmh != null ? ' · fastest ${trends.bestMaxSpeedKmh!.toStringAsFixed(1)} km/h' : ''}'
               '${(trends.bestOnTargetStreak ?? 0) >= 2 ? ' · streak ${trends.bestOnTargetStreak}' : ''}',
               style: theme.textTheme.bodyMedium,
