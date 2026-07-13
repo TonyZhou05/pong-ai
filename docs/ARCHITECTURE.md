@@ -336,6 +336,23 @@ behind a `VisionService` interface. This lets us:
      nullable/back-compatible (`hasGameData`), a "Games:" line is added to
      `report()` (so it flows into the exported `buildMatchReport`), and the
      per-game line is surfaced in the Match screen's post-match summary.
+   - **[done — iteration 36]** Game-point / pressure analytics
+     (`core/analysis/match_summary.dart`). Iteration 28 recorded each point's
+     `gameIndex`, letting `MatchSummary` reconstruct the game-by-game score, but
+     the *within-game running score* it walks was never mined for the headline
+     clutch stat every match app shows: game-point conversion. `MatchSummary`
+     now replays the point log per game and tags each point with which player
+     (if any) held a **game point** going into it — would win the game by
+     winning that rally, detected with the same ITTF `_scoringWinsGame`
+     (target reached with a 2-point lead) rule the engine uses, so it handles
+     deuce correctly and at most one player is ever at game point. From that it
+     derives `gamePointsHeldBy` / `gamePointsConvertedBy` (chances to close the
+     game and how many were taken) and the mirror `gamePointsFacedBy` /
+     `gamePointsSavedBy` (game points survived on the receiving end), plus a
+     `gamePointConversionRateFor` and a `hasPressureData` guard (needs game
+     indexing). `report()` gains a per-player "game points: converted X/Y, saved
+     Z/W" line (flowing into the exported `buildMatchReport`), and the Match
+     screen surfaces the same conversion/save split.
    - **[done — iteration 32]** Real-world ball-speed analytics
      (`core/analysis/ball_speed.dart`). Every prior analytics layer worked in the
      vision pipeline's *normalized* `[0,1]` coordinates, which carry no physical

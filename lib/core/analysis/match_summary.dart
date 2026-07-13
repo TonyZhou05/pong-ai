@@ -174,6 +174,85 @@ class MatchSummary {
     ];
   }
 
+  /// Whether a player scoring the next point from a pre-point score of
+  /// ([forPoints], [againstPoints]) would win the game at [target] under ITTF
+  /// rules (reach the target with a 2-point lead). Used to detect game-point
+  /// situations.
+  static bool _scoringWinsGame(int forPoints, int againstPoints, int target) {
+    final after = forPoints + 1;
+    return after >= target && (after - againstPoints) >= 2;
+  }
+
+  /// Walks the point log in order, reconstructing each game's running score, and
+  /// tags every point with which player (if any) was at *game point* going into
+  /// it — i.e. would have won the game by winning that point. At most one player
+  /// can be at game point at a time (only the leader, at/after deuce), so a
+  /// single nullable field captures it. Points with no recorded
+  /// [ScoredPoint.gameIndex] can't be placed in a game, so they carry no game
+  /// point.
+  Iterable<({Player winner, Player? gamePointFor})> _gamePointOutcomes() sync* {
+    final target = finalState.pointsPerGame;
+    final runningByGame = <int, List<int>>{}; // gameIndex -> [pointsA, pointsB]
+    for (final point in points) {
+      final g = point.gameIndex;
+      if (g == null) {
+        yield (winner: point.winner, gamePointFor: null);
+        continue;
+      }
+      final tally = runningByGame.putIfAbsent(g, () => [0, 0]);
+      final pa = tally[0];
+      final pb = tally[1];
+      Player? gamePointFor;
+      if (_scoringWinsGame(pa, pb, target)) {
+        gamePointFor = Player.a;
+      } else if (_scoringWinsGame(pb, pa, target)) {
+        gamePointFor = Player.b;
+      }
+      yield (winner: point.winner, gamePointFor: gamePointFor);
+      if (point.winner == Player.a) {
+        tally[0] += 1;
+      } else {
+        tally[1] += 1;
+      }
+    }
+  }
+
+  /// Points on which [p] held a game point (a chance to close out the game by
+  /// winning the rally).
+  int gamePointsHeldBy(Player p) =>
+      _gamePointOutcomes().where((e) => e.gamePointFor == p).length;
+
+  /// Game points [p] held *and* converted (won to close the game). The
+  /// game-point conversion rate is a headline table-tennis clutch stat.
+  int gamePointsConvertedBy(Player p) => _gamePointOutcomes()
+      .where((e) => e.gamePointFor == p && e.winner == p)
+      .length;
+
+  /// Points on which [p] *faced* a game point (the opponent could have closed
+  /// the game by winning the rally).
+  int gamePointsFacedBy(Player p) =>
+      _gamePointOutcomes().where((e) => e.gamePointFor == p.other).length;
+
+  /// Game points [p] faced *and* saved (won the rally to deny the opponent the
+  /// game). The complement to [gamePointsConvertedBy].
+  int gamePointsSavedBy(Player p) => _gamePointOutcomes()
+      .where((e) => e.gamePointFor == p.other && e.winner == p)
+      .length;
+
+  /// Fraction of [p]'s own game points that [p] converted, in `[0, 1]`, or null
+  /// when [p] held no game point.
+  double? gamePointConversionRateFor(Player p) {
+    final held = gamePointsHeldBy(p);
+    if (held == 0) return null;
+    return gamePointsConvertedBy(p) / held;
+  }
+
+  /// Whether any game-point situation occurred, i.e. pressure/clutch analytics
+  /// are meaningful for this match. Requires per-game indexing to reconstruct
+  /// the within-game running score.
+  bool get hasPressureData =>
+      hasGameData && _gamePointOutcomes().any((e) => e.gamePointFor != null);
+
   /// The longest run of consecutive points won by [p].
   int longestStreakFor(Player p) {
     var longest = 0;
@@ -244,6 +323,13 @@ class MatchSummary {
         lines.add(
           '  • serve points won: ${servePointsWonBy(player)}/'
           '${servePointsPlayedBy(player)} (${(serveRate * 100).round()}%)',
+        );
+      }
+      if (hasPressureData) {
+        lines.add(
+          '  • game points: converted ${gamePointsConvertedBy(player)}/'
+          '${gamePointsHeldBy(player)}, saved ${gamePointsSavedBy(player)}/'
+          '${gamePointsFacedBy(player)}',
         );
       }
     }

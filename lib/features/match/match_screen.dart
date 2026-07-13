@@ -590,6 +590,13 @@ class _PlayerStatColumn extends StatelessWidget {
             '${summary.servePointsPlayedBy(player)} '
             '(${(rate * 100).round()}%)',
           ),
+        if (summary.hasPressureData)
+          Text(
+            'game pts: ${summary.gamePointsConvertedBy(player)}/'
+            '${summary.gamePointsHeldBy(player)} conv, '
+            '${summary.gamePointsSavedBy(player)}/'
+            '${summary.gamePointsFacedBy(player)} saved',
+          ),
         if (m != null && m.wasTracked) ...[
           Text('moved: ${m.distanceTravelled.toStringAsFixed(2)}'),
           Text('mobility: ${m.mobilityPerSecond.toStringAsFixed(2)}/s'),

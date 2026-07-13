@@ -219,6 +219,74 @@ void main() {
     });
   });
 
+  group('MatchSummary game-point analytics', () {
+    // Game 0 played to A 12-10: alternate to 9-9, then A 10-9, B saves to
+    // 10-10, A 11-10, A closes 12-10. A holds game point on the 10-9→11 and
+    // 11-10→12 points (converting the last); B faces both and saves the first.
+    final pressureGame = <ScoredPoint>[
+      for (var i = 0; i < 9; i++) ...[
+        _ptG(Player.a, 0, i * 2),
+        _ptG(Player.b, 0, i * 2 + 1),
+      ],
+      _ptG(Player.a, 0, 100), // 10-9  (no game point yet)
+      _ptG(Player.b, 0, 101), // A's game point saved -> 10-10
+      _ptG(Player.a, 0, 102), // 11-10 (deuce, no game point)
+      _ptG(Player.a, 0, 103), // A's game point converted -> 12-10
+    ];
+
+    test('tallies game points held / converted / faced / saved', () {
+      final summary = MatchSummary(
+        points: pressureGame,
+        finalState: _state(gamesA: 1),
+      );
+
+      expect(summary.hasPressureData, isTrue);
+
+      expect(summary.gamePointsHeldBy(Player.a), 2);
+      expect(summary.gamePointsConvertedBy(Player.a), 1);
+      expect(summary.gamePointConversionRateFor(Player.a), 0.5);
+      expect(summary.gamePointsFacedBy(Player.a), 0);
+      expect(summary.gamePointsSavedBy(Player.a), 0);
+
+      expect(summary.gamePointsHeldBy(Player.b), 0);
+      expect(summary.gamePointsConvertedBy(Player.b), 0);
+      expect(summary.gamePointConversionRateFor(Player.b), isNull);
+      expect(summary.gamePointsFacedBy(Player.b), 2);
+      expect(summary.gamePointsSavedBy(Player.b), 1);
+    });
+
+    test('reports converted/saved game-point lines for both players', () {
+      final summary = MatchSummary(
+        points: pressureGame,
+        finalState: _state(gamesA: 1),
+      );
+      final report = summary.report();
+      expect(report, contains('game points: converted 1/2, saved 0/0'));
+      expect(report, contains('game points: converted 0/0, saved 1/2'));
+    });
+
+    test('no pressure data when no game point was reached', () {
+      // A short in-progress game (5-2) never reaches a game point.
+      final summary = MatchSummary(
+        points: [
+          for (var i = 0; i < 5; i++) _ptG(Player.a, 0, i),
+          for (var i = 0; i < 2; i++) _ptG(Player.b, 0, 100 + i),
+        ],
+        finalState: _state(pointsA: 5, pointsB: 2),
+      );
+      expect(summary.hasPressureData, isFalse);
+      expect(summary.report(), isNot(contains('game points:')));
+    });
+
+    test('no pressure data without game indices', () {
+      final summary = MatchSummary(
+        points: [_ptS(Player.a, Player.a, 0)],
+        finalState: _state(pointsA: 1),
+      );
+      expect(summary.hasPressureData, isFalse);
+    });
+  });
+
   group('MatchController point log', () {
     MatchController drivenController() {
       final controller = MatchController();
