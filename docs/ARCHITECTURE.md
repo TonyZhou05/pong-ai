@@ -852,6 +852,21 @@ behind a `VisionService` interface. This lets us:
      persists to history. Backward-compatible: `missedShots` defaults to `0`, so
      directly-built summaries and every existing test read 100% accuracy with no
      new report line.
+   - **[done — iteration 78]** Training on-target streak
+     (`core/training/shot_analyzer.dart`). The match summary has counted a
+     player's `longestStreakFor` (consecutive points won) since iteration 5, but
+     training mode graded each stroke in isolation and never tracked how many the
+     player placed *well in a row* — the headline "N in a row" gamification/
+     coaching stat. A stroke counts as on target when it earns at least
+     `ShotGrade.good` (`score >= 0.6`), and `TrainingSummary` now exposes
+     `longestOnTargetStreak` (the best run in the session, a single off-target
+     stroke resets it — the training analog of `MatchSummary.longestStreakFor`)
+     and `currentOnTargetStreak` (the trailing run still alive, for a live "in a
+     row" readout). `report()` gains a "Best on-target streak: N in a row" line
+     when the streak reaches ≥2 (so it flows into both training screens'
+     report/Copy-report), and `buildTrainingReportJson`'s `session` block carries
+     `longestOnTargetStreak` so the streak persists to history. Derived purely
+     from the recorded shots, so it needs no new tracking state.
    - **[done — iteration 30]** Training tempo / rhythm analytics
      (`core/training/shot_analyzer.dart`). Each `Shot` has carried a
      `timestampMs` since iteration 6, but `TrainingSummary` only ever reduced it

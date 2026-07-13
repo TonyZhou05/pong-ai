@@ -68,6 +68,7 @@ Map<String, Object?> buildTrainingReportJson(
           summary.attemptedShots > 0 ? _round(summary.onTableRate) : null,
       'overallGrade': summary.overallGrade,
       'averageScore': _round(summary.averageScore),
+      'longestOnTargetStreak': summary.longestOnTargetStreak,
       'durationMs': summary.durationMs,
     },
     'placement': {

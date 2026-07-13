@@ -362,6 +362,41 @@ void main() {
       expect(summary.maxSpeedKmh, 0);
       expect(summary.report(), isNot(contains('km/h')));
     });
+
+    test('longest/current on-target streak count consecutive good+ shots', () {
+      // score>=0.6 grades good-or-better (on target); a fair (0.45) breaks it.
+      Shot at(int t, double score) =>
+          Shot(timestampMs: t, speed: 1, depth: 0.7, score: score);
+      // good, excellent, good, fair(break), good, excellent → longest run 3,
+      // and the final two good/excellent are still alive → current 2.
+      final summary = TrainingSummary([
+        at(0, 0.65),
+        at(1, 0.85),
+        at(2, 0.65),
+        at(3, 0.45),
+        at(4, 0.65),
+        at(5, 0.85),
+      ]);
+      expect(summary.longestOnTargetStreak, 3);
+      expect(summary.currentOnTargetStreak, 2);
+      expect(summary.report(), contains('Best on-target streak: 3 in a row'));
+    });
+
+    test('a trailing off-target shot leaves a zero current streak', () {
+      Shot at(int t, double score) =>
+          Shot(timestampMs: t, speed: 1, depth: 0.7, score: score);
+      final summary = TrainingSummary([at(0, 0.85), at(1, 0.30)]);
+      expect(summary.longestOnTargetStreak, 1);
+      expect(summary.currentOnTargetStreak, 0);
+      // A best streak of 1 is not a "streak", so the line is omitted.
+      expect(summary.report(), isNot(contains('on-target streak')));
+    });
+
+    test('an empty session has no streak', () {
+      const summary = TrainingSummary([]);
+      expect(summary.longestOnTargetStreak, 0);
+      expect(summary.currentOnTargetStreak, 0);
+    });
   });
 
   test('reset clears all session state', () {

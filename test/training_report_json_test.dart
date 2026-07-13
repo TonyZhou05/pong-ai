@@ -55,6 +55,7 @@ void main() {
     final session = decoded['session'] as Map<String, dynamic>;
     expect(session['shotCount'], summary.shotCount);
     expect(session['overallGrade'], summary.overallGrade);
+    expect(session['longestOnTargetStreak'], summary.longestOnTargetStreak);
 
     // Both shots are serialized with a grade.
     final shots = decoded['shots'] as List;

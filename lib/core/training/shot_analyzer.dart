@@ -190,6 +190,41 @@ class TrainingSummary {
   int gradeCount(ShotGrade grade) =>
       shots.where((s) => s.grade == grade).length;
 
+  /// Whether a stroke counts as "on target" for streak purposes: it landed with
+  /// at least a [ShotGrade.good] — a well-placed drive — mirroring how the match
+  /// summary counts a run of points *won*.
+  static bool _onTarget(Shot s) => s.grade.index >= ShotGrade.good.index;
+
+  /// The longest run of consecutive on-target ([ShotGrade.good] or better) shots
+  /// in the session — the headline "in a row" streak a coach or gamified drill
+  /// tracks, the training analog of `MatchSummary.longestStreakFor`. A single
+  /// off-target stroke resets the count. `0` when empty or nothing landed well.
+  int get longestOnTargetStreak {
+    var longest = 0;
+    var current = 0;
+    for (final s in shots) {
+      if (_onTarget(s)) {
+        current += 1;
+        if (current > longest) longest = current;
+      } else {
+        current = 0;
+      }
+    }
+    return longest;
+  }
+
+  /// The run of on-target shots still "alive" at the end of the session — the
+  /// trailing streak, for a live "N in a row" readout. `0` when the last stroke
+  /// missed the [ShotGrade.good] bar.
+  int get currentOnTargetStreak {
+    var current = 0;
+    for (final s in shots.reversed) {
+      if (!_onTarget(s)) break;
+      current += 1;
+    }
+    return current;
+  }
+
   /// How repeatable the placement was, in `[0, 1]`: `1` means every ball landed
   /// at the same depth, `0` means depths were spread across the whole half.
   /// Derived from the population standard deviation of shot depth.
@@ -302,6 +337,8 @@ class TrainingSummary {
         'Tempo: ${shotsPerMinute.toStringAsFixed(1)} shots/min.',
         'Rhythm consistency: ${(rhythmConsistency * 100).round()}%.',
       ],
+      if (longestOnTargetStreak >= 2)
+        'Best on-target streak: $longestOnTargetStreak in a row.',
       '  • ${gradeCount(ShotGrade.excellent)} excellent',
       '  • ${gradeCount(ShotGrade.good)} good',
       '  • ${gradeCount(ShotGrade.fair)} fair',
