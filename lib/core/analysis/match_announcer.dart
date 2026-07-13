@@ -76,6 +76,20 @@ class MatchAnnouncer {
     return null;
   }
 
+  /// The one-time spoken cue for the moment scoring becomes ready to begin —
+  /// the live table-side calibration just completed, or an injected pipeline
+  /// starts scoring immediately. It names who serves the *first* point ("Match
+  /// starting. Player A to serve.") so the across-table player, who can't read
+  /// the scoreboard, knows to pick up the ball and start: the per-point serve
+  /// cue in [onState] only fires when the serve *rotates*, so it never voices
+  /// the *initial* server. Also seeds the baseline to [state] so the immediately
+  /// following [onState] for the same 0–0 score announces nothing and the first
+  /// actual point becomes the first forward call.
+  String startCall(MatchState state) {
+    _last = state;
+    return 'Match starting. ${_name(state.server)} to serve.';
+  }
+
   /// Forget the baseline so the next [onState] just re-seeds (used when a fresh
   /// match starts on the same screen, so the reset to 0–0 isn't announced).
   void reset() => _last = null;

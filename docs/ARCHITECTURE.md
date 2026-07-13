@@ -427,6 +427,21 @@ behind a `VisionService` interface. This lets us:
          `onAnnounce` sink on it, so muting suppresses only the audio/haptic cue —
          the under-scoreboard caption still updates so the visual readout is
          unaffected.
+       - **[done — iteration 116]** Spoken match-start / first-server cue. The
+         announcer voiced points, games, match, pressure, serve *rotations*, and
+         change-ends, but never the *initial* server — so the moment the
+         table-side calibration completes and scoring becomes ready, an
+         across-table player had no audible signal to pick up the ball and start
+         (the per-point serve cue only fires when the serve *rotates*, so it never
+         voices who serves the very first point). `MatchAnnouncer.startCall(state)`
+         returns "Match starting. Player A to serve." and seeds the announcer
+         baseline (so the following 0–0 `onState` isn't re-announced and the first
+         real point is the first forward call). `CameraMatchScreen._maybeAnnounceStart`
+         speaks it exactly once when `!isCalibrating && matchNotStarted` first
+         holds (fires immediately for an injected calibrator-free pipeline; after
+         warm-up otherwise), through the same mute-gated `_speak` sink and
+         under-scoreboard caption, and is re-armed on Play again so a rematch
+         re-announces the first server.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking

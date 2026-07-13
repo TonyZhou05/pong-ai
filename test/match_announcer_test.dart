@@ -30,6 +30,21 @@ void main() {
       expect(announcer.onState(_state()), isNull);
     });
 
+    test('startCall names the first server and seeds the baseline', () {
+      final announcer = MatchAnnouncer();
+      expect(
+        announcer.startCall(_state(server: Player.b)),
+        'Match starting. Player B to serve.',
+      );
+      // Baseline is seeded, so the same 0–0 score announces nothing and the
+      // first actual point is the first forward call.
+      expect(announcer.onState(_state(server: Player.b)), isNull);
+      expect(
+        announcer.onState(_state(pointsA: 1, server: Player.b)),
+        'Player A, 1–0.',
+      );
+    });
+
     test('calls a within-game point with the leader named first', () {
       final announcer = MatchAnnouncer()..onState(_state());
       expect(announcer.onState(_state(pointsA: 1)), 'Player A, 1–0.');

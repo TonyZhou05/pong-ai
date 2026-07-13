@@ -701,6 +701,52 @@ void main() {
   );
 
   testWidgets(
+    'announces the first server once when scoring becomes ready',
+    (tester) async {
+      final vision = YoloVisionService();
+      final spoken = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // No calibrator so scoring is ready from the first frame.
+            matchControllerBuilder: MatchController.new,
+            onAnnounce: spoken.add,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Nothing is spoken until a frame arrives.
+      expect(spoken, isEmpty);
+
+      // The first (ball-less) frame scores no point but makes scoring ready, so
+      // the match-start cue fires and names the default first server.
+      vision.onFrame(const FrameResult(timestampMs: 33, people: []));
+      await tester.pump();
+      await tester.pump();
+      expect(spoken, contains('Match starting. Player A to serve.'));
+      expect(find.text('Match starting. Player A to serve.'), findsOneWidget);
+
+      // A second frame does not re-announce the start cue.
+      final startCues =
+          spoken.where((c) => c.startsWith('Match starting')).length;
+      vision.onFrame(const FrameResult(timestampMs: 66, people: []));
+      await tester.pump();
+      expect(
+        spoken.where((c) => c.startsWith('Match starting')).length,
+        startCues,
+      );
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'pausing freezes scoring during a break and resuming restores it',
     (tester) async {
       final vision = YoloVisionService();

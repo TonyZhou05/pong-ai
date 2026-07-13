@@ -111,6 +111,13 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   /// caption still updates so the visual score readout is unaffected.
   bool _muted = false;
 
+  /// Whether the one-time "match starting / first server" cue has been spoken
+  /// this match, so the across-table player is told who serves first exactly
+  /// once when scoring becomes ready (calibration complete, or an injected
+  /// pipeline that scores immediately) rather than on every subsequent frame.
+  /// Re-armed on Play again so a rematch re-announces the first server.
+  bool _startAnnounced = false;
+
   /// Whether the current pending end-change has already been spoken, so a
   /// player is told to swap sides exactly once when the app flips its
   /// side→player mapping (rather than re-announcing on every subsequent frame
@@ -177,8 +184,28 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       }
       if (_controller.score.isMatchOver) _vision.stop();
     });
+    _maybeAnnounceStart();
     _maybeAnnounce();
     _maybeAnnounceChangeEnds();
+  }
+
+  /// Speak the one-time "ready to play" cue the moment scoring becomes possible
+  /// (the table-side calibration just completed, or an injected pipeline scores
+  /// immediately), naming who serves the first point so the across-table player
+  /// knows to start — the initial server the per-point serve cue never voices.
+  /// Fires exactly once per match (re-armed on Play again) and seeds the
+  /// announcer baseline so the 0–0 state that follows isn't re-announced.
+  void _maybeAnnounceStart() {
+    if (_startAnnounced) return;
+    // Still warming up the table geometry — scoring hasn't begun, so it isn't
+    // time to tell the players to serve yet.
+    if (_controller.isCalibrating) return;
+    // Only at the very start, before any point is scored; never mid-match.
+    if (!_controller.matchNotStarted) return;
+    _startAnnounced = true;
+    final call = _announcer.startCall(_controller.score);
+    _speak(call);
+    if (mounted) setState(() => _lastCall = call);
   }
 
   /// Feed the current score to the announcer; on a forward change, speak the
@@ -257,8 +284,10 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       _recentCalls.clear();
       _lastFrame = null;
       _predictedBall = null;
-      // Re-seed the announcer so the reset to 0–0 isn't spoken as a change.
+      // Re-seed the announcer so the reset to 0–0 isn't spoken as a change, and
+      // re-arm the start cue so the rematch re-announces who serves first.
       _announcer.reset();
+      _startAnnounced = false;
       _changeEndsSpoken = false;
       _lastCall = null;
     });
