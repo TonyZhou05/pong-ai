@@ -98,3 +98,30 @@ class ShotAnnouncer {
     }
   }
 }
+
+/// A short spoken end-of-session summary, voiced when the player taps Finish so
+/// a table-side phone reads back the drill result hands-free.
+///
+/// The per-shot [ShotAnnouncer] closes the "did that shot land well?" loop
+/// during a drill, but when the session ends the player is typically walking
+/// over to collect balls — across the table from the phone, unable to read the
+/// end-of-session report. A concise spoken wrap-up (how many shots, the overall
+/// grade, and the top pace when a physical scale is available) gives that final
+/// feedback without a trip to the screen — the training-mode parity of the
+/// match announcer's climactic "Match to Player A" call.
+///
+/// Returns a "no shots recorded" note for an empty session. Kept Flutter- and
+/// audio-free like [ShotAnnouncer] so it is unit-testable and the actual
+/// speaking stays behind the UI layer's injectable sink.
+String spokenSessionSummary(TrainingSummary summary) {
+  if (summary.shotCount == 0) return 'Session complete. No shots recorded.';
+  final shotWord = summary.shotCount == 1 ? 'shot' : 'shots';
+  final parts = <String>[
+    'Session complete. ${summary.shotCount} $shotWord, '
+        'grade ${summary.overallGrade}.',
+  ];
+  if (summary.maxSpeedKmh > 0) {
+    parts.add('Top speed ${summary.maxSpeedKmh.round()} kilometres per hour.');
+  }
+  return parts.join(' ');
+}

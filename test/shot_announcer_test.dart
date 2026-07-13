@@ -102,4 +102,40 @@ void main() {
       expect(a.onShot(_fastShot(35)), 'Excellent shot!');
     });
   });
+
+  group('spokenSessionSummary', () {
+    test('notes an empty session', () {
+      expect(
+        spokenSessionSummary(const TrainingSummary([])),
+        'Session complete. No shots recorded.',
+      );
+    });
+
+    test('reads back shot count and grade, pluralising', () {
+      // Three A-grade shots (score 0.9 -> grade A), no physical speed scale.
+      final summary = TrainingSummary(List.filled(3, _shot(0.9)));
+      expect(
+        spokenSessionSummary(summary),
+        'Session complete. 3 shots, grade A.',
+      );
+    });
+
+    test('uses the singular for a one-shot session', () {
+      final summary = TrainingSummary([_shot(0.75)]); // score 0.75 -> grade B
+      expect(
+        spokenSessionSummary(summary),
+        'Session complete. 1 shot, grade B.',
+      );
+    });
+
+    test('appends the top pace when a physical scale is available', () {
+      final summary = TrainingSummary([_fastShot(41.6), _fastShot(30)]);
+      // maxSpeedKmh 41.6 rounds to 42; both shots score 0.9 -> grade A.
+      expect(
+        spokenSessionSummary(summary),
+        'Session complete. 2 shots, grade A. '
+        'Top speed 42 kilometres per hour.',
+      );
+    });
+  });
 }

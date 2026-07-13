@@ -136,6 +136,41 @@ void main() {
   );
 
   testWidgets(
+    'finishing the session speaks a hands-free wrap-up',
+    (tester) async {
+      final vision = YoloVisionService();
+      final calls = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            autoCalibrate: false,
+            onAnnounce: calls.add,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Grade one stroke, then finish the session.
+      for (final frame in trainingSessionFrames().take(6)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      await tester.tap(find.byTooltip('Finish session'));
+      await tester.pump();
+
+      // The last thing spoken is the end-of-session wrap-up.
+      expect(calls.last, startsWith('Session complete. 1 shot, grade A'));
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'muting silences the shot cue but still captions it',
     (tester) async {
       final vision = YoloVisionService();

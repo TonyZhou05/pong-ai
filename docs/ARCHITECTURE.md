@@ -340,6 +340,17 @@ behind a `VisionService` interface. This lets us:
          a lone player drilling across the table actually *hears* the grade
          instead of only feeling a tap. See the match-path iteration-118 note for
          the `TtsEngine`/`flutter_tts` design; the mute toggle still silences it.
+       - **[done — iteration 119]** Spoken end-of-session wrap-up. The per-shot
+         `ShotAnnouncer` closes the "did that shot land?" loop *during* a drill,
+         but tapping Finish only surfaced the written report — so a player walking
+         off to collect balls got no hands-free readout of how the session went.
+         `spokenSessionSummary(TrainingSummary)` (`shot_announcer.dart`, pure and
+         unit-tested) composes a concise phrase — shot count (pluralised), overall
+         grade, and top pace when a physical scale is available ("Session complete.
+         12 shots, grade B. Top speed 45 kilometres per hour.") or a "No shots
+         recorded" note for an empty session. `CameraTrainingScreen._finish`
+         speaks it through the same mute-gated `_speak` sink, the training-mode
+         parity of the match announcer's climactic "Match to Player A" call.
      - **[done — iteration 91]** Live game-point / match-point cue.
        `core/scoring/match_situation.dart` (`MatchSituation`) derives, from a
        `MatchState` snapshot alone, whether a side is one point from winning the

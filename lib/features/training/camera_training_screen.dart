@@ -261,6 +261,11 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
 
   void _finish() {
     _vision.stop();
+    // Read back the session result hands-free so a player walking over to
+    // collect balls hears the wrap-up without returning to the screen. Routed
+    // through the mute-gated sink; the finished view shows the full written
+    // report, so no caption is needed here.
+    _speak(spokenSessionSummary(_analyzer.summary));
     setState(() {
       _finished = true;
       _paused = false;
