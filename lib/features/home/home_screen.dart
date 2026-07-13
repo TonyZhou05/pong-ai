@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../match/camera_match_screen.dart';
 import '../match/match_screen.dart';
 import '../training/training_screen.dart';
 
@@ -28,9 +29,20 @@ class HomeScreen extends StatelessWidget {
               ),
               const Spacer(),
               _ModeCard(
+                icon: Icons.videocam,
+                title: 'Live Match',
+                subtitle: 'Point the camera at the table for live auto-scoring.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CameraMatchScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ModeCard(
                 icon: Icons.sports_tennis,
                 title: 'Match',
-                subtitle: 'Auto-referee: track players, ball and score.',
+                subtitle: 'Demo replay: track players, ball and score.',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const MatchScreen(),

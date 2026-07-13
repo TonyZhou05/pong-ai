@@ -163,9 +163,21 @@ behind a `VisionService` interface. This lets us:
      callback through `YoloFrameAdapter` onto a `FrameResult` broadcast stream,
      enforcing a strictly-monotonic clock (the `BallTracker` drops
      non-increasing timestamps) and gating emits to the start/stop lifecycle.
-     Pure-Dart / unit-tested (no platform channel). Remaining: instantiate the
-     `YOLOView` widget in `MatchScreen` and bundle the exported
-     `.tflite`/`.mlpackage` models.
+     Pure-Dart / unit-tested (no platform channel).
+   - **[done — iteration 19]** `CameraMatchScreen`
+     (`features/match/camera_match_screen.dart`): the live-camera counterpart to
+     the demo `MatchScreen`. It instantiates the real `ultralytics_yolo`
+     `YOLOView` platform view (default `YOLOTask.detect` + `yolo11n`, which
+     labels both `person` and `sports ball` in one pass), routes its
+     `onStreamingData` into a `YoloVisionService`, and drives a
+     self-calibrating `MatchController` from that stream — rendering the
+     scoreboard, calibration hint, referee-call feed, and manual-resolution
+     prompt overlaid on the camera preview. The camera preview, vision service,
+     and controller are injectable so the whole wiring is widget-tested
+     headlessly (no platform view). Reachable from the home screen's new "Live
+     Match" card. Remaining: bundle/point at a fine-tuned ping-pong `.tflite` /
+     `.mlpackage` for better ball recall (the COCO `sports ball` class is the
+     default fallback).
 3. Ball Kalman tracker + rally/point event detection from detections.
    - **[done — iteration 14]** `BallTrajectoryFilter`: a pure-Dart
      constant-velocity Kalman smoother/predictor (two independent 1-D filters,
