@@ -214,6 +214,10 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                   predictedBall: _predictedBall,
                   netX: _controller.geometry.netX,
                   showNet: !_controller.isCalibrating,
+                  // Live "Ball AI"-style km/h readout beside the tracked ball,
+                  // shown only when the ball is actually in view (a dropout
+                  // leaves the last reading stale).
+                  currentSpeedKmh: _controller.currentBallSpeedKmh,
                 ),
               ),
             ),
@@ -478,6 +482,7 @@ class _LiveTrackingOverlay extends StatelessWidget {
     required this.predictedBall,
     required this.netX,
     required this.showNet,
+    required this.currentSpeedKmh,
   });
 
   final FrameResult? frame;
@@ -487,6 +492,11 @@ class _LiveTrackingOverlay extends StatelessWidget {
   /// Whether to draw the net line — suppressed during calibration when the net
   /// position is still the un-inferred default.
   final bool showNet;
+
+  /// The latest ball-speed reading (km/h), rendered as a live label beside the
+  /// tracked ball. Null when no reading yet; only drawn while the ball is in
+  /// view (a detector dropout leaves this stale, so we hide it with the ball).
+  final double? currentSpeedKmh;
 
   @override
   Widget build(BuildContext context) {
@@ -519,7 +529,7 @@ class _LiveTrackingOverlay extends StatelessWidget {
                   ),
                 ),
               ),
-            if (ball != null)
+            if (ball != null) ...[
               Positioned(
                 left: ball.box.centerX * w - 6,
                 top: ball.box.centerY * h - 6,
@@ -531,8 +541,26 @@ class _LiveTrackingOverlay extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                 ),
-              )
-            else if (ghost != null)
+              ),
+              if (currentSpeedKmh != null)
+                Positioned(
+                  left: ball.box.centerX * w + 10,
+                  top: ball.box.centerY * h - 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    color: Colors.black54,
+                    child: Text(
+                      '${currentSpeedKmh!.round()} km/h',
+                      style: const TextStyle(
+                        color: Color(0xFFFFEB3B),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ] else if (ghost != null)
               Positioned(
                 left: ghost.x * w - 6,
                 top: ghost.y * h - 6,

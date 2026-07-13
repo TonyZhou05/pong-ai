@@ -98,6 +98,28 @@ void main() {
     expect(e.hasData, isFalse);
   });
 
+  test('lastKmh reports the most recent reading for a live readout', () {
+    final e = BallSpeedEstimator();
+    expect(e.lastKmh, isNull);
+
+    e.observe(_ball(0, 0.20));
+    // Still no displacement measured, so no live reading yet.
+    expect(e.lastKmh, isNull);
+
+    e.observe(_ball(33, 0.30)); // +0.10 -> ~29.9
+    const slow = 0.10 * 2.74 / (33 / 1000.0) * 3.6;
+    expect(e.lastKmh, closeTo(slow, 1e-6));
+
+    e.observe(_ball(66, 0.06)); // -0.24 -> faster
+    const fast = 0.24 * 2.74 / (33 / 1000.0) * 3.6;
+    // lastKmh follows the newest reading, not the max.
+    expect(e.lastKmh, closeTo(fast, 1e-6));
+    expect(e.maxKmh, closeTo(fast, 1e-6));
+
+    e.reset();
+    expect(e.lastKmh, isNull);
+  });
+
   test('reset clears all state', () {
     final e = BallSpeedEstimator();
     e.observe(_ball(0, 0.2));

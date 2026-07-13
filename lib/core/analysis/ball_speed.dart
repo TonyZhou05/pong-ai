@@ -86,6 +86,14 @@ class BallSpeedEstimator {
   double get averageKmh =>
       _speeds.isEmpty ? 0 : _speeds.reduce((a, b) => a + b) / _speeds.length;
 
+  /// The most recent accepted km/h reading (null when none yet), for a **live**
+  /// speed readout — the "how hard was that last shot" number "Ball AI"-style
+  /// apps flash on screen during play, distinct from the whole-match [maxKmh] /
+  /// [averageKmh] aggregates. The caller should only surface it while the ball
+  /// is currently in view (a dropout leaves the last reading in place), since it
+  /// reflects the last measured displacement, not the ball's live position.
+  double? get lastKmh => _speeds.isEmpty ? null : _speeds.last;
+
   /// Fold one frame's ball detection into the running speed stats. Frames with
   /// no ball are ignored (they leave the previous sample in place so a short
   /// dropout does not reset the estimate).

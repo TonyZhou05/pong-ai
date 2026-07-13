@@ -158,6 +158,11 @@ class MatchController {
   /// The mean observed ball speed (km/h), or 0 when no data.
   double get averageBallSpeedKmh => _ballSpeed.averageKmh;
 
+  /// The most recent ball-speed reading (km/h), or null when none yet — for a
+  /// live on-screen speed readout during play (surface only while the ball is in
+  /// view; a dropout leaves the last reading in place).
+  double? get currentBallSpeedKmh => _ballSpeed.lastKmh;
+
   /// Whether any ball-speed reading has been accumulated.
   bool get hasBallSpeedData => _ballSpeed.hasData;
 

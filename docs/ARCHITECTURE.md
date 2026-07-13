@@ -563,6 +563,14 @@ behind a `VisionService` interface. This lets us:
      analytics), surfaced as a "Top ball speed" line in the Match screen's
      post-match summary, and added as a "Ball speed" section to the exported
      `buildMatchReport`.
+     - **[done — iteration 75]** Live km/h readout. The estimator reduced every
+       reading into the whole-match `maxKmh` / `averageKmh` aggregates but never
+       exposed the *latest* one, so the "Ball AI"-style live speed number that
+       flashes beside the ball during play was un-surfaced. `lastKmh`
+       (→ `MatchController.currentBallSpeedKmh`) exposes the most recent accepted
+       reading, and `CameraMatchScreen`'s `_LiveTrackingOverlay` renders it as a
+       "N km/h" label next to the tracked ball — drawn only while the ball is in
+       view, since a detector dropout leaves the reading stale.
    - **[done — iteration 35]** Tracking-quality / detection-health analytics
      (`core/analysis/tracking_quality.dart`). The objective's deployment story —
      "place the phone table-side and let the app keep score" — only holds if the

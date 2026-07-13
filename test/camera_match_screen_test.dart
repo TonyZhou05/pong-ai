@@ -183,6 +183,70 @@ void main() {
   );
 
   testWidgets(
+    'live tracking overlay shows a km/h readout beside the moving ball',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // No calibrator so the ball-speed estimator measures immediately.
+            matchControllerBuilder: MatchController.new,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // A single ball frame has no displacement yet -> no live speed reading.
+      vision.onFrame(
+        const FrameResult(
+          timestampMs: 33,
+          ball: Detection(
+            label: 'ball',
+            confidence: 0.9,
+            box: BBox(0.30, 0.50, 0.02, 0.02),
+          ),
+          people: [],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('km/h'), findsNothing);
+
+      // A second ball frame 33 ms later, moved along the table, yields a live
+      // reading rendered beside the ball.
+      vision.onFrame(
+        const FrameResult(
+          timestampMs: 66,
+          ball: Detection(
+            label: 'ball',
+            confidence: 0.9,
+            box: BBox(0.42, 0.50, 0.02, 0.02),
+          ),
+          people: [],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('km/h'), findsOneWidget);
+
+      // When the ball drops out, the (now stale) speed label is hidden with it.
+      vision.onFrame(
+        const FrameResult(timestampMs: 99, ball: null, people: []),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('km/h'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'first-server picker sets who serves before the match starts',
     (tester) async {
       final vision = YoloVisionService();
