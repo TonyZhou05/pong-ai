@@ -751,6 +751,33 @@ void main() {
       ]).report();
       expect(report, contains('Ball pace: up 14.0 km/h'));
     });
+
+    test('matchRallyLengthImprovement is latest minus first typical rally, '
+        'skipping matches without rally data', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, averageStrokes: 3.0),
+        _match('m2', t1), // no rally data recorded — skipped
+        _match('m3', t2, averageStrokes: 5.5),
+      ]);
+      expect(trends.matchRallyLengthImprovement, closeTo(2.5, 1e-9));
+    });
+
+    test('matchRallyLengthImprovement is null without two rally-bearing matches',
+        () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, averageStrokes: 4.0),
+        _match('m2', t1), // only one match carries rally data
+      ]);
+      expect(trends.matchRallyLengthImprovement, isNull);
+    });
+
+    test('report surfaces the rally-length trend line', () {
+      final report = SessionTrends.fromSessions([
+        _match('m1', t0, averageStrokes: 3.0),
+        _match('m2', t1, averageStrokes: 5.5),
+      ]).report();
+      expect(report, contains('Rally length: up 2.5 strokes'));
+    });
   });
 
   group('SessionTrends match win record', () {

@@ -314,6 +314,12 @@ class _MatchSummaryCard extends StatelessWidget {
     if (avgRally != null) {
       chips.add('avg rally ${avgRally.toStringAsFixed(1)}');
     }
+    final rallyTrend = trends.matchRallyLengthImprovement;
+    if (rallyTrend != null && rallyTrend.abs() > 0.05) {
+      chips.add(
+        'rally ${rallyTrend > 0 ? '↑' : '↓'} ${rallyTrend.abs().toStringAsFixed(1)}',
+      );
+    }
     final speed = trends.fastestMatchBallSpeedKmh;
     if (speed != null) chips.add('fastest ${speed.toStringAsFixed(1)} km/h');
     final avgSpeed = trends.averageMatchBallSpeedKmh;

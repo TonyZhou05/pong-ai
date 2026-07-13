@@ -1151,6 +1151,17 @@ behind a `VisionService` interface. This lets us:
      `averageMatchBallSpeedKmh`), surfaced as a "Typical shot speed: N.N km/h"
      `report()` line and a "· typical N.N km/h" segment on the Training-progress
      card's Best line.
+   - **[done — iteration 124]** Match career rally-*length progression*. After
+     iteration 123 gave the match career section a ball-pace over-time trend, rally
+     length still carried only cumulative best/typical values (`longestMatchRally
+     Strokes`/`averageMatchRallyStrokes`) with no over-time signal — the same gap
+     123 filled for pace. Added `SessionTrends.matchRallyLengthImprovement` (latest
+     − first typical rally length over the matches that recorded rally data, via the
+     same `_matchMetricSeries` helper), so a table's play reads as "rallies are
+     running longer / steadier in recent matches." Like the pace trend it is a
+     table-level signal (a rally involves both seats), not a per-person progression.
+     Surfaced as a "Rally length: up/down/flat N.N strokes" `report()` line and a
+     "rally ↑/↓ N.N" chip on the history screen's Match-record card.
    - **[done — iteration 123]** Match career ball-*pace progression*. The match
      career section carried only cumulative totals (fastest/typical ball, longest/
      typical rally, head-to-head, focus counts) — no *over-time trend*, unlike the

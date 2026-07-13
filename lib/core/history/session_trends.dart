@@ -541,6 +541,20 @@ class SessionTrends {
     return n == 0 ? null : total / n;
   }
 
+  /// Change in typical rally length (strokes) from the first to the latest saved
+  /// match that recorded rally data: returns `latest − first`, so a positive
+  /// value means rallies are running longer in recent matches than in early ones
+  /// — a table-level sustained-play trend (longer rallies read as steadier,
+  /// more consistent exchanges), the rally-length twin of the pace trend
+  /// [matchBallSpeedImprovement]. Like it, this is a table-level signal (a rally
+  /// involves both seats), not a per-person progression. Null unless at least two
+  /// matches carry rally data.
+  double? get matchRallyLengthImprovement {
+    final series = _matchMetricSeries((m) => m.averageRallyStrokes);
+    if (series.length < 2) return null;
+    return series.last - series.first;
+  }
+
   /// How many saved matches finished with a recorded winner (an in-progress or
   /// pre-winner-field match contributes nothing to the head-to-head record).
   int get decidedMatchCount {
@@ -835,6 +849,15 @@ class SessionTrends {
     final avgRally = averageMatchRallyStrokes;
     if (avgRally != null) {
       lines.add('Average rally: ${avgRally.toStringAsFixed(1)} strokes');
+    }
+    final rallyTrend = matchRallyLengthImprovement;
+    if (rallyTrend != null) {
+      final verb = rallyTrend > 0.05
+          ? 'up ${rallyTrend.toStringAsFixed(1)} strokes'
+          : (rallyTrend < -0.05
+              ? 'down ${rallyTrend.abs().toStringAsFixed(1)} strokes'
+              : 'flat');
+      lines.add('Rally length: $verb');
     }
     final speed = fastestMatchBallSpeedKmh;
     if (speed != null) {
