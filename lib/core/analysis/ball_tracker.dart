@@ -23,15 +23,50 @@ extension TableSideX on TableSide {
 }
 
 /// Static description of the table within the normalized frame.
+///
+/// With the phone placed on the side of the table, the playing surface does not
+/// fill the whole frame — it occupies a rectangular band bounded by
+/// ([left], [top]) and ([right], [bottom]). Calibrating that band lets the
+/// tracker reject "bounces" that actually happen off the table (the ball
+/// hitting the floor below, or bouncing on a chair beside the table), which
+/// would otherwise be scored as legal rally bounces. The bounds default to the
+/// full frame so an uncalibrated tracker behaves exactly as before.
 class TableGeometry {
-  const TableGeometry({this.netX = 0.5})
-      : assert(netX > 0 && netX < 1, 'netX must be strictly inside the frame');
+  const TableGeometry({
+    this.netX = 0.5,
+    this.left = 0.0,
+    this.right = 1.0,
+    this.top = 0.0,
+    this.bottom = 1.0,
+  })  : assert(left >= 0 && right <= 1 && left < right,
+            'table x-bounds must satisfy 0 <= left < right <= 1',),
+        assert(top >= 0 && bottom <= 1 && top < bottom,
+            'table y-bounds must satisfy 0 <= top < bottom <= 1',),
+        assert(netX > left && netX < right,
+            'netX must fall strictly between the table left/right edges',);
 
   /// Normalized x of the net (the vertical line dividing the two sides).
   final double netX;
 
+  /// Normalized x of the table's left edge in the frame.
+  final double left;
+
+  /// Normalized x of the table's right edge in the frame.
+  final double right;
+
+  /// Normalized y of the table surface's near/top edge in the frame.
+  final double top;
+
+  /// Normalized y of the table surface's far/bottom edge in the frame.
+  final double bottom;
+
   /// The side of the table a given normalized x falls on.
   TableSide sideOf(double x) => x < netX ? TableSide.left : TableSide.right;
+
+  /// Whether ([x], [y]) lies within the calibrated table surface region — used
+  /// to accept only bounces that happen on the table, not off it.
+  bool containsSurface(double x, double y) =>
+      x >= left && x <= right && y >= top && y <= bottom;
 }
 
 /// One accepted position of the ball at a moment in time.
@@ -189,12 +224,16 @@ class BallTracker {
 
   /// A bounce is the apex of a downward-then-upward arc: the *previous* sample
   /// was the lowest point, so it is reported as the bounce location/time.
+  ///
+  /// A direction change that happens outside the calibrated table surface (e.g.
+  /// the ball hitting the floor below the table) is not a legal rally bounce, so
+  /// it is dropped rather than emitted.
   BounceEvent? _detectBounce(BallSample apex, double vyNow) {
     final vyPrev = _lastVy;
     if (vyPrev == null) return null;
     final descending = vyPrev > minBounceSpeed;
     final ascending = vyNow < -minBounceSpeed;
-    if (descending && ascending) {
+    if (descending && ascending && geometry.containsSurface(apex.x, apex.y)) {
       return BounceEvent(
         apex.timestampMs,
         apex.x,

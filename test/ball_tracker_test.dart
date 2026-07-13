@@ -36,6 +36,30 @@ void main() {
       // Exactly on/after the net counts as the right side.
       expect(g.sideOf(0.5), TableSide.right);
     });
+
+    test('containsSurface bounds the calibrated table region', () {
+      const g = TableGeometry(
+        netX: 0.5,
+        left: 0.1,
+        right: 0.9,
+        top: 0.3,
+        bottom: 0.7,
+      );
+      // Inside the band.
+      expect(g.containsSurface(0.5, 0.5), isTrue);
+      // On the edges (inclusive).
+      expect(g.containsSurface(0.1, 0.3), isTrue);
+      expect(g.containsSurface(0.9, 0.7), isTrue);
+      // Off the ends / below the surface (e.g. a floor bounce at y=0.85).
+      expect(g.containsSurface(0.05, 0.5), isFalse);
+      expect(g.containsSurface(0.5, 0.85), isFalse);
+    });
+
+    test('defaults to the whole frame as the surface', () {
+      const g = TableGeometry();
+      expect(g.containsSurface(0.0, 0.0), isTrue);
+      expect(g.containsSurface(1.0, 1.0), isTrue);
+    });
   });
 
   group('BallTracker — net crossing', () {
@@ -102,6 +126,32 @@ void main() {
         _frame(66, 0.80, 0.55),
       ]);
       expect(events.whereType<BounceEvent>().single.side, TableSide.right);
+    });
+
+    test('drops a direction change that happens off the table surface', () {
+      // Table surface only spans y in [0.2, 0.6]; the apex at y=0.85 is below
+      // it (a floor bounce), so no BounceEvent should fire.
+      final tracker = BallTracker(
+        geometry: const TableGeometry(top: 0.2, bottom: 0.6),
+      );
+      final events = _run(tracker, [
+        _frame(0, 0.30, 0.70),
+        _frame(33, 0.30, 0.85), // descending apex below the surface
+        _frame(66, 0.30, 0.80), // ascending
+      ]);
+      expect(events.whereType<BounceEvent>(), isEmpty);
+    });
+
+    test('keeps a bounce that lands on the calibrated surface', () {
+      final tracker = BallTracker(
+        geometry: const TableGeometry(top: 0.2, bottom: 0.6),
+      );
+      final events = _run(tracker, [
+        _frame(0, 0.30, 0.40),
+        _frame(33, 0.30, 0.55), // apex within [0.2, 0.6]
+        _frame(66, 0.30, 0.50),
+      ]);
+      expect(events.whereType<BounceEvent>(), hasLength(1));
     });
   });
 

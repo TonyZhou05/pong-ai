@@ -114,6 +114,8 @@ lib/
       yolo_frame_adapter.dart Pure mapping: ultralytics_yolo streaming output → FrameResult
       yolo_vision_service.dart Camera-backed VisionService: routes plugin callbacks → monotonic FrameResult stream
     tracking/            Ball Kalman tracker, rally/point event detection
+                         (TableGeometry calibrates the net line + table surface
+                         region so off-table/floor bounces aren't scored)
     analysis/            Performance + shot-quality analytics
   features/
     home/                Landing screen (Match vs. Training)
