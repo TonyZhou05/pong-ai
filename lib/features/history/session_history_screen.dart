@@ -276,6 +276,13 @@ class _TrendsHeader extends StatelessWidget {
         '${speed.abs().toStringAsFixed(1)} km/h',
       );
     }
+    final accuracy = trends.accuracyImprovement;
+    if (accuracy != null && accuracy.abs() > 0.005) {
+      parts.add(
+        'Accuracy ${accuracy > 0 ? 'up' : 'down'} '
+        '${(accuracy.abs() * 100).round()}%',
+      );
+    }
     return parts.isEmpty ? null : parts.join(' · ');
   }
 }

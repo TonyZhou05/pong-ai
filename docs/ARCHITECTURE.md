@@ -732,6 +732,16 @@ behind a `VisionService` interface. This lets us:
      sessions that scaled pace, positive = hitting harder), a "Shot speed: up N
      km/h" `report()` line, and a "Speed up N km/h" segment on the
      Training-progress card's trend line.
+   - **[done — iteration 79]** On-table accuracy progression. Iteration 77 added
+     `TrainingSummary.onTableRate` (fraction of strokes kept on the table) and
+     persisted it to the training export as `session.onTableRate`, but
+     `SessionTrends`/`TrainingTrendPoint` never mined it — the captured-but-
+     unconsumed signal (the accuracy analog of iteration 54's `speedImprovement`).
+     Added `onTableRate` parsing to `TrainingTrendPoint` plus `accuracyImprovement`
+     (latest − first over the sessions that tracked it, positive = missing the
+     table less) and `bestOnTableRate` (personal-best consistency), surfaced as an
+     "On-table accuracy: up N%" `report()` line and an "Accuracy up N%" segment on
+     the Training-progress card's trend line.
    - **[done — iteration 55]** Recurring coaching focus. Iteration 53 persisted
      each training session's coaching `focus` (its weakest dimension) into the
      structured export, but `SessionTrends` only ever mined numeric metrics —

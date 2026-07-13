@@ -13,6 +13,7 @@ StoredSession _training(
   double? maxSpeedKmh,
   double? rhythmConsistency,
   String? focus,
+  double? onTableRate,
 }) {
   return StoredSession(
     id: id,
@@ -23,6 +24,7 @@ StoredSession _training(
         'shotCount': shots,
         'overallGrade': grade,
         'averageScore': averageScore,
+        if (onTableRate != null) 'onTableRate': onTableRate,
       },
       'placement': {'depthConsistency': depthConsistency},
       'pace': {'maxSpeedKmh': maxSpeedKmh},
@@ -258,6 +260,43 @@ void main() {
     test('report handles an empty history', () {
       final report = SessionTrends.fromSessions(const []).report();
       expect(report, contains('No training drills saved yet.'));
+    });
+  });
+
+  group('SessionTrends on-table accuracy', () {
+    test('parses onTableRate out of the session block', () {
+      final point = TrainingTrendPoint.fromStored(
+        _training('a', t0, averageScore: 0.7, grade: 'B', onTableRate: 0.75),
+      );
+      expect(point!.onTableRate, closeTo(0.75, 1e-9));
+    });
+
+    test('accuracyImprovement is latest minus first, skipping untracked', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', onTableRate: 0.60),
+        _training('b', t1, averageScore: 0.6, grade: 'B'),
+        _training('c', t2, averageScore: 0.7, grade: 'A', onTableRate: 0.90),
+      ]);
+      // Skips the middle session with no accuracy; first 0.60 → latest 0.90.
+      expect(trends.accuracyImprovement, closeTo(0.30, 1e-9));
+      expect(trends.bestOnTableRate, closeTo(0.90, 1e-9));
+    });
+
+    test('accuracyImprovement is null without two tracked sessions', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', onTableRate: 0.7),
+        _training('b', t2, averageScore: 0.7, grade: 'A'),
+      ]);
+      expect(trends.accuracyImprovement, isNull);
+      expect(trends.bestOnTableRate, closeTo(0.7, 1e-9));
+    });
+
+    test('report surfaces the on-table accuracy trend', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.50, grade: 'C', onTableRate: 0.55),
+        _training('b', t2, averageScore: 0.80, grade: 'A', onTableRate: 0.85),
+      ]);
+      expect(trends.report(), contains('On-table accuracy: up +30%'));
     });
   });
 

@@ -30,6 +30,7 @@ class TrainingTrendPoint {
     this.maxSpeedKmh,
     this.rhythmConsistency,
     this.focusArea,
+    this.onTableRate,
   });
 
   final String id;
@@ -53,6 +54,11 @@ class TrainingTrendPoint {
   /// `Placement accuracy`), from the persisted `coaching.focus` field. Null if
   /// the report recorded no coachable data (no shots) or predates the field.
   final String? focusArea;
+
+  /// Fraction of attempted strokes that landed on the table ([0,1], *higher-is-
+  /// better*), from the persisted `session.onTableRate` field. Null if the drill
+  /// attempted no strokes or the report predates the field.
+  final double? onTableRate;
 
   /// Parse a stored training session, or null if the report shape is not a
   /// recognizable training export (so a corrupt / foreign record is skipped).
@@ -82,6 +88,7 @@ class TrainingTrendPoint {
       rhythmConsistency:
           tempo is Map ? _asDouble(tempo['rhythmConsistency']) : null,
       focusArea: focus is String ? focus : null,
+      onTableRate: _asDouble(s['onTableRate']),
     );
   }
 }
@@ -271,6 +278,28 @@ class SessionTrends {
     final series = _metricSeries((p) => p.rhythmConsistency);
     if (series.length < 2) return null;
     return series.last - series.first;
+  }
+
+  /// Change in on-table accuracy (fraction of strokes kept on the table, [0,1],
+  /// *higher-is-better*) from the first to the latest session that recorded it:
+  /// returns `latest − first`, so a positive value means the player is missing
+  /// the table less often. Null unless at least two sessions carry the metric.
+  double? get accuracyImprovement {
+    final series = _metricSeries((p) => p.onTableRate);
+    if (series.length < 2) return null;
+    return series.last - series.first;
+  }
+
+  /// Best on-table accuracy ([0,1]) recorded across every session that tracked
+  /// it — the personal-best consistency number. Null if none did.
+  double? get bestOnTableRate {
+    double? best;
+    for (final p in trainingSessions) {
+      final r = p.onTableRate;
+      if (r == null) continue;
+      if (best == null || r > best) best = r;
+    }
+    return best;
   }
 
   /// How many training sessions across the history flagged each coaching focus
@@ -465,6 +494,16 @@ class SessionTrends {
           ? 'up ${_signedPct(rhythmTrend)}'
           : (rhythmTrend < -0.0005 ? 'down ${_signedPct(rhythmTrend)}' : 'flat');
       lines.add('Rhythm consistency: $verb');
+    }
+
+    final accuracyTrend = accuracyImprovement;
+    if (accuracyTrend != null) {
+      final verb = accuracyTrend > 0.0005
+          ? 'up ${_signedPct(accuracyTrend)}'
+          : (accuracyTrend < -0.0005
+              ? 'down ${_signedPct(accuracyTrend)}'
+              : 'flat');
+      lines.add('On-table accuracy: $verb');
     }
 
     if (hasRecurringFocus) {
