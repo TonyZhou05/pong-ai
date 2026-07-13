@@ -823,6 +823,33 @@ void main() {
       expect(report, contains('Ball pace: up 14.0 km/h'));
     });
 
+    test('typicalMatchBallSpeedImprovement is latest minus first average, '
+        'skipping unscaled matches', () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, averageKmh: 30.0),
+        _match('m2', t1), // no ball speed recorded — skipped
+        _match('m3', t2, averageKmh: 42.0),
+      ]);
+      expect(trends.typicalMatchBallSpeedImprovement, closeTo(12.0, 1e-9));
+    });
+
+    test('typicalMatchBallSpeedImprovement is null without two scaled matches',
+        () {
+      final trends = SessionTrends.fromSessions([
+        _match('m1', t0, averageKmh: 30.0),
+        _match('m2', t1), // only one match carries an average km/h speed
+      ]);
+      expect(trends.typicalMatchBallSpeedImprovement, isNull);
+    });
+
+    test('report surfaces the typical-ball-pace trend line', () {
+      final report = SessionTrends.fromSessions([
+        _match('m1', t0, maxKmh: 70.0, averageKmh: 40.0),
+        _match('m2', t1, maxKmh: 72.0, averageKmh: 52.0),
+      ]).report();
+      expect(report, contains('Typical ball pace: up 12.0 km/h'));
+    });
+
     test('matchRallyLengthImprovement is latest minus first typical rally, '
         'skipping matches without rally data', () {
       final trends = SessionTrends.fromSessions([

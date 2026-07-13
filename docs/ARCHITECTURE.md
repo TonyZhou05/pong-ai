@@ -1211,6 +1211,16 @@ behind a `VisionService` interface. This lets us:
      can own the fastest shot), not a per-person progression. Surfaced as a "Ball
      pace: up/down/flat N.N km/h" `report()` line and a "pace ↑/↓ N.N km/h" chip on
      the history screen's Match-record card.
+   - **[done — iteration 129]** Match career *typical* ball-pace progression. The
+     match career trend section trended only the *peak* ball speed
+     (`matchBallSpeedImprovement`, iteration 123); the parsed `averageBallSpeedKmh`
+     was surfaced solely as the static `averageMatchBallSpeedKmh` with no over-time
+     delta — the same peak-vs-typical trend asymmetry iteration 128 closed on the
+     training side. Added `SessionTrends.typicalMatchBallSpeedImprovement` (latest −
+     first of each match's own average ball speed, via `_matchMetricSeries`), the
+     match-side twin of training's `typicalSpeedImprovement`, so a rising everyday
+     pace is tracked even when a single lucky smash left the peak flat. Surfaced as
+     a "Typical ball pace: up/down/flat N.N km/h" `report()` line.
    - **[done — iteration 84]** Match career *typical* ball speed. `MatchTrendPoint`
      parsed each match's peak `ballSpeed.maxKmh` (surfaced as
      `fastestMatchBallSpeedKmh`) but discarded the emitted `ballSpeed.averageKmh`.

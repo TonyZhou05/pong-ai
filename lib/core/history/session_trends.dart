@@ -548,6 +548,24 @@ class SessionTrends {
     return series.last - series.first;
   }
 
+  /// Change in *typical* ball speed (km/h) from the first to the latest saved
+  /// match that recorded a scaled speed: returns `latest − first`, so a positive
+  /// value means the ball is *usually* being hit harder in recent matches than
+  /// in early ones. Distinct from [matchBallSpeedImprovement], which trends the
+  /// match *peak* — a single lucky smash can move the peak while leaving the
+  /// typical pace flat, so this mines each match's own average ball speed for a
+  /// more representative power progression (the trend twin of the static
+  /// [averageMatchBallSpeedKmh], mirroring how [matchBallSpeedImprovement] trends
+  /// the static [fastestMatchBallSpeedKmh], and the match-side twin of training's
+  /// [typicalSpeedImprovement]). Like the other match speed trends this is a
+  /// table-level signal, not a per-person progression. Null unless at least two
+  /// matches carry an average km/h speed.
+  double? get typicalMatchBallSpeedImprovement {
+    final series = _matchMetricSeries((m) => m.averageBallSpeedKmh);
+    if (series.length < 2) return null;
+    return series.last - series.first;
+  }
+
   /// Longest rally (in strokes) tracked across every saved match. Null if no
   /// match recorded rally data.
   int? get longestMatchRallyStrokes {
@@ -934,6 +952,15 @@ class SessionTrends {
               ? 'down ${paceTrend.abs().toStringAsFixed(1)} km/h'
               : 'flat');
       lines.add('Ball pace: $verb');
+    }
+    final typicalPaceTrend = typicalMatchBallSpeedImprovement;
+    if (typicalPaceTrend != null) {
+      final verb = typicalPaceTrend > 0.05
+          ? 'up ${typicalPaceTrend.toStringAsFixed(1)} km/h'
+          : (typicalPaceTrend < -0.05
+              ? 'down ${typicalPaceTrend.abs().toStringAsFixed(1)} km/h'
+              : 'flat');
+      lines.add('Typical ball pace: $verb');
     }
     if (hasRecurringMatchFocus) {
       lines.add(
