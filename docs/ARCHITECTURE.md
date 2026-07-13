@@ -125,6 +125,11 @@ docs. Three evaluation stages exist:
   `GroundTruthEvent`s on the same ms clock, feeding the event-detection
   benchmark. (`net` = ball *hitting* the net, a different event from the
   tracker's over-the-net crossing, so it is intentionally not mapped.)
+- **Runnable entrypoint** (`bin/benchmark.dart` + `benchmark_corpus.dart`,
+  iteration 41) — `dart run bin/benchmark.dart` discovers `benchmark/clips/*.json`
+  (via `loadClipDirectory`), scores them through the scoring + perception stages
+  (`buildCorpusReport`), and prints one consolidated report, so the corpus can be
+  evaluated outside `flutter test` and gate CI.
 
 See [`../benchmark/README.md`](../benchmark/README.md).
 

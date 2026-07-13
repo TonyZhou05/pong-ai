@@ -30,9 +30,27 @@ It is pure Dart — no camera, no plugin — so it all runs in `flutter test`.
   `BallDetectionMetrics` / `PoseDetectionMetrics`: per-frame perception metrics.
 - `lib/core/benchmark/event_metrics.dart` — `EventDetectionBenchmark` /
   `EventTypeMetrics` / `GroundTruthEvent`: tracker event-detection metrics.
+- `lib/core/benchmark/benchmark_corpus.dart` — `loadClipDirectory` /
+  `loadClipFixtures` / `buildCorpusReport`: load the on-disk corpus and compose
+  the scoring + perception stages into one report.
+- `bin/benchmark.dart` — the runnable entrypoint (see **Running** below).
 - `clips/` — the fixture corpus (start with `synthetic_demo.json`).
 - `test/benchmark_test.dart`, `test/detection_metrics_test.dart`,
-  `test/event_metrics_test.dart` — regression tests over the harness.
+  `test/event_metrics_test.dart`, `test/benchmark_corpus_test.dart` —
+  regression tests over the harness.
+
+## Running
+
+The harness runs both inside `flutter test` and as a standalone command:
+
+```sh
+dart run bin/benchmark.dart                 # score every clip in clips/
+dart run bin/benchmark.dart path/a.json ... # score the given fixtures
+```
+
+It prints Stage 1 (scoring accuracy over all clips) and Stage 2 (perception
+accuracy for clips carrying `groundTruthFrames`), and exits non-zero when no
+clips are found so it can gate CI.
 
 ## Fixture format (`clips/*.json`)
 
