@@ -152,14 +152,21 @@ class _MatchScreenState extends State<MatchScreen> {
   ///    its detections arrive every frame, where the gate's assumption holds);
   ///  * `postPointCooldown: 15` (~0.5 s): after a point the ball keeps
   ///    bouncing/rolling; without a cool-down those leftovers seed a phantom
-  ///    rally that fizzles into a spurious "who won?" prompt.
+  ///    rally that fizzles into a spurious "who won?" prompt;
+  ///  * `extendedGapFrames: 60` (~2 s): a lob arcing out the top of the frame
+  ///    or a player stepping off-frame to play it must not be scored as a
+  ///    rally-ending ball loss while the point is still live;
+  ///  * `requireServe`: rally activity only counts once a serve visibly
+  ///    initiates it, so players knocking the ball to each other between
+  ///    points can't inflate the counters or fizzle into bogus decisions.
   MatchController _footageController(ClipFixture clip) => MatchController(
         tracker: BallTracker(
           geometry: clip.geometry,
           maxGapFrames: 30,
           netBounceExclusion: 0.03,
+          extendedGapFrames: 60,
         ),
-        referee: RallyReferee(leftPlayer: clip.leftPlayer),
+        referee: RallyReferee(leftPlayer: clip.leftPlayer, requireServe: true),
         engine: ScoringEngine(
           firstServer: clip.firstServer,
           pointsPerGame: clip.pointsPerGame,

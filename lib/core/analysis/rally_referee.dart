@@ -79,7 +79,34 @@ class PointDecision {
 /// It returns a [PointDecision] on the event that ends the rally and then
 /// resets itself for the next rally; otherwise it returns null.
 class RallyReferee {
-  RallyReferee({Player leftPlayer = Player.a}) : _initialLeftPlayer = leftPlayer;
+  RallyReferee({Player leftPlayer = Player.a, this.requireServe = false})
+      : _initialLeftPlayer = leftPlayer;
+
+  /// When true, events do not score (or even count as rally activity) until a
+  /// rally has visibly been *initiated*: either the serve signature — a bounce
+  /// on side S followed by a crossing from S — or, for tracks that miss the
+  /// serve's own-side bounce, a crossing into a side followed by a bounce on
+  /// that side (the ball demonstrably landed in play). Without the gate,
+  /// players casually knocking the ball to each other between points read as
+  /// rally activity: bounces inflate the rally counter and a caught pass can
+  /// fizzle into a bogus decision. After every decision the gate re-arms, so
+  /// between-point noise stays ignored until the next serve. Off by default
+  /// (scripted clips and the historical behaviour treat every stream as
+  /// in-rally from the first event).
+  final bool requireServe;
+
+  /// Whether the current rally has been initiated (see [requireServe]).
+  bool _rallyStarted = false;
+
+  /// Whether rally activity is currently live: always true without
+  /// [requireServe]; otherwise true once the serve signature was seen and
+  /// until the rally's decision. Consumers (e.g. the bounce counter) use this
+  /// to ignore between-point ball motion.
+  bool get rallyInProgress => !requireServe || _rallyStarted;
+
+  /// Pre-rally observations while waiting for a serve ([requireServe] only).
+  TableSide? _preBounceSide;
+  TableSide? _preCrossTo;
 
   /// Which player occupied the left half of the table at the start of the match.
   /// The live [leftPlayer] flips away from this each time the players
@@ -138,11 +165,47 @@ class RallyReferee {
 
   /// Process one rally event; returns a verdict if it ends the rally.
   PointDecision? update(TrackerEvent event) {
+    if (requireServe && !_rallyStarted) return _onPreRally(event);
     return switch (event) {
       NetCrossEvent() => _onNetCross(event),
       BounceEvent() => _onBounce(event),
       BallLostEvent() => _onBallLost(event),
     };
+  }
+
+  /// Watches for the rally to be initiated (see [requireServe]); never scores.
+  PointDecision? _onPreRally(TrackerEvent event) {
+    switch (event) {
+      case BounceEvent e:
+        if (_preCrossTo == e.side) {
+          // The ball crossed the net and has now landed on the receiving
+          // side: play is live (covers serves whose own-side bounce the
+          // track missed).
+          _rallyStarted = true;
+          _lastBounceSide = e.side;
+          _crossedSinceBounce = false;
+        } else {
+          _preBounceSide = e.side;
+        }
+      case NetCrossEvent e:
+        if (_preBounceSide == e.from) {
+          // The serve signature: a bounce on S then a crossing from S.
+          _rallyStarted = true;
+          _lastBounceSide = e.from;
+          _crossedSinceBounce = true;
+          _crossesSinceBounce = 1;
+          _firstUnansweredCrossTo = e.to;
+          _firstUnansweredCrossT = e.timestampMs;
+        } else {
+          _preCrossTo = e.to;
+        }
+      case BallLostEvent():
+        // Whatever that was (a warm-up pass, a caught ball), it ended
+        // without ever becoming a rally. Forget it, decide nothing.
+        _preBounceSide = null;
+        _preCrossTo = null;
+    }
+    return null;
   }
 
   PointDecision? _onNetCross(NetCrossEvent event) {
@@ -231,10 +294,15 @@ class RallyReferee {
   }
 
   /// Forget the current rally's state (called automatically after a decision).
+  /// With [requireServe], the gate re-arms: the next rally must again be
+  /// visibly initiated before events count.
   void reset() {
     _lastBounceSide = null;
     _crossedSinceBounce = false;
     _crossesSinceBounce = 0;
     _firstUnansweredCrossTo = null;
+    _rallyStarted = false;
+    _preBounceSide = null;
+    _preCrossTo = null;
   }
 }

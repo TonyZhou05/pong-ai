@@ -385,11 +385,17 @@ class MatchController {
     for (final event in events) {
       _rallies.observe(event);
       _placement.observe(event);
-      if (event is BounceEvent) {
+      final decision = referee.update(event);
+      // Count table bounces as rally activity only while a rally is actually
+      // live (or when this very bounce decided it, e.g. a double bounce) —
+      // otherwise players knocking the ball around between points inflate
+      // the counters. Without the referee's serve gate this is always live,
+      // preserving historical counting.
+      if (event is BounceEvent &&
+          (referee.rallyInProgress || decision != null)) {
         _bounceCount++;
         _currentRallyBounces++;
       }
-      final decision = referee.update(event);
       if (decision == null) continue;
 
       if (decision.isDecisive) {

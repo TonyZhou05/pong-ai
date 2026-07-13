@@ -30,11 +30,28 @@ BALL_BOX_PX = 18
 INTERP_MAX_GAP = 24  # source frames
 CLUSTER_GAP_S = 1.5  # label gap that splits rally clusters
 MIN_CLUSTER_S = 0.4  # drop clusters with less labeled play than this
+
+# Rally-ness filter: a labeled cluster only becomes a corpus clip if it is a
+# real rally rather than a between-point handover (a player knocking the ball
+# to the other). A rally shows the ball crossing the net at least twice (the
+# serve over and a return back) — or, since sparse labels can miss crossings,
+# bounces on BOTH sides of the table over a non-trivial span. A handover is a
+# short one-way trip.
+MIN_RALLY_CROSSINGS = 2
+MIN_RALLY_SPAN_S = 1.0
+
+# Segment-end extension: the dataset's labels sometimes stop while the rally
+# is still being played (e.g. a player retreats off-frame and the annotators
+# stop marking). Probe past the last label with the ball detector and keep
+# extending the segment while the ball is still seen in play, so a clip never
+# cuts (and force-scores) a rally that is still live.
+EXTEND_CAP_S = 15.0  # max seconds to extend past the last label
+EXTEND_QUIET_S = 2.0  # stop once the ball has been gone this long
 SEG_PAD_S = 1.5  # context seconds kept around a cluster in the cut video
 PLAY_PAD_BEFORE_S = 1.0  # detector-ball trust window around the labels
 PLAY_PAD_AFTER_S = 0.5
 
-VIDEOS = ["test_1", "test_2", "test_3"]
+VIDEOS = ["test_1", "test_2", "test_3", "test_5", "test_6", "test_7"]
 
 # Rally outcomes verified by watching the clips (user-confirmed for test_2):
 # segment id -> (pointsA, pointsB, winners). Others are unannotated.
@@ -96,8 +113,12 @@ def process_video(name):
     bxs, bys = [], []
     for f, ev in events.items():
         if ev == "bounce" and (g := nearest_label(f, 3)) is not None:
-            bxs.append(ball[g]["x"] / W)
-            bys.append(ball[g]["y"] / H)
+            bx, by = ball[g]["x"] / W, ball[g]["y"] / H
+            # Markup occasionally carries junk coordinates (e.g. -0.001);
+            # a single outlier would blow the bounds open to the frame edge.
+            if 0.02 < bx < 0.98 and 0.02 < by < 0.98:
+                bxs.append(bx)
+                bys.append(by)
     table = None
     if len(bxs) >= 4:
         table = {
@@ -116,11 +137,91 @@ def process_video(name):
         cur.append(g)
     clusters.append(cur)
     clusters = [c for c in clusters if (c[-1] - c[0]) / SRC_FPS >= MIN_CLUSTER_S]
-    print(f"{name}: netX={net_x:.4f} table={table} -> {len(clusters)} segments")
+
+    def is_rally(c):
+        span = (c[-1] - c[0]) / SRC_FPS
+        crossings = 0
+        sides = set()
+        prev = None
+        for g in c:
+            x = ball[g]["x"] / W
+            if not (0.02 < x < 0.98):
+                continue
+            side = x < net_x
+            if prev is not None and g - prev[0] <= 12 and side != prev[1]:
+                crossings += 1
+            prev = (g, side)
+        for f, ev in events.items():
+            if ev == "bounce" and c[0] - 60 <= f <= c[-1] + 120:
+                g = nearest_label(f, 3)
+                if g is not None and 0.02 < ball[g]["x"] / W < 0.98:
+                    sides.add(ball[g]["x"] / W < net_x)
+        return crossings >= MIN_RALLY_CROSSINGS or (
+            len(sides) >= 2 and span >= MIN_RALLY_SPAN_S
+        )
+
+    raw_clusters = list(clusters)
+    kept = [c for c in clusters if is_rally(c)]
+    dropped = len(clusters) - len(kept)
+    clusters = kept
+    print(
+        f"{name}: netX={net_x:.4f} table={table} -> "
+        f"{len(clusters)} rallies ({dropped} handovers dropped)"
+    )
+
+    def probe_extension(c1, next_c0):
+        """Last frame (<= c1 + cap) where the detector still sees the ball in
+        play past the final label — the rally may outlive the annotations.
+        Hard-capped before the *next* cluster starts: between rallies the
+        detector often tracks the ball being carried/held, which would
+        otherwise extend one segment into the following rally."""
+        last_active = c1
+        f = c1
+        cap_frames = min(
+            c1 + EXTEND_CAP_S * SRC_FPS,
+            (next_c0 - 2.0 * SRC_FPS) if next_c0 is not None else float("inf"),
+        )
+        x_lo = (table["tableLeft"] if table else 0.0) - 0.15
+        x_hi = (table["tableRight"] if table else 1.0) + 0.15
+        cap_reader = cv2.VideoCapture(str(video))
+        cap_reader.set(cv2.CAP_PROP_POS_FRAMES, c1)
+        while f < cap_frames:
+            ok, img = cap_reader.read()
+            if not ok:
+                break
+            f += 1
+            if (f - c1) % STRIDE:
+                continue
+            if f - last_active > EXTEND_QUIET_S * SRC_FPS:
+                break
+            dres = det_model.predict(
+                img, imgsz=1280, conf=0.3, classes=[32], device=DEVICE, verbose=False
+            )[0]
+            if dres.boxes is not None:
+                for j in range(len(dres.boxes)):
+                    x1, y1, x2, y2 = (float(v) for v in dres.boxes.xyxyn[j])
+                    if min(x2 - x1, y2 - y1) > 0.05:
+                        continue
+                    cx = (x1 + x2) / 2
+                    if x_lo <= cx <= x_hi:
+                        last_active = f
+                        break
+        cap_reader.release()
+        return last_active
+
+    # Extension caps come from the *raw* cluster boundaries (handovers count:
+    # they still mark where new ball activity begins).
+    raw_starts = sorted(c[0] for c in raw_clusters)
 
     for i, cluster in enumerate(clusters, start=1):
         seg_id = f"{name}_r{i}"
         c0, c1 = cluster[0], cluster[-1]
+        next_c0 = next((s0 for s0 in raw_starts if s0 > c1), None)
+        c1_ext = probe_extension(c1, next_c0)
+        if c1_ext > c1 + SRC_FPS:  # extended by more than a second
+            print(f"  {seg_id}: play continues {(c1_ext - c1) / SRC_FPS:.1f}s "
+                  "past the labels — segment extended")
+        c1 = c1_ext
         seg_start = max(0, int(c0 - SEG_PAD_S * SRC_FPS))
         seg_end = min(frames_total - 1, int(c1 + SEG_PAD_S * SRC_FPS))
         play0 = c0 - PLAY_PAD_BEFORE_S * SRC_FPS

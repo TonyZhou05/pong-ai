@@ -246,6 +246,72 @@ void main() {
     });
   });
 
+  group('RallyReferee — serve gate (requireServe)', () {
+    test('between-point passes decide nothing until a serve initiates play',
+        () {
+      final ref = RallyReferee(requireServe: true);
+      // A casual knock across that gets caught: cross, then the ball is lost.
+      final decisions = _run(ref, [
+        _cross(0, TableSide.left),
+        _lost(500),
+      ]);
+      expect(decisions, isEmpty, reason: 'no rally was ever initiated');
+      expect(ref.rallyInProgress, isFalse);
+    });
+
+    test('the serve signature (bounce then crossing from it) arms the rally',
+        () {
+      final ref = RallyReferee(requireServe: true);
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.left), // server's own-side bounce
+        _cross(50, TableSide.left), // ...crossing from it: serve!
+        _bounce(100, TableSide.right),
+        _bounce(400, TableSide.right), // double bounce -> decided
+      ]);
+      expect(ref.rallyInProgress, isFalse, reason: 're-armed after decision');
+      expect(decisions.single.reason, PointReason.doubleBounce);
+      expect(decisions.single.winner, Player.a);
+    });
+
+    test('a crossing that lands also arms the rally (missed serve bounce)',
+        () {
+      final ref = RallyReferee(requireServe: true);
+      final decisions = _run(ref, [
+        _cross(0, TableSide.left), // serve crossing (own bounce untracked)
+        _bounce(50, TableSide.right), // ...lands: play is live
+        _lost(1000), // right side never returned it
+      ]);
+      expect(decisions.single.reason, PointReason.notReturned);
+      expect(decisions.single.winner, Player.a);
+    });
+
+    test('after a decision the gate re-arms: leftovers decide nothing', () {
+      final ref = RallyReferee(requireServe: true);
+      _run(ref, [
+        _bounce(0, TableSide.left),
+        _cross(50, TableSide.left),
+        _bounce(100, TableSide.right),
+        _bounce(400, TableSide.right), // rally 1 decided
+      ]);
+      // Post-point knock-around: bounce on one side, then lost.
+      final decisions = _run(ref, [
+        _bounce(600, TableSide.left),
+        _lost(1500),
+      ]);
+      expect(decisions, isEmpty);
+    });
+
+    test('off by default: streams score from the first event', () {
+      final ref = RallyReferee();
+      expect(ref.rallyInProgress, isTrue);
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.right),
+        _bounce(50, TableSide.right),
+      ]);
+      expect(decisions.single.reason, PointReason.doubleBounce);
+    });
+  });
+
   group('RallyReferee — rally reset', () {
     test('referee resets after a decision so the next rally is independent', () {
       final ref = RallyReferee();

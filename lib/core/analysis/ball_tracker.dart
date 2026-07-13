@@ -152,11 +152,14 @@ class BallTracker {
     this.maxGapFrames = 6,
     this.maxJump,
     this.netBounceExclusion = 0,
+    this.extendedGapFrames,
+    this.frameTopExitY = 0.15,
     BallTrajectoryFilter? filter,
   })  : assert(minBounceSpeed >= 0),
         assert(maxGapFrames >= 0),
         assert(maxJump == null || maxJump > 0),
         assert(netBounceExclusion >= 0),
+        assert(extendedGapFrames == null || extendedGapFrames >= maxGapFrames),
         _filter = filter ?? BallTrajectoryFilter();
 
   final TableGeometry geometry;
@@ -178,6 +181,20 @@ class BallTracker {
   /// stays far below it while a detection latching onto something across the
   /// table does not.
   final double? maxJump;
+
+  /// A more patient ball-loss budget applied when the evidence says play is
+  /// probably still live despite the missing ball: the ball was last tracked
+  /// near the top of the frame (a lob arcing out of view — it will come back
+  /// down), or fewer than two players are visible (someone has left the frame
+  /// to chase the ball, and the camera can't see the whole exchange). Without
+  /// this, a high defensive lob or an off-frame retrieval gets scored as a
+  /// rally-ending ball loss while the point is still being played. `null`
+  /// (the default) disables the patience, preserving historical behaviour.
+  final int? extendedGapFrames;
+
+  /// Normalized y above which (i.e. smaller than) a last-tracked ball counts
+  /// as having exited via the top of the frame for [extendedGapFrames].
+  final double frameTopExitY;
 
   /// Reject a bounce whose apex lies within this normalized x-distance of the
   /// net line. A downward-then-upward reversal *at* the net plane is usually
@@ -236,7 +253,7 @@ class BallTracker {
   List<TrackerEvent> update(FrameResult frame) {
     final ball = frame.ball;
     if (ball == null) {
-      return _handleMissingBall(frame.timestampMs);
+      return _handleMissingBall(frame.timestampMs, frame.people.length);
     }
 
     // Physical-plausibility gate: once a trajectory is established, a detection
@@ -253,7 +270,7 @@ class BallTracker {
       _outlierCount++;
       final recovered = _recoverCandidate(frame);
       if (recovered == null) {
-        return _handleMissingBall(frame.timestampMs);
+        return _handleMissingBall(frame.timestampMs, frame.people.length);
       }
       accepted = recovered;
     }
@@ -332,10 +349,17 @@ class BallTracker {
     return best;
   }
 
-  List<TrackerEvent> _handleMissingBall(int timestampMs) {
-    if (_prev == null) return const [];
+  List<TrackerEvent> _handleMissingBall(int timestampMs, int peopleVisible) {
+    final last = _prev;
+    if (last == null) return const [];
     _missedFrames++;
-    if (_missedFrames > maxGapFrames) {
+    // Patience: a ball that left via the top of the frame (a lob) is coming
+    // back, and a missing player is probably off-frame playing it — hold the
+    // rally open longer before declaring the ball lost.
+    final patient = extendedGapFrames != null &&
+        (last.y < frameTopExitY || peopleVisible < 2);
+    final budget = patient ? extendedGapFrames! : maxGapFrames;
+    if (_missedFrames > budget) {
       return [_loseBall(timestampMs)];
     }
     return const [];

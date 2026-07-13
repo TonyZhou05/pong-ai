@@ -341,6 +341,51 @@ void main() {
     });
   });
 
+  group('BallTracker — loss patience (extendedGapFrames)', () {
+    FrameResult peopleFrame(int t, int people) => FrameResult(
+          timestampMs: t,
+          people: [
+            for (var i = 0; i < people; i++)
+              PersonPose(box: BBox(0.1 + 0.6 * i, 0.3, 0.1, 0.4), keypoints: const []),
+          ],
+        );
+
+    test('a ball lost high (lob out the top) waits the extended budget', () {
+      final tracker = BallTracker(maxGapFrames: 2, extendedGapFrames: 6);
+      // Ball tracked rising toward the top of the frame, then gone.
+      _run(tracker, [
+        _frame(0, 0.5, 0.30),
+        _frame(33, 0.5, 0.10), // above frameTopExitY (0.15)
+      ]);
+      // Two players stay visible; 3 missing frames exceed maxGapFrames but
+      // not the extended budget — the lob is still in the air.
+      final events =
+          _run(tracker, [for (var i = 1; i <= 3; i++) peopleFrame(33 + i * 33, 2)]);
+      expect(events.whereType<BallLostEvent>(), isEmpty);
+      // …but a genuinely long absence still ends it.
+      final more =
+          _run(tracker, [for (var i = 4; i <= 8; i++) peopleFrame(33 + i * 33, 2)]);
+      expect(more.whereType<BallLostEvent>(), hasLength(1));
+    });
+
+    test('a missing player also extends the budget', () {
+      final tracker = BallTracker(maxGapFrames: 2, extendedGapFrames: 6);
+      _run(tracker, [_frame(0, 0.5, 0.50), _frame(33, 0.55, 0.50)]);
+      // Only one player visible: someone is off-frame playing the ball.
+      final events =
+          _run(tracker, [for (var i = 1; i <= 3; i++) peopleFrame(33 + i * 33, 1)]);
+      expect(events.whereType<BallLostEvent>(), isEmpty);
+    });
+
+    test('disabled by default: standard budget applies', () {
+      final tracker = BallTracker(maxGapFrames: 2);
+      _run(tracker, [_frame(0, 0.5, 0.30), _frame(33, 0.5, 0.10)]);
+      final events =
+          _run(tracker, [for (var i = 1; i <= 3; i++) peopleFrame(33 + i * 33, 1)]);
+      expect(events.whereType<BallLostEvent>(), hasLength(1));
+    });
+  });
+
   group('BallTracker — outlier gate (maxJump)', () {
     test('is disabled by default: an implausible jump is still accepted', () {
       final tracker = BallTracker();

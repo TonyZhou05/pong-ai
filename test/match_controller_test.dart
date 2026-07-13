@@ -828,6 +828,25 @@ void main() {
     });
   });
 
+  group('MatchController — serve-gated bounce counting', () {
+    test('pre-serve knock-around bounces are not counted', () {
+      final mc = MatchController(
+        referee: RallyReferee(requireServe: true),
+      );
+      // A between-point pass: ball bounces once on the left, then is caught
+      // (lost). No rally was initiated.
+      mc.onFrame(_frame(0, 0.25, 0.30));
+      mc.onFrame(_frame(33, 0.25, 0.70));
+      mc.onFrame(_frame(66, 0.25, 0.50)); // bounce apex reported
+      for (var i = 1; i <= 8; i++) {
+        mc.onFrame(_empty(66 + i * 33));
+      }
+      expect(mc.bounceCount, 0, reason: 'no serve -> not rally activity');
+      expect(mc.score.pointsA + mc.score.pointsB, 0);
+      expect(mc.undetermined, isEmpty);
+    });
+  });
+
   group('MatchController — post-point cool-down', () {
     test('leftover ball motion right after a point is ignored', () {
       final mc = MatchController(postPointCooldown: 3);
