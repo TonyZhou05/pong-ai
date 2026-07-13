@@ -1141,6 +1141,13 @@ behind a `VisionService` interface. This lets us:
      career analog of the training on-target streak (iterations 78/80). Surfaced as a
      "Best win streak: A won N in a row" `report()` line (shown when ≥2) and a
      "· streak A N" segment on the Match-record card's head-to-head line.
+     **[iteration 125]** The *current* trailing streak (`currentMatchWinStreak` /
+     `currentMatchWinStreakSeat`) had been computed and unit-tested since iteration
+     86 but was never surfaced — only the all-time best reached the UI. Added a
+     "Current streak: SEAT on N straight" `report()` line and a "· now SEAT N"
+     segment on the Match-record head-to-head line (both shown when the live run is
+     ≥2), so a recurring pairing sees the streak they are riding *right now*, not
+     only their best-ever run.
    - **[done — iteration 85]** Training career *typical* shot speed. `TrainingTrendPoint`
      parsed each drill's peak `pace.maxSpeedKmh` (surfaced as `bestMaxSpeedKmh`)
      but discarded the emitted `pace.averageSpeedKmh`. Added

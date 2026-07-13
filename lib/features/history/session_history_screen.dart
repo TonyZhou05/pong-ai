@@ -357,7 +357,10 @@ class _MatchSummaryCard extends StatelessWidget {
                 "${trends.matchWinsBy('B')} B"
                 "${trends.longestMatchWinStreak >= 2 ? ' · streak '
                     '${trends.longestMatchWinStreakSeat} '
-                    '${trends.longestMatchWinStreak}' : ''}",
+                    '${trends.longestMatchWinStreak}' : ''}"
+                "${trends.currentMatchWinStreak >= 2 ? ' · now '
+                    '${trends.currentMatchWinStreakSeat} '
+                    '${trends.currentMatchWinStreak}' : ''}",
                 style: theme.textTheme.bodyMedium,
               ),
             ],

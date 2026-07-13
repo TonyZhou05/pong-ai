@@ -839,6 +839,12 @@ class SessionTrends {
           'Best win streak: $longestMatchWinStreakSeat won $streak in a row',
         );
       }
+      final current = currentMatchWinStreak;
+      if (current >= 2) {
+        lines.add(
+          'Current streak: $currentMatchWinStreakSeat on $current straight',
+        );
+      }
     }
     final points = totalMatchPoints;
     if (points != null) lines.add('Points contested: $points');

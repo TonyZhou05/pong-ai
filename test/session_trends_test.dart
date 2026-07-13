@@ -906,6 +906,32 @@ void main() {
       ]).report();
       expect(report, contains('Head-to-head: A 1–1 B'));
       expect(report, isNot(contains('Best win streak')));
+      expect(report, isNot(contains('Current streak')));
+    });
+
+    test('report surfaces the current trailing streak when it reaches two', () {
+      // A, A, A, B, B -> best-ever run is A on 3, but the live streak is B on 2.
+      final report = SessionTrends.fromSessions([
+        _match('m1', d0, winner: 'A'),
+        _match('m2', d1, winner: 'A'),
+        _match('m3', d2, winner: 'A'),
+        _match('m4', DateTime(2026, 7, 20, 9), winner: 'B'),
+        _match('m5', DateTime(2026, 7, 25, 9), winner: 'B'),
+      ]).report();
+      expect(report, contains('Best win streak: A won 3 in a row'));
+      expect(report, contains('Current streak: B on 2 straight'));
+    });
+
+    test('report omits the current streak after the run is broken', () {
+      // B, B, A -> best-ever B streak of 2 is shown, but the current run is a
+      // lone A win, so no current-streak line.
+      final report = SessionTrends.fromSessions([
+        _match('m1', d0, winner: 'B'),
+        _match('m2', d1, winner: 'B'),
+        _match('m3', d2, winner: 'A'),
+      ]).report();
+      expect(report, contains('Best win streak: B won 2 in a row'));
+      expect(report, isNot(contains('Current streak')));
     });
   });
 }
