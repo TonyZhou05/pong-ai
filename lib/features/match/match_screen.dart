@@ -14,6 +14,7 @@ import '../../core/vision/detection.dart';
 import '../../core/vision/replay_vision_service.dart';
 import '../../core/vision/synthetic_frames.dart';
 import '../../core/vision/vision_service.dart';
+import '../summary/shot_map.dart';
 
 /// Live match screen: streams vision frames through the [MatchController] and
 /// renders the running score, the tracked ball, and the referee's calls.
@@ -435,6 +436,17 @@ class _SummaryPanel extends StatelessWidget {
                 '${placement[side]!.deepCount} deep',
                 style: theme.textTheme.bodyMedium,
               ),
+          if (placement[TableSide.left]!.count +
+                  placement[TableSide.right]!.count >
+              0) ...[
+            const SizedBox(height: 8),
+            Text('Shot map', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 4),
+            ShotMapView(
+              left: placement[TableSide.left]!,
+              right: placement[TableSide.right]!,
+            ),
+          ],
           const SizedBox(height: 8),
           Row(
             children: [

@@ -238,6 +238,17 @@ behind a `VisionService` interface. This lets us:
      live into `MatchController` (`placementFor(side)`, live-only like the
      movement/rally analytics, rebuilt on the calibrated geometry) and surfaced
      as per-side short/mid/deep counts in the Match screen's post-match summary.
+   - **[done — iteration 21]** `ShotMapView`
+     (`features/summary/shot_map.dart`): the *visual* shot-map — the headline
+     placement view of match apps. It renders every recorded `BouncePlacement`
+     from both sides' `SidePlacementStats` as translucent dots on a schematic
+     top-down table (net a vertical centre line; each side's depth fans outward
+     toward its baseline; lateral maps to across-table y), so overlapping
+     landings read as a density/heat cloud. The placement→pixel geometry is a
+     pure, unit-tested `shotMapPosition(BouncePlacement)` seam so the map math is
+     verifiable without pixels; the `CustomPaint` painter just draws those
+     points. Surfaced in the Match screen's post-match summary panel below the
+     per-side short/mid/deep counts.
 7. Training mode: shot segmentation + quality grading.
    - **[done — iteration 20]** `CameraTrainingScreen`
      (`features/training/camera_training_screen.dart`): the live-camera
