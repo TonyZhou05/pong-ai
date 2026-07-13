@@ -169,6 +169,35 @@ void main() {
       );
     });
 
+    test('on-table accuracy is not assessed when nothing missed the table', () {
+      // Clean session (missedShots == 0) — the accuracy dimension stays off so
+      // an existing all-landed drill is scored exactly as before.
+      final shots = [
+        for (var i = 0; i < 4; i++)
+          _shot(depth: 0.75, lateral: 0.5, t: i * 1000),
+      ];
+      final fb = TrainingFeedback(_summary(shots));
+      expect(
+        fb.dimensions.map((d) => d.name),
+        isNot(contains('On-table accuracy')),
+      );
+    });
+
+    test('frequently missing the table makes on-table accuracy the focus', () {
+      // Well-placed, consistent, in-rhythm landed shots, but half the strokes
+      // flew off the table — keeping it on becomes the real weak point.
+      final shots = [
+        for (var i = 0; i < 4; i++)
+          _shot(depth: 0.75, lateral: 0.5, t: i * 1000),
+      ];
+      final fb = TrainingFeedback(TrainingSummary(shots, missedShots: 4));
+      final onTable =
+          fb.dimensions.firstWhere((d) => d.name == 'On-table accuracy');
+      expect(onTable.score, closeTo(0.5, 1e-9)); // 4 of 8 attempts landed
+      expect(fb.weakest!.name, 'On-table accuracy');
+      expect(fb.focusTip, contains('table'));
+    });
+
     test('respects a custom target depth via config', () {
       // Landing deep at 0.95; with a shallow 0.3 target that is a big overshoot.
       final shots = [

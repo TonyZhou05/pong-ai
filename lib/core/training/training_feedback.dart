@@ -112,6 +112,24 @@ class TrainingFeedback {
       ),
     );
 
+    // On-table accuracy: the most fundamental coachable dimension — did the ball
+    // even stay on the table? Placement/consistency/pace only score the strokes
+    // that *landed* on the target half, so a player who keeps missing the table
+    // entirely gets coached on the depth precision of their few good shots
+    // instead of their real weakness. Assessed only when a miss was recorded
+    // (missedShots > 0), matching the on-table-accuracy report line's guard, so
+    // a clean session (no misses) is unchanged.
+    if (summary.missedShots > 0) {
+      dims.add(
+        FeedbackDimension(
+          name: 'On-table accuracy',
+          score: summary.onTableRate,
+          tip: 'Keep the ball on the table — control the stroke so more shots '
+              'land in before working on placement.',
+        ),
+      );
+    }
+
     if (summary.shots.length >= 2) {
       dims.add(
         FeedbackDimension(

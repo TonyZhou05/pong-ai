@@ -901,7 +901,14 @@ behind a `VisionService` interface. This lets us:
      `averageSpeedKmh` vs the new `TrainingConfig.targetSpeedKmh` (default 30 km/h),
      plateauing at full marks once target pace is reached and assessed only when a
      km/h scale exists, so an on-target-but-soft drill is finally coached to "add
-     pace" instead of the accuracy metrics masking it — into `[0,1]`
+     pace" instead of the accuracy metrics masking it — and (iteration 95)
+     **on-table accuracy** — the most fundamental dimension, `onTableRate` (the
+     iteration-77 miss rate), assessed only when a stroke actually missed the
+     table (`missedShots > 0`). Placement/consistency/pace only score the strokes
+     that *landed*, so a player who keeps missing the table entirely was coached
+     on the depth precision of their few good shots instead of their real
+     weakness; keeping the ball on the table now surfaces as its own focus cue —
+     into `[0,1]`
      `FeedbackDimension`s, then names the *weakest* as the
      focus (`focusTip`, with a directional placement cue when the player is short
      vs overshooting) and the *strongest* as a confirmed strength. When even the
