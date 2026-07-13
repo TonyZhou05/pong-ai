@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 import '../../core/analysis/ball_tracker.dart';
+import '../../core/audio/speech_announcer.dart';
 import '../../core/analysis/match_announcer.dart';
 import '../../core/analysis/match_controller.dart';
 import '../../core/analysis/match_insights.dart';
@@ -272,11 +273,19 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     _undeterminedSpokenCount = pending;
   }
 
-  /// Default spoken-call sink: a tactile + audible cue so a table-side phone
-  /// signals that a point registered even though no one is watching the screen.
+  /// Lazily-built text-to-speech voice for the default announce sink, created
+  /// only when a call is actually spoken (so injected-sink tests never touch the
+  /// TTS platform channel).
+  SpeechAnnouncer? _voice;
+
+  /// Default spoken-call sink: pulses a tactile + system-click cue *and* speaks
+  /// the umpire call aloud through the device text-to-speech engine, so a
+  /// table-side phone actually voices the score for a player across the table —
+  /// not just a haptic tap they'd have to walk over to read.
   void _defaultAnnounce(String call) {
     HapticFeedback.mediumImpact();
     SystemSound.play(SystemSoundType.click);
+    (_voice ??= SpeechAnnouncer.device()).announce(call);
   }
 
   void _resolve(PointDecision decision, Player winner) {
@@ -365,6 +374,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   void dispose() {
     _sub?.cancel();
     _vision.dispose();
+    _voice?.stop();
     super.dispose();
   }
 

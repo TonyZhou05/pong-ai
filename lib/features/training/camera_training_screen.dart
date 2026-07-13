@@ -7,6 +7,7 @@ import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/table_calibrator.dart';
 import '../../core/analysis/tracking_quality.dart';
+import '../../core/audio/speech_announcer.dart';
 import '../../core/history/history_store_provider.dart';
 import '../../core/history/session_history_store.dart';
 import '../../core/training/shot_analyzer.dart';
@@ -211,12 +212,19 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
     (widget.onAnnounce ?? _defaultAnnounce)(call);
   }
 
-  /// Default spoken-call sink: a tactile + audible cue so a table-side phone
-  /// signals that a stroke was graded even though the player isn't watching the
-  /// screen.
+  /// Lazily-built text-to-speech voice for the default announce sink, created
+  /// only when a call is actually spoken (so injected-sink tests never touch the
+  /// TTS platform channel).
+  SpeechAnnouncer? _voice;
+
+  /// Default spoken-call sink: pulses a tactile + system-click cue *and* speaks
+  /// the coach call aloud through the device text-to-speech engine, so a
+  /// table-side phone actually voices the shot grade for a lone player drilling
+  /// across the table — not just a haptic tap they'd have to walk over to read.
   void _defaultAnnounce(String call) {
     HapticFeedback.selectionClick();
     SystemSound.play(SystemSoundType.click);
+    (_voice ??= SpeechAnnouncer.device()).announce(call);
   }
 
   /// Switches which half the player is hitting *from* (and thus the target
@@ -289,6 +297,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   void dispose() {
     _sub?.cancel();
     _vision.dispose();
+    _voice?.stop();
     super.dispose();
   }
 

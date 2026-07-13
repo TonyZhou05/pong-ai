@@ -15,6 +15,8 @@ dependencies:
   ultralytics_yolo: ^0.6.9
   # Platform documents directory for the on-disk session-history store.
   path_provider: ^2.1.6
+  # On-device text-to-speech so the umpire/coach announcer voices calls aloud.
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:

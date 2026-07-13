@@ -332,6 +332,14 @@ behind a `VisionService` interface. This lets us:
          helper gates the `onAnnounce` sink on it, so muting suppresses only the
          audio/haptic cue — the recent-shots caption still updates so the visual
          readout is unaffected.
+       - **[done — iteration 118]** Real text-to-speech voice (shared with the
+         match path). `CameraTrainingScreen._defaultAnnounce` now speaks each
+         coach call ("Excellent shot!", streak/pace milestones) aloud through the
+         same lazily-built `SpeechAnnouncer.device()`
+         (`core/audio/speech_announcer.dart`) in addition to the haptic pulse, so
+         a lone player drilling across the table actually *hears* the grade
+         instead of only feeling a tap. See the match-path iteration-118 note for
+         the `TtsEngine`/`flutter_tts` design; the mute toggle still silences it.
      - **[done — iteration 91]** Live game-point / match-point cue.
        `core/scoring/match_situation.dart` (`MatchSituation`) derives, from a
        `MatchState` snapshot alone, whether a side is one point from winning the
@@ -455,6 +463,24 @@ behind a `VisionService` interface. This lets us:
          (`_undeterminedSpokenCount`) rather than a boolean, so a *second* ambiguous
          rally still cues, and re-syncs on resolve/undo (queue shrinks) and Play
          again (reset to 0) so the cue re-arms for the next unclear point.
+       - **[done — iteration 118]** Real text-to-speech voice. Iterations 108–117
+         composed a full umpire vocabulary (points, games, match, pressure,
+         serve, change-ends, match-start, review), but the *default* `onAnnounce`
+         sink only pulsed a haptic + `SystemSound` click — the carefully worded
+         phrases were captioned but never actually *heard*, defeating the whole
+         point of a "phone across the table" announcer. `SpeechAnnouncer`
+         (`core/audio/speech_announcer.dart`) now speaks each call aloud through
+         `flutter_tts`: a small `TtsEngine` abstraction (real `FlutterTtsEngine`
+         configures `en-US`, a moderate rate, and `QueueMode.add` so back-to-back
+         calls queue instead of cutting each other off) keeps the queue/guard
+         logic unit-testable without the platform channel, and every engine call
+         is swallowed on failure so a device with no TTS engine (or a headless
+         test) degrades to the caption-only path instead of crashing. Both live
+         screens' `_defaultAnnounce` now pulses the haptic cue *and* voices the
+         call via a lazily-built `SpeechAnnouncer.device()` (built only when a
+         call is actually spoken, so injected-sink tests never touch the channel),
+         stopped on dispose. The mute toggle (iterations 114/115) still silences
+         it, since it gates the whole default sink.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking
