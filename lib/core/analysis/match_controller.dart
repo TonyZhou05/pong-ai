@@ -119,6 +119,7 @@ class MatchController {
     PointReason reason,
     int timestampMs,
     Player server,
+    int gameIndex,
   ) {
     _points.add(
       ScoredPoint(
@@ -126,6 +127,7 @@ class MatchController {
         reason: reason,
         timestampMs: timestampMs,
         server: server,
+        gameIndex: gameIndex,
       ),
     );
   }
@@ -161,14 +163,17 @@ class MatchController {
       if (decision.isDecisive) {
         // Capture who served *before* awarding — awardPoint advances the serve
         // rotation, so state.server after the call is the next server, not this
-        // rally's.
+        // rally's. Likewise the game index is the number of games completed
+        // before this point (awarding may complete the game).
         final server = engine.state.server;
+        final gameIndex = engine.state.gamesA + engine.state.gamesB;
         engine.awardPoint(decision.winner!);
         _record(
           decision.winner!,
           decision.reason,
           decision.timestampMs,
           server,
+          gameIndex,
         );
       } else {
         _undetermined.add(decision);
@@ -210,8 +215,9 @@ class MatchController {
   void resolveUndetermined(PointDecision decision, Player winner) {
     if (_undetermined.remove(decision)) {
       final server = engine.state.server;
+      final gameIndex = engine.state.gamesA + engine.state.gamesB;
       engine.awardPoint(winner);
-      _record(winner, decision.reason, decision.timestampMs, server);
+      _record(winner, decision.reason, decision.timestampMs, server, gameIndex);
     }
   }
 

@@ -25,6 +25,7 @@ class ScoredPoint {
     required this.reason,
     required this.timestampMs,
     this.server,
+    this.gameIndex,
   });
 
   final Player winner;
@@ -37,10 +38,41 @@ class ScoredPoint {
   /// analytics count only points where it is known.
   final Player? server;
 
+  /// The 0-based index of the game this point belonged to (games completed
+  /// *before* this point was awarded). Null when it was not recorded — e.g. a
+  /// [ScoredPoint] built by an older caller — so per-game breakdowns only cover
+  /// points where it is known.
+  final int? gameIndex;
+
   @override
   String toString() =>
       'ScoredPoint($winner, $reason, @$timestampMs'
-      '${server == null ? '' : ', serve $server'})';
+      '${server == null ? '' : ', serve $server'}'
+      '${gameIndex == null ? '' : ', game $gameIndex'})';
+}
+
+/// The final point score of a single completed-or-in-progress game.
+class GameScore {
+  const GameScore({required this.pointsA, required this.pointsB});
+
+  final int pointsA;
+  final int pointsB;
+
+  int pointsFor(Player p) => p == Player.a ? pointsA : pointsB;
+
+  /// The game winner if it reached a decided margin (target reached with a
+  /// 2-point lead), or null while it is still in progress.
+  Player? winnerAt(int pointsPerGame) {
+    final leader = pointsA >= pointsB ? pointsA : pointsB;
+    final trailer = pointsA >= pointsB ? pointsB : pointsA;
+    if (leader >= pointsPerGame && (leader - trailer) >= 2) {
+      return pointsA > pointsB ? Player.a : Player.b;
+    }
+    return null;
+  }
+
+  @override
+  String toString() => '$pointsA–$pointsB';
 }
 
 /// Aggregated performance analysis over a match's [ScoredPoint] log.
@@ -113,6 +145,35 @@ class MatchSummary {
   /// meaningful for this match.
   bool get hasServeData => points.any((point) => point.server != null);
 
+  /// Whether any point carried a recorded game index, i.e. the per-game
+  /// breakdown is meaningful for this match.
+  bool get hasGameData => points.any((point) => point.gameIndex != null);
+
+  /// The per-game point score line, reconstructed from the point log by
+  /// counting each game's points won by each player. Games appear in play
+  /// order; a trailing in-progress game (no winner yet) is included so the
+  /// current game's running score shows too. Points with no recorded
+  /// [ScoredPoint.gameIndex] are ignored, so this is empty when [hasGameData]
+  /// is false.
+  List<GameScore> get gameScores {
+    final byGame = <int, List<int>>{}; // gameIndex -> [pointsA, pointsB]
+    for (final point in points) {
+      final g = point.gameIndex;
+      if (g == null) continue;
+      final tally = byGame.putIfAbsent(g, () => [0, 0]);
+      if (point.winner == Player.a) {
+        tally[0] += 1;
+      } else {
+        tally[1] += 1;
+      }
+    }
+    final indices = byGame.keys.toList()..sort();
+    return [
+      for (final g in indices)
+        GameScore(pointsA: byGame[g]![0], pointsB: byGame[g]![1]),
+    ];
+  }
+
   /// The longest run of consecutive points won by [p].
   int longestStreakFor(Player p) {
     var longest = 0;
@@ -165,6 +226,11 @@ class MatchSummary {
       );
     }
     lines.add('$totalPoints points played over ${_fmtDuration(durationMs)}.');
+
+    final games = gameScores;
+    if (games.isNotEmpty) {
+      lines.add('Games: ${games.join(', ')}.');
+    }
 
     for (final player in Player.values) {
       lines

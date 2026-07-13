@@ -35,6 +35,13 @@ ScoredPoint _ptS(Player winner, Player server, int t) => ScoredPoint(
       server: server,
     );
 
+ScoredPoint _ptG(Player winner, int game, int t) => ScoredPoint(
+      winner: winner,
+      reason: PointReason.notReturned,
+      timestampMs: t,
+      gameIndex: game,
+    );
+
 void main() {
   group('MatchSummary', () {
     test('counts points won per player', () {
@@ -162,6 +169,56 @@ void main() {
     });
   });
 
+  group('MatchSummary per-game breakdown', () {
+    test('reconstructs each game score from the point log', () {
+      // Game 0: A wins 11-4. Game 1: B wins 11-9 (partial sample).
+      final points = <ScoredPoint>[
+        for (var i = 0; i < 11; i++) _ptG(Player.a, 0, i),
+        for (var i = 0; i < 4; i++) _ptG(Player.b, 0, 100 + i),
+        for (var i = 0; i < 9; i++) _ptG(Player.a, 1, 200 + i),
+        for (var i = 0; i < 11; i++) _ptG(Player.b, 1, 300 + i),
+      ];
+      final summary = MatchSummary(
+        points: points,
+        finalState: _state(gamesA: 1, gamesB: 1),
+      );
+
+      expect(summary.hasGameData, isTrue);
+      final games = summary.gameScores;
+      expect(games, hasLength(2));
+      expect(games[0].pointsA, 11);
+      expect(games[0].pointsB, 4);
+      expect(games[0].winnerAt(11), Player.a);
+      expect(games[1].pointsA, 9);
+      expect(games[1].pointsB, 11);
+      expect(games[1].winnerAt(11), Player.b);
+    });
+
+    test('flags an in-progress game as having no winner yet', () {
+      final summary = MatchSummary(
+        points: [
+          for (var i = 0; i < 7; i++) _ptG(Player.a, 0, i),
+          for (var i = 0; i < 5; i++) _ptG(Player.b, 0, 100 + i),
+        ],
+        finalState: _state(pointsA: 7, pointsB: 5),
+      );
+      final games = summary.gameScores;
+      expect(games, hasLength(1));
+      expect(games.single.winnerAt(11), isNull);
+      expect(summary.report(), contains('Games: 7–5.'));
+    });
+
+    test('no game data when gameIndex unrecorded', () {
+      final summary = MatchSummary(
+        points: [_pt(Player.a, PointReason.notReturned, 0)],
+        finalState: _state(pointsA: 1),
+      );
+      expect(summary.hasGameData, isFalse);
+      expect(summary.gameScores, isEmpty);
+      expect(summary.report(), isNot(contains('Games:')));
+    });
+  });
+
   group('MatchController point log', () {
     MatchController drivenController() {
       final controller = MatchController();
@@ -212,6 +269,17 @@ void main() {
       );
       // First demo point is served by the default first server, Player A.
       expect(controller.points.first.server, Player.a);
+    });
+
+    test('captures the game index on each awarded point', () {
+      final controller = drivenController();
+      // The demo never completes a game, so every point is in game 0.
+      expect(controller.points.every((p) => p.gameIndex == 0), isTrue);
+      final games = controller.summary.gameScores;
+      expect(games, hasLength(1));
+      // Game 0's running score matches the demo's 5-2.
+      expect(games.single.pointsA, 5);
+      expect(games.single.pointsB, 2);
     });
 
     test('resolveUndetermined is a no-op for a non-pending decision', () {

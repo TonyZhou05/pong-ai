@@ -288,6 +288,20 @@ behind a `VisionService` interface. This lets us:
      per-player serve win rate is surfaced in the Match screen's post-match
      summary and, via `summary.report()`, flows into the exported
      `buildMatchReport`.
+   - **[done — iteration 28]** Per-game score breakdown
+     (`core/analysis/match_summary.dart`). The `ScoringEngine` tracks games won,
+     but the durable `ScoredPoint` log never recorded *which* game each point
+     belonged to, so the summary could report the final games total (e.g. 3–1)
+     yet not the game-by-game score line (`11–7, 9–11, 11–8`) that every
+     scoreboard shows. Each `ScoredPoint` now records its `gameIndex` (games
+     completed *before* the point, captured in `MatchController` before
+     `awardPoint`, since awarding may complete the game), and `MatchSummary`
+     exposes `gameScores` — a `GameScore` (pointsA/pointsB, plus a `winnerAt`
+     helper) per game reconstructed by counting each game's points per player,
+     including a trailing in-progress game. The `gameIndex` field is
+     nullable/back-compatible (`hasGameData`), a "Games:" line is added to
+     `report()` (so it flows into the exported `buildMatchReport`), and the
+     per-game line is surfaced in the Match screen's post-match summary.
    - **[done — iteration 25]** `buildMatchReport`
      (`core/analysis/match_report.dart`): the unified, exportable text report.
      Every prior analytics layer — the `MatchSummary` scoring breakdown,

@@ -451,6 +451,11 @@ class _SummaryPanel extends StatelessWidget {
             '${summary.totalPoints} points played',
             style: theme.textTheme.bodyMedium,
           ),
+          if (summary.gameScores.isNotEmpty)
+            Text(
+              'Games: ${summary.gameScores.join(', ')}',
+              style: theme.textTheme.bodyMedium,
+            ),
           if (summary.totalPoints > 0) ...[
             const SizedBox(height: 8),
             Text('Momentum', style: theme.textTheme.labelLarge),
