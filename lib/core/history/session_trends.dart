@@ -28,6 +28,7 @@ class TrainingTrendPoint {
     required this.overallGrade,
     this.depthConsistency,
     this.maxSpeedKmh,
+    this.averageSpeedKmh,
     this.rhythmConsistency,
     this.focusArea,
     this.onTableRate,
@@ -47,6 +48,11 @@ class TrainingTrendPoint {
   /// Peak physical shot speed in km/h, null if the session recorded no scaled
   /// pace (e.g. an all-slow drill or an older report).
   final double? maxSpeedKmh;
+
+  /// Mean physical shot speed in km/h across the session's graded shots, null if
+  /// the session recorded no scaled pace — the per-session *typical* pace,
+  /// complementing the peak [maxSpeedKmh].
+  final double? averageSpeedKmh;
 
   /// Metronome rhythm score in [0,1]; null if the drill had < 2 shots.
   final double? rhythmConsistency;
@@ -91,6 +97,7 @@ class TrainingTrendPoint {
       depthConsistency:
           placement is Map ? _asDouble(placement['depthConsistency']) : null,
       maxSpeedKmh: pace is Map ? _asDouble(pace['maxSpeedKmh']) : null,
+      averageSpeedKmh: pace is Map ? _asDouble(pace['averageSpeedKmh']) : null,
       rhythmConsistency:
           tempo is Map ? _asDouble(tempo['rhythmConsistency']) : null,
       focusArea: focus is String ? focus : null,
@@ -281,6 +288,23 @@ class SessionTrends {
       if (best == null || s > best) best = s;
     }
     return best;
+  }
+
+  /// Typical shot speed (km/h) across saved training sessions — the unweighted
+  /// mean of each session's own average shot speed, so it reads as "how fast the
+  /// player usually hits" over the tracked history, complementing the personal-
+  /// best [bestMaxSpeedKmh]. Null if no session recorded a scaled pace. The
+  /// training-side twin of [averageMatchBallSpeedKmh].
+  double? get averageShotSpeedKmh {
+    var total = 0.0;
+    var n = 0;
+    for (final p in trainingSessions) {
+      final a = p.averageSpeedKmh;
+      if (a == null) continue;
+      total += a;
+      n++;
+    }
+    return n == 0 ? null : total / n;
   }
 
   /// Change in peak physical shot speed (km/h) from the first to the latest
@@ -564,6 +588,11 @@ class SessionTrends {
     final topSpeed = bestMaxSpeedKmh;
     if (topSpeed != null) {
       lines.add('Fastest shot: ${topSpeed.toStringAsFixed(1)} km/h');
+    }
+
+    final typicalSpeed = averageShotSpeedKmh;
+    if (typicalSpeed != null) {
+      lines.add('Typical shot speed: ${typicalSpeed.toStringAsFixed(1)} km/h');
     }
 
     final speedTrend = speedImprovement;

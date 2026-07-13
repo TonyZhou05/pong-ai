@@ -11,6 +11,7 @@ StoredSession _training(
   int shots = 6,
   double? depthConsistency,
   double? maxSpeedKmh,
+  double? averageSpeedKmh,
   double? rhythmConsistency,
   String? focus,
   double? onTableRate,
@@ -30,7 +31,10 @@ StoredSession _training(
           'longestOnTargetStreak': longestOnTargetStreak,
       },
       'placement': {'depthConsistency': depthConsistency},
-      'pace': {'maxSpeedKmh': maxSpeedKmh},
+      'pace': {
+        if (maxSpeedKmh != null) 'maxSpeedKmh': maxSpeedKmh,
+        if (averageSpeedKmh != null) 'averageSpeedKmh': averageSpeedKmh,
+      },
       'tempo': {'rhythmConsistency': rhythmConsistency},
       if (focus != null) 'coaching': {'focus': focus},
     },
@@ -203,6 +207,23 @@ void main() {
       expect(noSpeed.bestMaxSpeedKmh, isNull);
     });
 
+    test('averageShotSpeedKmh is the mean of per-session averages', () {
+      final withSpeed = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', averageSpeedKmh: 40.0),
+        _training('b', t1, averageScore: 0.6, grade: 'B', averageSpeedKmh: 60.0),
+        // Untracked session is skipped, not counted as 0.
+        _training('c', t2, averageScore: 0.6, grade: 'B'),
+      ]);
+      expect(withSpeed.averageShotSpeedKmh, closeTo(50.0, 1e-9));
+    });
+
+    test('averageShotSpeedKmh is null when no session scaled pace', () {
+      final trends = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', maxSpeedKmh: 70.0),
+      ]);
+      expect(trends.averageShotSpeedKmh, isNull);
+    });
+
     test('depthConsistencyImprovement is first minus latest (tighter=+)', () {
       final trends = SessionTrends.fromSessions([
         _training('a', t0, averageScore: 0.5, grade: 'C', depthConsistency: 0.08),
@@ -262,6 +283,14 @@ void main() {
       expect(report, contains('up +30%'));
       expect(report, contains('Best session: grade A'));
       expect(report, contains('90.0 km/h'));
+    });
+
+    test('report surfaces the typical shot speed', () {
+      final report = SessionTrends.fromSessions([
+        _training('a', t0, averageScore: 0.5, grade: 'C', averageSpeedKmh: 45.0),
+        _training('b', t1, averageScore: 0.6, grade: 'B', averageSpeedKmh: 55.0),
+      ]).report();
+      expect(report, contains('Typical shot speed: 50.0 km/h'));
     });
 
     test('report surfaces placement and rhythm consistency trends', () {

@@ -751,6 +751,16 @@ behind a `VisionService` interface. This lets us:
      `bestOnTargetStreak` (personal-best "in a row" across every session that
      tracked it), surfaced as a "Best on-target streak: N in a row" `report()`
      line and a "· streak N" segment on the Training-progress card's Best line.
+   - **[done — iteration 85]** Training career *typical* shot speed. `TrainingTrendPoint`
+     parsed each drill's peak `pace.maxSpeedKmh` (surfaced as `bestMaxSpeedKmh`)
+     but discarded the emitted `pace.averageSpeedKmh`. Added
+     `TrainingTrendPoint.averageSpeedKmh` parsing plus
+     `SessionTrends.averageShotSpeedKmh` (unweighted mean of each session's own
+     average shot speed — the "how fast the player usually hits" complement to the
+     personal-best fastest shot, the training twin of iteration 84's
+     `averageMatchBallSpeedKmh`), surfaced as a "Typical shot speed: N.N km/h"
+     `report()` line and a "· typical N.N km/h" segment on the Training-progress
+     card's Best line.
    - **[done — iteration 84]** Match career *typical* ball speed. `MatchTrendPoint`
      parsed each match's peak `ballSpeed.maxKmh` (surfaced as
      `fastestMatchBallSpeedKmh`) but discarded the emitted `ballSpeed.averageKmh`.

@@ -221,6 +221,7 @@ class _TrendsHeader extends StatelessWidget {
               '${trends.trainingCount} drills · '
               '${trends.totalShotsPracticed} shots'
               '${trends.bestMaxSpeedKmh != null ? ' · fastest ${trends.bestMaxSpeedKmh!.toStringAsFixed(1)} km/h' : ''}'
+              '${trends.averageShotSpeedKmh != null ? ' · typical ${trends.averageShotSpeedKmh!.toStringAsFixed(1)} km/h' : ''}'
               '${(trends.bestOnTargetStreak ?? 0) >= 2 ? ' · streak ${trends.bestOnTargetStreak}' : ''}',
               style: theme.textTheme.bodyMedium,
             ),
