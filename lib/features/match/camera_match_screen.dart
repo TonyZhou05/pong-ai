@@ -1,12 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ultralytics_yolo/ultralytics_yolo.dart';
 
 import '../../core/analysis/ball_tracker.dart';
 import '../../core/analysis/match_controller.dart';
+import '../../core/analysis/match_report.dart';
+import '../../core/analysis/match_report_json.dart';
 import '../../core/analysis/rally_referee.dart';
 import '../../core/analysis/table_calibrator.dart';
+import '../../core/history/history_store_provider.dart';
+import '../../core/history/session_history_store.dart';
 import '../../core/scoring/scoring_engine.dart';
 import '../../core/vision/detection.dart';
 import '../../core/vision/vision_model_profile.dart';
@@ -37,6 +42,7 @@ class CameraMatchScreen extends StatefulWidget {
     this.cameraPreviewBuilder,
     this.matchControllerBuilder,
     this.model = defaultVisionModel,
+    this.historyStoreLoader = defaultSessionHistoryStore,
   });
 
   /// The camera-backed frame source. Defaults to one whose adapter decodes
@@ -59,6 +65,11 @@ class CameraMatchScreen extends StatefulWidget {
   /// docs/ARCHITECTURE.md); the profile carries both the model path and the
   /// matching decode config so the swap is a single coherent choice.
   final VisionModelProfile model;
+
+  /// Resolves the store the end-of-match "Save to history" action writes to.
+  /// Defaults to the on-device documents-directory store; tests inject an
+  /// in-memory fake.
+  final Future<SessionHistoryStore> Function() historyStoreLoader;
 
   @override
   State<CameraMatchScreen> createState() => _CameraMatchScreenState();
@@ -168,6 +179,16 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
                 child: _UndeterminedPrompt(
                   decision: pending.first,
                   onPick: (winner) => _resolve(pending.first, winner),
+                ),
+              )
+            else if (state.isMatchOver)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _MatchOverPanel(
+                  controller: _controller,
+                  historyStoreLoader: widget.historyStoreLoader,
                 ),
               )
             else
@@ -334,6 +355,154 @@ class _LiveCallFeed extends StatelessWidget {
                     theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
               ),
         ],
+      ),
+    );
+  }
+}
+
+/// End-of-match summary overlaid on the frozen camera preview once the match is
+/// over. This is the live-camera counterpart to [MatchScreen]'s summary panel:
+/// it surfaces the winner, key analytics, and the same Save-to-history / Copy
+/// report / Export JSON actions so the production camera path can persist and
+/// share a match, not just show a "Match over" line.
+class _MatchOverPanel extends StatelessWidget {
+  const _MatchOverPanel({
+    required this.controller,
+    required this.historyStoreLoader,
+  });
+
+  final MatchController controller;
+  final Future<SessionHistoryStore> Function() historyStoreLoader;
+
+  static String _name(Player p) => p == Player.a ? 'Player A' : 'Player B';
+
+  Future<void> _saveToHistory(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final store = await historyStoreLoader();
+    await store.save(
+      kind: SessionKind.match,
+      report: buildMatchReportJson(controller),
+    );
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Saved to history')),
+    );
+  }
+
+  Future<void> _copyReport(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: buildMatchReport(controller)));
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Report copied to clipboard')),
+    );
+  }
+
+  Future<void> _exportJson(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(
+      ClipboardData(text: matchReportJsonString(controller)),
+    );
+    messenger.showSnackBar(
+      const SnackBar(content: Text('JSON summary copied to clipboard')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final summary = controller.summary;
+    final winner = summary.matchWinner;
+    return Container(
+      width: double.infinity,
+      color: Colors.black87,
+      padding: const EdgeInsets.all(16),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              winner == null
+                  ? 'Match over'
+                  : '${_name(winner)} wins the match',
+              style: theme.textTheme.titleMedium?.copyWith(color: Colors.white),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${summary.totalPoints} points played',
+              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+            ),
+            if (summary.gameScores.isNotEmpty)
+              Text(
+                'Games: ${summary.gameScores.join(', ')}',
+                style:
+                    theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+              ),
+            if (controller.hasBallSpeedData)
+              Text(
+                'Top ball speed: '
+                '${controller.maxBallSpeedKmh.toStringAsFixed(1)} km/h',
+                style:
+                    theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+              ),
+            if (controller.trackingQuality.hasData)
+              Text(
+                'Tracking quality: grade ${controller.trackingQuality.grade}',
+                style:
+                    theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                for (final player in Player.values)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _name(player),
+                          style: theme.textTheme.labelLarge
+                              ?.copyWith(color: Colors.white),
+                        ),
+                        Text(
+                          '${summary.pointsWonBy(player)} pts won',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: Colors.white70),
+                        ),
+                        Text(
+                          '${summary.forcedErrorsWonBy(player)} forced errors',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.save_alt, size: 18),
+                    label: const Text('Save to history'),
+                    onPressed: () => _saveToHistory(context),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.data_object, size: 18),
+                    label: const Text('Export JSON'),
+                    onPressed: () => _exportJson(context),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('Copy report'),
+                    onPressed: () => _copyReport(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

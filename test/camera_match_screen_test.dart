@@ -1,9 +1,37 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pong_ai/core/analysis/match_controller.dart';
+import 'package:pong_ai/core/history/session_history_store.dart';
+import 'package:pong_ai/core/scoring/scoring_engine.dart';
 import 'package:pong_ai/core/vision/synthetic_frames.dart';
 import 'package:pong_ai/core/vision/yolo_vision_service.dart';
 import 'package:pong_ai/features/match/camera_match_screen.dart';
+
+/// An in-memory [SessionHistoryStore] with no real file I/O, so the widget test
+/// can pump/settle normally. The on-disk store is covered by its own unit tests.
+class FakeHistoryStore extends SessionHistoryStore {
+  FakeHistoryStore() : super(Directory.systemTemp);
+
+  final List<StoredSession> saved = [];
+
+  @override
+  Future<StoredSession> save({
+    required SessionKind kind,
+    required Map<String, dynamic> report,
+    DateTime? at,
+  }) async {
+    final session = StoredSession(
+      id: '${kind.key}-${saved.length}',
+      kind: kind,
+      savedAt: at ?? DateTime.now(),
+      report: report,
+    );
+    saved.add(session);
+    return session;
+  }
+}
 
 void main() {
   testWidgets(
@@ -41,6 +69,50 @@ void main() {
       expect(find.textContaining('Player A — not returned'), findsOneWidget);
 
       // Tear down so the broadcast stream controller closes cleanly.
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'live match end shows the summary panel and Save to history persists it',
+    (tester) async {
+      final vision = YoloVisionService();
+      final store = FakeHistoryStore();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // A short best-of-one, 3-point game so the scripted demo rallies end
+            // the match (the full replay never completes one) and surface the
+            // end-of-match panel. No calibrator so scoring is immediate.
+            matchControllerBuilder: () =>
+                MatchController(engine: ScoringEngine(pointsPerGame: 3, bestOf: 1)),
+            historyStoreLoader: () async => store,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // The demo's first four rallies award A, B, A, A → Player A wins 3–1.
+      for (final frame in demoMatchFrames()) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      expect(find.textContaining('wins the match'), findsOneWidget);
+      await tester.ensureVisible(find.text('Save to history'));
+      await tester.tap(find.text('Save to history'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Saved to history'), findsOneWidget);
+      expect(store.saved, hasLength(1));
+      expect(store.saved.single.kind, SessionKind.match);
+      expect(store.saved.single.report['score'], isA<Map>());
+
       await tester.pumpWidget(const SizedBox());
     },
   );

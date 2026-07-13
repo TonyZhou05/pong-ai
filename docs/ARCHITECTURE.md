@@ -546,6 +546,16 @@ behind a `VisionService` interface. This lets us:
      `SessionKind.training` record, closing the demo-vs-live gap for training.
      (`CameraMatchScreen` still has no end-of-match summary panel at all — a
      larger follow-up than a single producer button.)
+   - **[done — iteration 58]** Live-camera match summary panel. Iteration 57 left
+     `CameraMatchScreen` (the production camera match path) with only a "Match
+     over" call-feed line — unlike the demo `MatchScreen`'s full `_SummaryPanel`,
+     it could not Copy/Export/Save any analytics. It now shows a `_MatchOverPanel`
+     once the match ends: winner, points/games, top ball speed, tracking-quality
+     grade, and per-player points/forced-errors, plus the same Save to history /
+     Export JSON / Copy report actions (injectable `historyStoreLoader`, default
+     `defaultSessionHistoryStore`; reports composed via `buildMatchReport` /
+     `matchReportJsonString` / `buildMatchReportJson`), reaching demo-vs-live
+     parity for the match path.
    - **[done — iteration 48]** Across-session progression / trends. Iterations
      45–47 persisted each session and listed them one-by-one, but nothing mined
      the *collection* — yet both JSON exporters name "diff pace/placement/rhythm
