@@ -895,7 +895,12 @@ behind a `VisionService` interface. This lets us:
      `TrainingFeedback(summary, config:)` scores the coachable dimensions —
      placement accuracy (average depth vs `targetDepth`, within `depthTolerance`),
      depth consistency, lateral consistency, and rhythm (the last three only with
-     ≥2 shots) — into `[0,1]` `FeedbackDimension`s, then names the *weakest* as the
+     ≥2 shots), plus (iteration 93) **shot pace** — the physical power dimension,
+     `averageSpeedKmh` vs the new `TrainingConfig.targetSpeedKmh` (default 30 km/h),
+     plateauing at full marks once target pace is reached and assessed only when a
+     km/h scale exists, so an on-target-but-soft drill is finally coached to "add
+     pace" instead of the accuracy metrics masking it — into `[0,1]`
+     `FeedbackDimension`s, then names the *weakest* as the
      focus (`focusTip`, with a directional placement cue when the player is short
      vs overshooting) and the *strongest* as a confirmed strength. When even the
      weakest dimension clears the `_goodEnough` bar it returns encouragement

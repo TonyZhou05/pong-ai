@@ -135,6 +135,26 @@ class TrainingFeedback {
         ),
       );
     }
+
+    // Shot pace: the physical power dimension, assessable only when a km/h scale
+    // exists (calibrated ruler + a shot that carried real x-motion). Placement,
+    // consistency and rhythm are all accuracy metrics — hitting on target but
+    // soft still leaves pace uncoached. Scored as average pace against the
+    // target, plateauing at full marks once the target pace is reached (driving
+    // harder than target is not penalized; overshooting shows up as placement).
+    if (summary.averageSpeedKmh > 0) {
+      final pace = (summary.averageSpeedKmh / config.targetSpeedKmh)
+          .clamp(0.0, 1.0)
+          .toDouble();
+      dims.add(
+        FeedbackDimension(
+          name: 'Shot pace',
+          score: pace,
+          tip: 'Drive through the ball — add pace to put the opponent under '
+              'pressure.',
+        ),
+      );
+    }
     return dims;
   }
 

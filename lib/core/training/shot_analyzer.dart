@@ -87,11 +87,13 @@ class TrainingConfig {
     this.referenceSpeed = 1.5,
     this.placementWeight = 0.6,
     this.tableLengthMeters = kTableLengthMeters,
+    this.targetSpeedKmh = 30,
   })  : assert(targetDepth >= 0 && targetDepth <= 1),
         assert(depthTolerance > 0),
         assert(referenceSpeed > 0),
         assert(placementWeight >= 0 && placementWeight <= 1),
-        assert(tableLengthMeters > 0);
+        assert(tableLengthMeters > 0),
+        assert(targetSpeedKmh > 0);
 
   /// The table layout (where the net sits) within the normalized frame.
   final TableGeometry geometry;
@@ -115,6 +117,12 @@ class TrainingConfig {
   /// scaling a shot's along-table pace to real-world km/h (default ITTF 2.74 m).
   final double tableLengthMeters;
 
+  /// Along-table shot pace (km/h) that earns full marks for the coaching
+  /// "Shot pace" dimension — the physical-units power target a driving drill
+  /// aims to reach (default ~30 km/h for a solid recreational drive). Only used
+  /// by [TrainingFeedback] and only when a physical km/h scale is available.
+  final double targetSpeedKmh;
+
   /// The half the ball should land on (opposite the player).
   TableSide get targetSide => playerSide.other;
 
@@ -129,6 +137,7 @@ class TrainingConfig {
     double? referenceSpeed,
     double? placementWeight,
     double? tableLengthMeters,
+    double? targetSpeedKmh,
   }) {
     return TrainingConfig(
       geometry: geometry ?? this.geometry,
@@ -138,6 +147,7 @@ class TrainingConfig {
       referenceSpeed: referenceSpeed ?? this.referenceSpeed,
       placementWeight: placementWeight ?? this.placementWeight,
       tableLengthMeters: tableLengthMeters ?? this.tableLengthMeters,
+      targetSpeedKmh: targetSpeedKmh ?? this.targetSpeedKmh,
     );
   }
 

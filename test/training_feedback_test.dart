@@ -9,9 +9,17 @@ Shot _shot({
   double depth = 0.75,
   double lateral = 0.5,
   double score = 0.8,
+  double speedKmh = 0,
   int t = 0,
 }) =>
-    Shot(timestampMs: t, speed: 1, depth: depth, lateral: lateral, score: score);
+    Shot(
+      timestampMs: t,
+      speed: 1,
+      depth: depth,
+      lateral: lateral,
+      score: score,
+      speedKmh: speedKmh,
+    );
 
 void main() {
   group('TrainingFeedback', () {
@@ -100,6 +108,65 @@ void main() {
       expect(report, contains('Depth consistency'));
       expect(report, contains('Lateral consistency'));
       expect(report, contains('Rhythm'));
+    });
+
+    test('pace is not assessed without a physical km/h scale', () {
+      // Default shots carry speedKmh == 0 (no calibrated ruler).
+      final shots = [
+        for (var i = 0; i < 4; i++)
+          _shot(depth: 0.75, lateral: 0.5, t: i * 1000),
+      ];
+      final fb = TrainingFeedback(_summary(shots));
+      expect(fb.dimensions.map((d) => d.name), isNot(contains('Shot pace')));
+    });
+
+    test('soft hitting makes shot pace the focus', () {
+      // On-target placement/consistency/rhythm, but well under the 30 km/h
+      // target pace, so the physical power dimension is the weak point.
+      final shots = [
+        for (var i = 0; i < 4; i++)
+          _shot(depth: 0.75, lateral: 0.5, speedKmh: 6, t: i * 1000),
+      ];
+      final fb = TrainingFeedback(_summary(shots));
+      final pace = fb.dimensions.firstWhere((d) => d.name == 'Shot pace');
+      expect(pace.score, closeTo(0.2, 1e-9));
+      expect(fb.weakest!.name, 'Shot pace');
+      expect(fb.focusTip, contains('pace'));
+    });
+
+    test('hitting at target pace earns full marks and is not the focus', () {
+      final shots = [
+        for (var i = 0; i < 4; i++)
+          _shot(depth: 0.75, lateral: 0.5, speedKmh: 40, t: i * 1000),
+      ];
+      final fb = TrainingFeedback(_summary(shots));
+      final pace = fb.dimensions.firstWhere((d) => d.name == 'Shot pace');
+      expect(pace.score, 1.0);
+      expect(fb.weakest!.name, isNot('Shot pace'));
+    });
+
+    test('respects a custom target shot pace via config', () {
+      // 20 km/h clears a lenient 15 km/h target but misses a 60 km/h one.
+      final shots = [
+        for (var i = 0; i < 4; i++)
+          _shot(depth: 0.75, lateral: 0.5, speedKmh: 20, t: i * 1000),
+      ];
+      final lenient = TrainingFeedback(
+        _summary(shots),
+        config: const TrainingConfig(targetSpeedKmh: 15),
+      );
+      expect(
+        lenient.dimensions.firstWhere((d) => d.name == 'Shot pace').score,
+        1.0,
+      );
+      final demanding = TrainingFeedback(
+        _summary(shots),
+        config: const TrainingConfig(targetSpeedKmh: 60),
+      );
+      expect(
+        demanding.dimensions.firstWhere((d) => d.name == 'Shot pace').score,
+        closeTo(1 / 3, 1e-9),
+      );
     });
 
     test('respects a custom target depth via config', () {
