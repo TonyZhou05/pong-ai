@@ -621,6 +621,63 @@ void main() {
   );
 
   testWidgets(
+    'an undetermined rally speaks a "point unclear" review cue exactly once, '
+    'then re-arms once resolved',
+    (tester) async {
+      final vision = YoloVisionService();
+      final spoken = <String>[];
+      final controller = MatchController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraMatchScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+            // No calibrator so the scripted rally is scored immediately.
+            matchControllerBuilder: () => controller,
+            onAnnounce: spoken.add,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(spoken, isEmpty);
+
+      // A ball that crosses the net and then vanishes mid-flight (no bounce)
+      // is an in-flight loss the referee can't attribute — an undetermined
+      // point awaiting a manual tap.
+      for (final frame in _undeterminedRallyFrames()) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      await tester.pump();
+
+      expect(controller.undetermined, hasLength(1));
+      const cue = 'Point unclear. Tap to award.';
+      expect(spoken.where((c) => c == cue), hasLength(1));
+      expect(find.text(cue), findsOneWidget);
+
+      // Resolving the point clears the queue and re-arms the cue for the next
+      // ambiguous rally (the same cue fires again, not suppressed as stale).
+      await tester.tap(find.widgetWithText(FilledButton, 'Player A'));
+      await tester.pump();
+      expect(controller.undetermined, isEmpty);
+
+      final spokenBefore = spoken.length;
+      for (final frame in _undeterminedRallyFrames(startMs: 5000)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      await tester.pump();
+      expect(controller.undetermined, hasLength(1));
+      expect(spoken.skip(spokenBefore).where((c) => c == cue), hasLength(1));
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'a stalled calibration prompts the user to reposition the phone',
     (tester) async {
       final vision = YoloVisionService();
@@ -835,4 +892,32 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+}
+
+/// A rally that ends in an in-flight ball loss the referee can't attribute: the
+/// ball crosses the net moving horizontally at a constant height (no bounce —
+/// constant y means no vertical-velocity flip), then vanishes for enough frames
+/// to trigger a [BallLostEvent] while still in flight → an undetermined point.
+List<FrameResult> _undeterminedRallyFrames({int startMs = 0}) {
+  final frames = <FrameResult>[];
+  var t = startMs;
+  for (final x in const [0.30, 0.42, 0.54, 0.66]) {
+    frames.add(
+      FrameResult(
+        timestampMs: t,
+        ball: Detection(
+          label: 'ball',
+          confidence: 0.9,
+          box: BBox(x - 0.01, 0.49, 0.02, 0.02),
+        ),
+      ),
+    );
+    t += 33;
+  }
+  // Enough empty frames to exceed BallTracker.maxGapFrames.
+  for (var i = 0; i < 8; i++) {
+    frames.add(FrameResult(timestampMs: t));
+    t += 33;
+  }
+  return frames;
 }

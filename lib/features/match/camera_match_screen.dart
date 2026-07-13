@@ -124,6 +124,13 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
   /// while the flag stays raised). Cleared once the change is no longer pending.
   bool _changeEndsSpoken = false;
 
+  /// How many undetermined points have already been announced, so a spoken
+  /// "point needs review" cue fires exactly once when a *new* rally the referee
+  /// couldn't attribute lands in the pending queue — not on every frame while it
+  /// waits. Decreases as points are resolved (queue shrinks), re-arming the cue
+  /// for the next ambiguous rally.
+  int _undeterminedSpokenCount = 0;
+
   /// The most recent frame's detections, drawn as a live tracking overlay on the
   /// camera preview so the user can see what the pipeline is following.
   FrameResult? _lastFrame;
@@ -187,6 +194,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     _maybeAnnounceStart();
     _maybeAnnounce();
     _maybeAnnounceChangeEnds();
+    _maybeAnnounceUndetermined();
   }
 
   /// Speak the one-time "ready to play" cue the moment scoring becomes possible
@@ -246,6 +254,24 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     if (mounted) setState(() => _lastCall = call);
   }
 
+  /// Speak a "point needs review" cue when the referee couldn't attribute a
+  /// rally (an in-flight ball loss — a smash out vs a missed return looks the
+  /// same from the ball path alone) and it lands in the pending queue awaiting a
+  /// manual tap. Without an audible cue, players across the table would keep
+  /// playing unaware that auto-scoring has stalled and needs a human decision.
+  /// Fires exactly once per newly-queued point (tracked by count, not a boolean,
+  /// so a second ambiguous rally still cues), and re-arms as points are resolved
+  /// and the queue shrinks.
+  void _maybeAnnounceUndetermined() {
+    final pending = _controller.undetermined.length;
+    if (pending > _undeterminedSpokenCount) {
+      const call = 'Point unclear. Tap to award.';
+      _speak(call);
+      if (mounted) setState(() => _lastCall = call);
+    }
+    _undeterminedSpokenCount = pending;
+  }
+
   /// Default spoken-call sink: a tactile + audible cue so a table-side phone
   /// signals that a point registered even though no one is watching the screen.
   void _defaultAnnounce(String call) {
@@ -257,6 +283,9 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
     setState(() => _controller.resolveUndetermined(decision, winner));
     _maybeAnnounce();
     _maybeAnnounceChangeEnds();
+    // Resolving shrinks the pending queue; re-sync the baseline so the next
+    // ambiguous rally re-arms the cue.
+    _maybeAnnounceUndetermined();
   }
 
   void _undo() {
@@ -289,6 +318,7 @@ class _CameraMatchScreenState extends State<CameraMatchScreen> {
       _announcer.reset();
       _startAnnounced = false;
       _changeEndsSpoken = false;
+      _undeterminedSpokenCount = 0;
       _lastCall = null;
     });
     _vision.start();

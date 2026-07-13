@@ -442,6 +442,19 @@ behind a `VisionService` interface. This lets us:
          warm-up otherwise), through the same mute-gated `_speak` sink and
          under-scoreboard caption, and is re-armed on Play again so a rematch
          re-announces the first server.
+       - **[done — iteration 117]** Spoken undetermined-point review cue. When the
+         referee can't attribute a rally (an in-flight ball loss — a smash out vs
+         a missed return looks the same from the ball path alone) the point lands
+         in `MatchController.undetermined` awaiting a manual tap, shown only in the
+         visual `_UndeterminedPrompt`. A table-side player who can't read the
+         screen had no signal that auto-scoring had *stalled* and needed a human
+         decision — so play would continue while the app waited. `CameraMatchScreen`
+         `_maybeAnnounceUndetermined` now speaks "Point unclear. Tap to award."
+         (through the same mute-gated `_speak` sink, captioned under the score)
+         exactly once per newly-queued point. It tracks the count already spoken
+         (`_undeterminedSpokenCount`) rather than a boolean, so a *second* ambiguous
+         rally still cues, and re-syncs on resolve/undo (queue shrinks) and Play
+         again (reset to 0) so the cue re-arms for the next unclear point.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking
