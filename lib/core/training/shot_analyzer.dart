@@ -118,6 +118,29 @@ class TrainingConfig {
   /// The half the ball should land on (opposite the player).
   TableSide get targetSide => playerSide.other;
 
+  /// Returns a copy with the given fields replaced. Used by the live training
+  /// screen to switch [playerSide] from the pre-session picker before any shot
+  /// is graded.
+  TrainingConfig copyWith({
+    TableGeometry? geometry,
+    TableSide? playerSide,
+    double? targetDepth,
+    double? depthTolerance,
+    double? referenceSpeed,
+    double? placementWeight,
+    double? tableLengthMeters,
+  }) {
+    return TrainingConfig(
+      geometry: geometry ?? this.geometry,
+      playerSide: playerSide ?? this.playerSide,
+      targetDepth: targetDepth ?? this.targetDepth,
+      depthTolerance: depthTolerance ?? this.depthTolerance,
+      referenceSpeed: referenceSpeed ?? this.referenceSpeed,
+      placementWeight: placementWeight ?? this.placementWeight,
+      tableLengthMeters: tableLengthMeters ?? this.tableLengthMeters,
+    );
+  }
+
   /// Metres each normalized x-unit represents, given the table's frame x-span —
   /// the along-table ruler for [Shot.speedKmh].
   double get metersPerUnitX => tableLengthMeters / (geometry.right - geometry.left);

@@ -38,6 +38,20 @@ List<Shot> _run(ShotAnalyzer analyzer, List<FrameResult> frames) {
 }
 
 void main() {
+  group('TrainingConfig.copyWith', () {
+    test('flips playerSide (and thus targetSide) while keeping other fields', () {
+      const base = TrainingConfig(targetDepth: 0.6, depthTolerance: 0.2);
+      final flipped = base.copyWith(playerSide: TableSide.right);
+
+      expect(flipped.playerSide, TableSide.right);
+      expect(flipped.targetSide, TableSide.left);
+      expect(flipped.targetDepth, 0.6);
+      expect(flipped.depthTolerance, 0.2);
+      // Untouched call returns an equivalent config.
+      expect(base.copyWith().playerSide, base.playerSide);
+    });
+  });
+
   group('ShotAnalyzer — single stroke', () {
     test('records one shot with the target-side landing depth', () {
       final analyzer = ShotAnalyzer();

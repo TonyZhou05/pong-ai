@@ -8,6 +8,30 @@ import 'package:pong_ai/core/vision/synthetic_frames.dart';
 import 'package:pong_ai/core/vision/yolo_vision_service.dart';
 import 'package:pong_ai/features/training/camera_training_screen.dart';
 
+/// A single stroke crossing the net right→left and bouncing at [bounceX] on the
+/// left half — the mirror of the built-in scripted stroke — for exercising the
+/// `playerSide == right` (target = left) path the picker selects.
+List<FrameResult> _leftHalfStroke({double bounceX = 0.125}) {
+  const xs = <double>[0.52, 0.48];
+  const ys = <double>[0.45, 0.48, 0.55, 0.65, 0.55, 0.45];
+  return [
+    for (var i = 0; i < ys.length; i++)
+      FrameResult(
+        timestampMs: i * 33,
+        ball: Detection(
+          label: 'ball',
+          confidence: 0.9,
+          box: BBox(
+            (i < xs.length ? xs[i] : bounceX) - 0.01,
+            ys[i] - 0.01,
+            0.02,
+            0.02,
+          ),
+        ),
+      ),
+  ];
+}
+
 /// In-memory [SessionHistoryStore] so the widget test can pump/settle without
 /// real `dart:io` (which a `testWidgets` body defers). Mirrors the fake used in
 /// session_history_screen_test.dart; the on-disk store has its own unit tests.
@@ -112,6 +136,78 @@ void main() {
       final session = store.saved.single.report['session'] as Map;
       expect(session['shotCount'], 1);
       expect(find.text('Saved to history'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'player-side picker is shown pre-session and hides after the first shot',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // The picker is offered before any shot is graded.
+      expect(find.text('I hit from:'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Left'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Right'), findsOneWidget);
+
+      // Grade the first default (right-target) stroke.
+      for (final frame in trainingSessionFrames().take(6)) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+
+      // Once a shot lands the pre-session picker is locked away.
+      expect(find.text('1 shots'), findsOneWidget);
+      expect(find.text('I hit from:'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'selecting Right grades a stroke that lands on the left half',
+    (tester) async {
+      final vision = YoloVisionService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CameraTrainingScreen(
+            visionService: vision,
+            cameraPreviewBuilder: (_, __) => const ColoredBox(
+              color: Colors.black,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Player is on the right, so the target half is the left.
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Right'));
+      await tester.pump();
+
+      for (final frame in _leftHalfStroke()) {
+        vision.onFrame(frame);
+        await tester.pump();
+      }
+      // One more empty frame so the apex bounce (reported one frame late) grades.
+      vision.onFrame(const FrameResult(timestampMs: 300));
+      await tester.pump();
+
+      // The left-landing stroke is graded because the target side flipped.
+      expect(find.text('1 shots'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
     },

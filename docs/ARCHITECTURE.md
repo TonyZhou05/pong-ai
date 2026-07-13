@@ -250,6 +250,15 @@ behind a `VisionService` interface. This lets us:
        loses the ball, the dimmed Kalman-predicted "ghost" ball via a new
        `ShotAnalyzer.tracker` getter (`tracker.estimateBallAt`), reaching
        tracking-overlay parity with the match path.
+     - **[done — iteration 73]** Player-side selection. `CameraTrainingScreen`
+       hardcoded `const TrainingConfig()` (`playerSide == left`, so target =
+       right), so a player who set the phone on the *right* side of the table
+       had their shots cross the net to the left and never segment/grade — a real
+       usability gap parallel to the match screen's iteration-70/72 first-server
+       and format pickers. A new `_PlayerSidePicker` ("I hit from: Left / Right")
+       is offered until the first shot is graded and rebuilds the `ShotAnalyzer`
+       on a `TrainingConfig.copyWith(playerSide:)`, flipping both the target band
+       and the shot-segmentation target half; it locks away once scoring begins.
    - **[done — iteration 43]** `VisionModelProfile`
      (`core/vision/vision_model_profile.dart`): the model-selection seam that
      makes that "point at a fine-tuned model" a *single coherent choice*. Picking

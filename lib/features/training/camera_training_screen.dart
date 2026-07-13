@@ -73,7 +73,12 @@ class CameraTrainingScreen extends StatefulWidget {
 
 class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   late final YoloVisionService _vision;
-  late final ShotAnalyzer _analyzer;
+  late ShotAnalyzer _analyzer;
+
+  /// The active drill config. Starts from [CameraTrainingScreen.config] and can
+  /// have its [TrainingConfig.playerSide] flipped by the pre-session picker
+  /// until the first shot is graded.
+  late TrainingConfig _config;
   // Single-player detection-health for the phone-placement hint (training has
   // one player, so it scores on any-player visibility, not both ends).
   final TrackingQualityAnalyzer _quality =
@@ -95,7 +100,8 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
   void initState() {
     super.initState();
     _vision = widget.visionService ?? widget.model.createVisionService();
-    _analyzer = ShotAnalyzer(config: widget.config);
+    _config = widget.config;
+    _analyzer = ShotAnalyzer(config: _config);
     _startVision();
   }
 
@@ -120,6 +126,19 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
           _recentShots.removeRange(0, _recentShots.length - 5);
         }
       }
+    });
+  }
+
+  /// Switches which half the player is hitting *from* (and thus the target
+  /// half). Only allowed before the first shot is graded, since re-segmenting
+  /// mid-session against a flipped target would mis-attribute earlier strokes.
+  void _setPlayerSide(TableSide side) {
+    if (_analyzer.summary.shotCount > 0 || _config.playerSide == side) return;
+    setState(() {
+      _config = _config.copyWith(playerSide: side);
+      _analyzer = ShotAnalyzer(config: _config);
+      _recentShots.clear();
+      _predictedBall = null;
     });
   }
 
@@ -179,13 +198,23 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
             _TargetOverlay(
               frame: _lastFrame,
               predictedBall: _predictedBall,
-              config: widget.config,
+              config: _config,
             ),
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              child: _LiveSummaryHeader(summary: summary),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _LiveSummaryHeader(summary: summary),
+                  if (!_finished && summary.shotCount == 0)
+                    _PlayerSidePicker(
+                      playerSide: _config.playerSide,
+                      onPick: _setPlayerSide,
+                    ),
+                ],
+              ),
             ),
             Positioned(
               bottom: 0,
@@ -194,7 +223,7 @@ class _CameraTrainingScreenState extends State<CameraTrainingScreen> {
               child: _finished
                   ? _SessionReport(
                       summary: summary,
-                      config: widget.config,
+                      config: _config,
                       quality: _quality,
                       historyStoreLoader: widget.historyStoreLoader,
                     )
@@ -257,6 +286,45 @@ class _LiveSummaryHeader extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lets the player record which half they are hitting *from* before the drill
+/// starts, so the target band and shot segmentation use the correct target
+/// half regardless of which side of the table the phone was placed. Hidden once
+/// the first shot is graded (see [_CameraTrainingScreenState._setPlayerSide]).
+class _PlayerSidePicker extends StatelessWidget {
+  const _PlayerSidePicker({required this.playerSide, required this.onPick});
+
+  final TableSide playerSide;
+  final void Function(TableSide) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      color: Colors.black45,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'I hit from:',
+            style: theme.textTheme.labelMedium?.copyWith(color: Colors.white70),
+          ),
+          const SizedBox(width: 8),
+          for (final side in TableSide.values)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: ChoiceChip(
+                label: Text(side == TableSide.left ? 'Left' : 'Right'),
+                selected: playerSide == side,
+                onSelected: (_) => onPick(side),
+              ),
+            ),
         ],
       ),
     );
