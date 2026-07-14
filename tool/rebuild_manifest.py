@@ -16,6 +16,7 @@ for p in sorted(OUT.glob("*.json")):
         continue
     d = json.loads(p.read_text())
     seg_id = d["name"]
+    gt = d.get("groundTruth") or {}
     entry = {
         "id": seg_id,
         "video": f"assets/footage/{seg_id}.mp4",
@@ -23,7 +24,11 @@ for p in sorted(OUT.glob("*.json")):
         "durationMs": d["frames"][-1]["t"] if d["frames"] else 0,
         "bounces": len(d.get("groundTruthEvents") or []),
         "source": "OpenTTGames",
+        "pointsA": gt.get("pointsA", 0),
+        "pointsB": gt.get("pointsB", 0),
     }
+    if gt.get("pointWinners"):
+        entry["pointWinners"] = gt["pointWinners"]
     if seg_id.endswith("_full"):
         video = seg_id[: -len("_full")]
         rallies = len(list(OUT.glob(f"{video}_r*.json")))

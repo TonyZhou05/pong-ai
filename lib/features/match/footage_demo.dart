@@ -54,6 +54,9 @@ class FootageMatch {
     this.durationMs = 0,
     this.bounces = 0,
     this.source = '',
+    this.pointsA = 0,
+    this.pointsB = 0,
+    this.pointWinners,
   });
 
   final String id;
@@ -69,6 +72,20 @@ class FootageMatch {
   /// Dataset the clip came from.
   final String source;
 
+  /// The fixture's current ground-truth outcome (0-0 with no winners means
+  /// unlabeled/provisional). Shown by the labeling screen as the existing
+  /// label to confirm or correct.
+  final int pointsA;
+  final int pointsB;
+  final List<String>? pointWinners;
+
+  /// Human summary of the current label, or null when unlabeled.
+  String? get truthSummary {
+    if (pointsA == 0 && pointsB == 0) return null;
+    return '$pointsA–$pointsB'
+        '${pointWinners == null ? '' : ' (${pointWinners!.join(', ').toUpperCase()})'}';
+  }
+
   factory FootageMatch.fromJson(Map<String, dynamic> json) => FootageMatch(
         id: json['id'] as String,
         title: json['title'] as String,
@@ -79,6 +96,11 @@ class FootageMatch {
         durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
         bounces: (json['bounces'] as num?)?.toInt() ?? 0,
         source: json['source'] as String? ?? '',
+        pointsA: (json['pointsA'] as num?)?.toInt() ?? 0,
+        pointsB: (json['pointsB'] as num?)?.toInt() ?? 0,
+        pointWinners: (json['pointWinners'] as List<dynamic>?)
+            ?.map((w) => w as String)
+            .toList(growable: false),
       );
 }
 

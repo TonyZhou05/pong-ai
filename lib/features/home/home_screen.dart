@@ -4,6 +4,7 @@ import '../history/session_history_screen.dart';
 import '../match/camera_match_screen.dart';
 import '../match/footage_demo.dart';
 import '../match/match_screen.dart';
+import '../labeling/labeling_screen.dart';
 import '../matches/matches_screen.dart';
 import '../training/camera_training_screen.dart';
 import '../training/training_screen.dart';
@@ -86,6 +87,18 @@ class HomeScreen extends StatelessWidget {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const TrainingScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ModeCard(
+                icon: Icons.fact_check,
+                title: 'Label rallies',
+                subtitle:
+                    'Record who won each rally and why — trains the referee.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const LabelingScreen(),
                   ),
                 ),
               ),

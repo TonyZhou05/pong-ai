@@ -68,7 +68,29 @@ KNOWN_TRUTH = {
 }
 
 pose_model = YOLO("yolo11n-pose.pt")
-det_model = YOLO("yolo11n.pt")
+# Prefer the fine-tuned single-class ball detector (tool/train_ball_detector.py,
+# held-out val P=0.98 R=0.94 mAP50=0.95 on test_7) over the stock COCO
+# `sports ball` class, whose recall on a motion-blurred 40 mm ball is poor.
+_FINETUNED = next(
+    (
+        p
+        for p in [
+            Path(__file__).resolve().parent.parent / "models/pingpong_ball_yolo11n.pt",
+            Path.cwd() / "models/pingpong_ball_yolo11n.pt",
+            Path.cwd() / "runs/detect/pingpong_ball/weights/best.pt",
+        ]
+        if p.exists()
+    ),
+    None,
+)
+if _FINETUNED is not None:
+    det_model = YOLO(str(_FINETUNED))
+    BALL_CLASSES = [0]
+    print(f"ball detector: fine-tuned ({_FINETUNED})")
+else:
+    det_model = YOLO("yolo11n.pt")
+    BALL_CLASSES = [32]
+    print("ball detector: stock COCO sports-ball")
 try:
     import torch
 
@@ -197,7 +219,7 @@ def process_video(name):
             if f - last_active > EXTEND_QUIET_S * SRC_FPS:
                 break
             dres = det_model.predict(
-                img, imgsz=1280, conf=0.3, classes=[32], device=DEVICE, verbose=False
+                img, imgsz=1280, conf=0.3, classes=BALL_CLASSES, device=DEVICE, verbose=False
             )[0]
             if dres.boxes is not None:
                 for j in range(len(dres.boxes)):
@@ -313,7 +335,7 @@ def process_video(name):
                 b = (m[0], m[1], m[2])
             elif play0 <= f <= play1:
                 dres = det_model.predict(
-                    img, imgsz=1280, conf=0.25, classes=[32], device=DEVICE, verbose=False
+                    img, imgsz=1280, conf=0.25, classes=BALL_CLASSES, device=DEVICE, verbose=False
                 )[0]
                 best = None
                 if dres.boxes is not None and len(dres.boxes):
