@@ -8,6 +8,34 @@ import 'package:pong_ai/core/labels/rally_label_store.dart';
 import 'package:pong_ai/features/labeling/labeling_screen.dart';
 import 'package:pong_ai/features/match/footage_demo.dart';
 
+/// Scripted inline-footage player: the test sets [positionMs].
+class _FakePlayer implements FootagePlayer {
+  _FakePlayer(this.asset);
+  final String asset;
+  int positionMs = 0;
+  bool playing = false;
+
+  @override
+  Future<void> initialize() async {}
+  @override
+  Duration get position => Duration(milliseconds: positionMs);
+  @override
+  bool get isPlaying => playing;
+  @override
+  double get aspectRatio => 16 / 9;
+  @override
+  Future<void> play() async => playing = true;
+  @override
+  Future<void> pause() async => playing = false;
+  @override
+  Future<void> seekToStart() async => positionMs = 0;
+  @override
+  Widget get view =>
+      const ColoredBox(key: ValueKey('inlineFootage'), color: Colors.black);
+  @override
+  Future<void> dispose() async {}
+}
+
 List<FootageMatch> _corpus() => const [
       FootageMatch(
         id: 'test_9_r1',
@@ -72,6 +100,47 @@ void main() {
       reason: 'an unlabeled clip says so',
     );
     expect(find.text('Label rallies (0/2)'), findsOneWidget);
+  });
+
+  testWidgets('inline footage shows a live timer that stamps the end time',
+      (tester) async {
+    final store = InMemoryRallyLabelStore();
+    _FakePlayer? player;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LabelingScreen(
+          manifestLoader: () async => _corpus(),
+          labelStore: store,
+          playerBuilder: (asset) => player = _FakePlayer(asset),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Open the first rally's footage inline.
+    await tester.tap(find.byTooltip('Show footage').first);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('inlineFootage')), findsOneWidget);
+    expect(player!.asset, 'assets/footage/test_9_r1.mp4');
+    expect(player!.playing, isTrue, reason: 'footage auto-plays');
+
+    // The live timer tracks the playback position.
+    player!.positionMs = 4300;
+    await tester.pump(const Duration(milliseconds: 150)); // ticker fires
+    expect(find.text('⏱ 4.3s'), findsOneWidget);
+
+    // One tap stamps the current position as the rally's end time.
+    await tester.tap(find.text('Use as end time'));
+    await tester.pump();
+    final labels = await store.load();
+    expect(labels['test_9_r1']!.endSeconds, 4.3);
+    expect(find.widgetWithText(TextFormField, '4.3'), findsOneWidget);
+
+    // Collapse cancels the ticker (no pending timers at test end).
+    await tester.tap(find.byTooltip('Hide footage'));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('inlineFootage')), findsNothing);
   });
 
   testWidgets('selecting winner and reason persists the label',

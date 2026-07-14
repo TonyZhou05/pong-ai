@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -5,17 +7,19 @@ import '../../core/labels/rally_label_store.dart';
 import '../match/footage_demo.dart';
 import '../match/match_screen.dart';
 
-/// Human-labeling workbench for the rally corpus: for every rally clip,
-/// record who won, why (the losing action, in ITTF terms), and a rough end
-/// time — alongside the pipeline's current call so confirming or correcting
-/// is unambiguous. Labels persist locally and export as JSON for the
-/// training tooling (they become benchmark ground truth and, at volume,
-/// training data for a learned referee).
+/// Human-labeling workbench for the rally corpus: every rally clip with its
+/// actual footage playable inline, a live playback timer, and controls to
+/// record who won, why (the losing action, in ITTF terms), and the rally's
+/// end time (one tap stamps the current playback position). The pipeline's
+/// current call is shown alongside so confirming or correcting is
+/// unambiguous. Labels persist locally and export as JSON for the training
+/// tooling.
 class LabelingScreen extends StatefulWidget {
   const LabelingScreen({
     super.key,
     this.manifestLoader = loadFootageManifest,
     this.labelStore,
+    this.playerBuilder = VideoFootagePlayer.new,
   });
 
   /// Resolves the corpus entries. Defaults to the bundled manifest asset.
@@ -23,6 +27,11 @@ class LabelingScreen extends StatefulWidget {
 
   /// Label persistence; defaults to the shared_preferences-backed store.
   final RallyLabelStore? labelStore;
+
+  /// Builds the inline footage player for a video asset. Defaults to the
+  /// real `video_player`-backed implementation; tests inject a fake whose
+  /// position the test drives (no platform channel headlessly).
+  final FootagePlayer Function(String videoAsset) playerBuilder;
 
   @override
   State<LabelingScreen> createState() => _LabelingScreenState();
@@ -118,12 +127,14 @@ class _LabelingScreenState extends State<LabelingScreen> {
                   padding: const EdgeInsets.all(12),
                   itemCount: clips.length,
                   itemBuilder: (context, i) => _RallyLabelCard(
+                    key: ValueKey(clips[i].id),
                     clip: clips[i],
                     label: _labels[clips[i].id],
+                    playerBuilder: widget.playerBuilder,
                     onWinner: (w) => _update(clips[i], winner: w),
                     onReason: (r) => _update(clips[i], reason: r),
                     onEndSeconds: (s) => _update(clips[i], endSeconds: s),
-                    onWatch: () => Navigator.of(context).push(
+                    onWatchFull: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => MatchScreen(footage: clips[i].demo),
                       ),
@@ -134,28 +145,90 @@ class _LabelingScreenState extends State<LabelingScreen> {
   }
 }
 
-class _RallyLabelCard extends StatelessWidget {
+class _RallyLabelCard extends StatefulWidget {
   const _RallyLabelCard({
+    super.key,
     required this.clip,
     required this.label,
+    required this.playerBuilder,
     required this.onWinner,
     required this.onReason,
     required this.onEndSeconds,
-    required this.onWatch,
+    required this.onWatchFull,
   });
 
   final FootageMatch clip;
   final RallyLabel? label;
+  final FootagePlayer Function(String videoAsset) playerBuilder;
   final ValueChanged<String> onWinner;
   final ValueChanged<RallyLabelReason> onReason;
   final ValueChanged<double> onEndSeconds;
-  final VoidCallback onWatch;
+  final VoidCallback onWatchFull;
+
+  @override
+  State<_RallyLabelCard> createState() => _RallyLabelCardState();
+}
+
+class _RallyLabelCardState extends State<_RallyLabelCard> {
+  /// The inline footage player, live while the footage section is open.
+  FootagePlayer? _player;
+  bool _playerReady = false;
+
+  /// Polls the playback position so the timer readout stays live.
+  Timer? _ticker;
+
+  late final TextEditingController _endController = TextEditingController(
+    text: widget.label?.endSeconds?.toStringAsFixed(1) ?? '',
+  );
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _player?.dispose();
+    _endController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggleFootage() async {
+    if (_player != null) {
+      _ticker?.cancel();
+      _ticker = null;
+      final p = _player;
+      setState(() {
+        _player = null;
+        _playerReady = false;
+      });
+      await p?.dispose();
+      return;
+    }
+    final player = widget.playerBuilder(widget.clip.demo.videoAsset);
+    setState(() => _player = player);
+    await player.initialize();
+    if (!mounted || _player != player) return;
+    await player.play();
+    _ticker = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (mounted) setState(() {});
+    });
+    setState(() => _playerReady = true);
+  }
+
+  double get _positionSeconds =>
+      (_player?.position.inMilliseconds ?? 0) / 1000.0;
+
+  void _useCurrentTime() {
+    final s = double.parse(_positionSeconds.toStringAsFixed(1));
+    _endController.text = s.toStringAsFixed(1);
+    widget.onEndSeconds(s);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final clip = widget.clip;
+    final label = widget.label;
     final secs = (clip.durationMs / 1000).toStringAsFixed(0);
     final current = clip.truthSummary;
+    final player = _player;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -175,9 +248,19 @@ class _RallyLabelCard extends StatelessWidget {
                     color: theme.colorScheme.primary,
                   ),
                 IconButton(
-                  tooltip: 'Watch this rally',
-                  icon: const Icon(Icons.play_circle_outline),
-                  onPressed: onWatch,
+                  tooltip:
+                      player == null ? 'Show footage' : 'Hide footage',
+                  icon: Icon(
+                    player == null
+                        ? Icons.play_circle_outline
+                        : Icons.expand_less,
+                  ),
+                  onPressed: _toggleFootage,
+                ),
+                IconButton(
+                  tooltip: 'Open with AI overlays',
+                  icon: const Icon(Icons.open_in_full),
+                  onPressed: widget.onWatchFull,
                 ),
               ],
             ),
@@ -187,6 +270,75 @@ class _RallyLabelCard extends StatelessWidget {
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
+            if (player != null) ...[
+              const SizedBox(height: 8),
+              if (!_playerReady)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: AspectRatio(
+                    aspectRatio: player.aspectRatio,
+                    child: player.view,
+                  ),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      tooltip: player.isPlaying ? 'Pause' : 'Play',
+                      icon: Icon(
+                        player.isPlaying ? Icons.pause : Icons.play_arrow,
+                      ),
+                      onPressed: () async {
+                        if (player.isPlaying) {
+                          await player.pause();
+                        } else {
+                          await player.play();
+                        }
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                    IconButton(
+                      tooltip: 'Restart',
+                      icon: const Icon(Icons.replay),
+                      onPressed: () async {
+                        await player.seekToStart();
+                        await player.play();
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                    // The live playback timer — read the rally's end off it.
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '⏱ ${_positionSeconds.toStringAsFixed(1)}s',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.tonalIcon(
+                      icon: const Icon(Icons.timer_outlined, size: 18),
+                      label: const Text('Use as end time'),
+                      onPressed: _useCurrentTime,
+                    ),
+                  ],
+                ),
+              ],
+            ],
             const SizedBox(height: 8),
             SegmentedButton<String>(
               segments: const [
@@ -194,10 +346,10 @@ class _RallyLabelCard extends StatelessWidget {
                 ButtonSegment(value: 'b', label: Text('Player B (right)')),
                 ButtonSegment(value: 'unclear', label: Text('Unclear')),
               ],
-              selected: {if (label != null) label!.winner},
+              selected: {if (label != null) label.winner},
               emptySelectionAllowed: true,
               onSelectionChanged: (sel) {
-                if (sel.isNotEmpty) onWinner(sel.first);
+                if (sel.isNotEmpty) widget.onWinner(sel.first);
               },
             ),
             const SizedBox(height: 8),
@@ -224,14 +376,14 @@ class _RallyLabelCard extends StatelessWidget {
                         ),
                     ],
                     onChanged: (r) {
-                      if (r != null) onReason(r);
+                      if (r != null) widget.onReason(r);
                     },
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextFormField(
-                    initialValue: label?.endSeconds?.toStringAsFixed(1),
+                    controller: _endController,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
@@ -242,7 +394,7 @@ class _RallyLabelCard extends StatelessWidget {
                     ),
                     onFieldSubmitted: (v) {
                       final s = double.tryParse(v);
-                      if (s != null) onEndSeconds(s);
+                      if (s != null) widget.onEndSeconds(s);
                     },
                   ),
                 ),
