@@ -63,6 +63,8 @@ KNOWN_TRUTH = {
     "test_3_r3": (0, 1, ["b"]),  # A's shot dives past the right edge, no bounce
     "test_3_r4": (0, 1, ["b"]),  # A nets his return; ball dies on his side
     "test_3_r5": (0, 1, ["b"]),  # B's return bounces the left edge away; A gives up
+    "test_6_r1": (0, 1, ["b"]),  # A's lob return flies long right; B fetches it
+    "test_6_r2": (1, 0, ["a"]),  # B's off-frame return sails out past the left baseline
 }
 
 pose_model = YOLO("yolo11n-pose.pt")

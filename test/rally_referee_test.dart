@@ -312,6 +312,71 @@ void main() {
     });
   });
 
+  group('RallyReferee — exit attribution by crossing origin', () {
+    NetCrossEvent crossWith(
+      int t,
+      TableSide from, {
+      bool? near,
+      bool offFrame = false,
+    }) =>
+        NetCrossEvent(
+          t,
+          from,
+          from.other,
+          originNearPlayer: near,
+          originOffFrame: offFrame,
+        );
+
+    test('an off-frame return that exits past its target is out: receiver '
+        'wins', () {
+      final ref = RallyReferee();
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.right),
+        crossWith(100, TableSide.right, near: true), // shot into the left
+        // The left player chased it off-frame and returned it; the return
+        // then dies past the right baseline.
+        crossWith(700, TableSide.left, near: true, offFrame: true),
+        const BallLostEvent(1500, lostOutside: TableSide.right),
+      ]);
+      final d = decisions.single;
+      expect(d.reason, PointReason.outOfBounds);
+      expect(d.winner, Player.b, reason: 'receiver on the exit side');
+    });
+
+    test('a near-player recross conflicting with dead-drift evidence is '
+        'undecidable: prompt', () {
+      final ref = RallyReferee();
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.right),
+        crossWith(100, TableSide.right, near: true),
+        // Reversal happened at a visible player — could be a return, could
+        // be a dead ball rebounding where they stand.
+        crossWith(700, TableSide.left, near: true),
+        const BallLostEvent(1500, lostOutside: TableSide.right),
+      ]);
+      expect(decisions.single.reason, PointReason.outOfPlay);
+      expect(decisions.single.winner, isNull);
+    });
+
+    test('a dead-drift recross (reversal in open space) keeps the '
+        'first-crossing attribution', () {
+      final ref = RallyReferee();
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.right),
+        crossWith(100, TableSide.right, near: true), // the shot that went out
+        crossWith(700, TableSide.left, near: false), // drift back
+        const BallLostEvent(1500, lostOutside: TableSide.right),
+      ]);
+      final d = decisions.single;
+      expect(d.reason, PointReason.outOfBounds);
+      expect(
+        d.winner,
+        Player.a,
+        reason: 'first unanswered crossing (into the left) was the fault',
+      );
+    });
+  });
+
   group('RallyReferee — rally reset', () {
     test('referee resets after a decision so the next rally is independent', () {
       final ref = RallyReferee();

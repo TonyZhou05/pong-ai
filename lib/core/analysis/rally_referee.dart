@@ -159,6 +159,15 @@ class RallyReferee {
   TableSide? _firstUnansweredCrossTo;
   int _firstUnansweredCrossT = 0;
 
+  /// The most recent crossing this rally, and whether its origin looked like
+  /// a real racket contact (see [NetCrossEvent.originNearPlayer]). Lets the
+  /// exit evidence at ball-loss attribute the fault to the *last* shot when
+  /// that shot demonstrably flew out, instead of assuming dead-ball drift.
+  TableSide? _lastCrossTo;
+  int _lastCrossT = 0;
+  bool? _lastCrossOriginNearPlayer;
+  bool _lastCrossOriginOffFrame = false;
+
   /// The player on a given side of the table.
   Player playerOn(TableSide side) =>
       side == TableSide.left ? leftPlayer : leftPlayer.other;
@@ -217,6 +226,10 @@ class RallyReferee {
     }
     _crossesSinceBounce++;
     _crossedSinceBounce = true;
+    _lastCrossTo = event.to;
+    _lastCrossT = event.timestampMs;
+    _lastCrossOriginNearPlayer = event.originNearPlayer;
+    _lastCrossOriginOffFrame = event.originOffFrame;
     return null;
   }
 
@@ -230,15 +243,51 @@ class RallyReferee {
         timestampMs: event.timestampMs,
       );
     }
-    // A legal bounce; remember it and wait for the return.
+    // A legal bounce; remember it and wait for the return. The bounce also
+    // answers the last crossing — its shot landed, so a later ball-loss must
+    // not attribute an out-of-bounds to it.
     _lastBounceSide = event.side;
     _crossedSinceBounce = false;
     _crossesSinceBounce = 0;
     _firstUnansweredCrossTo = null;
+    _lastCrossTo = null;
+    _lastCrossOriginNearPlayer = null;
+    _lastCrossOriginOffFrame = false;
     return null;
   }
 
   PointDecision? _onBallLost(BallLostEvent event) {
+    // Exit evidence: the ball died past side X's baseline after a final
+    // crossing INTO X. Whose fault that is depends on what that crossing was:
+    //
+    //  * an *off-frame return* (the ball reversed out of view while a player
+    //    was off-frame chasing it) is a real shot nobody on-camera could have
+    //    faked — it flew out: point to X's receiver;
+    //  * a reversal near a visible player is only suggestive — a dead ball
+    //    can rebound exactly where a player stands (verified on real footage)
+    //    — so when it conflicts with the dead-drift reading (2+ crossings
+    //    since the last bounce) the rally is genuinely undecidable from the
+    //    data: surface the undetermined prompt instead of guessing;
+    //  * with a single unanswered crossing there is no conflict — the shot
+    //    that crossed never landed and the ball died past its target's
+    //    baseline: point to X's receiver (the existing first-crossing rule
+    //    below).
+    if (event.lostOutside != null && event.lostOutside == _lastCrossTo) {
+      if (_lastCrossOriginOffFrame) {
+        return _decide(
+          winner: playerOn(_lastCrossTo!),
+          reason: PointReason.outOfBounds,
+          timestampMs: _lastCrossT,
+        );
+      }
+      if (_crossesSinceBounce >= 2 && _lastCrossOriginNearPlayer == true) {
+        return _decide(
+          winner: null,
+          reason: PointReason.outOfPlay,
+          timestampMs: event.timestampMs,
+        );
+      }
+    }
     // The ball crossed the net two or more times since the last bounce and
     // play then stopped. A legal shot lands before anything else happens, so
     // the *first* of those crossings was a shot that missed the table — it
@@ -304,5 +353,8 @@ class RallyReferee {
     _rallyStarted = false;
     _preBounceSide = null;
     _preCrossTo = null;
+    _lastCrossTo = null;
+    _lastCrossOriginNearPlayer = null;
+    _lastCrossOriginOffFrame = false;
   }
 }

@@ -341,6 +341,39 @@ void main() {
     });
   });
 
+  group('BallTracker — under-net crossing suppression', () {
+    test('a crossing below the table surface band is not a legal crossing',
+        () {
+      const geometry = TableGeometry(netX: 0.5, top: 0.4, bottom: 0.6);
+      final tracker = BallTracker(geometry: geometry);
+      // Ball passes the net line at floor level (y 0.8 > bottom 0.6).
+      final events = _run(tracker, [
+        _frame(0, 0.45, 0.80),
+        _frame(33, 0.55, 0.82),
+      ]);
+      expect(events.whereType<NetCrossEvent>(), isEmpty);
+    });
+
+    test('a crossing over the net still fires', () {
+      const geometry = TableGeometry(netX: 0.5, top: 0.4, bottom: 0.6);
+      final tracker = BallTracker(geometry: geometry);
+      final events = _run(tracker, [
+        _frame(0, 0.45, 0.45),
+        _frame(33, 0.55, 0.45),
+      ]);
+      expect(events.whereType<NetCrossEvent>(), hasLength(1));
+    });
+
+    test('full-frame geometry (no band) never suppresses', () {
+      final tracker = BallTracker();
+      final events = _run(tracker, [
+        _frame(0, 0.45, 0.95),
+        _frame(33, 0.55, 0.95),
+      ]);
+      expect(events.whereType<NetCrossEvent>(), hasLength(1));
+    });
+  });
+
   group('BallTracker — loss patience (extendedGapFrames)', () {
     FrameResult peopleFrame(int t, int people) => FrameResult(
           timestampMs: t,

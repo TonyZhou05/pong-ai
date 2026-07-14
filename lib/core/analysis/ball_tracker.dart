@@ -101,13 +101,40 @@ class BounceEvent extends TrackerEvent {
 
 /// The ball crossed the net from one side to the other.
 class NetCrossEvent extends TrackerEvent {
-  const NetCrossEvent(super.timestampMs, this.from, this.to);
+  const NetCrossEvent(
+    super.timestampMs,
+    this.from,
+    this.to, {
+    this.originNearPlayer,
+    this.originOffFrame = false,
+  });
 
   final TableSide from;
   final TableSide to;
 
+  /// Whether the shot that produced this crossing plausibly came off a
+  /// racket: the ball's most recent direction reversal happened close to a
+  /// detected player (or off-frame where a player had gone). False when the
+  /// reversal happened in open space with both players visible elsewhere —
+  /// the signature of a dead ball rebounding (off the floor or barrier)
+  /// rather than a return. Null when the tracker couldn't classify (no
+  /// reversal observed, or no people data), preserving default handling.
+  ///
+  /// Caution: near-player is *suggestive*, not conclusive — a dead ball can
+  /// rebound right where a player happens to stand. [originOffFrame] marks
+  /// the one sub-case that is strong evidence on its own.
+  final bool? originNearPlayer;
+
+  /// Whether the reversal behind this crossing happened *out of view while a
+  /// player was off-frame* — the ball left the frame to a player who had
+  /// chased it out, and came back: a return nobody on-camera could have
+  /// faked. Strong evidence the crossing is a real shot.
+  final bool originOffFrame;
+
   @override
-  String toString() => 'NetCross(@$timestampMs, $from->$to)';
+  String toString() => 'NetCross(@$timestampMs, $from->$to'
+      '${originNearPlayer == null ? '' : ', nearPlayer=$originNearPlayer'}'
+      '${originOffFrame ? ', offFrame' : ''})';
 }
 
 /// The ball detection was lost for longer than the allowed gap; the current
@@ -275,6 +302,7 @@ class BallTracker {
       accepted = recovered;
     }
 
+    _missedBeforeSample = _missedFrames;
     _missedFrames = 0;
     final sample = BallSample(
       frame.timestampMs,
@@ -299,6 +327,19 @@ class BallTracker {
     final events = <TrackerEvent>[];
     final vy = sample.y - prev.y;
 
+    // Track x-direction reversals so a crossing can be classified as a real
+    // return (reversal at a player) vs dead-ball drift (reversal in space).
+    final vx = sample.x - prev.x;
+    final vxSign = vx > 0.003 ? 1 : (vx < -0.003 ? -1 : 0);
+    if (vxSign != 0) {
+      if (_lastVxSign != 0 && vxSign != _lastVxSign) {
+        final gapFrames = _missedBeforeSample;
+        _lastReversalNearPlayer =
+            _classifyReversal(prev, frame, afterGap: gapFrames >= 6);
+      }
+      _lastVxSign = vxSign;
+    }
+
     final netEvent = _detectNetCross(prev, sample);
     if (netEvent != null) events.add(netEvent);
 
@@ -307,7 +348,49 @@ class BallTracker {
 
     _lastVy = vy;
     _prev = sample;
+    _missedBeforeSample = 0;
     return events;
+  }
+
+  /// Missed-frame count observed just before the current accepted sample —
+  /// lets a reversal detected right after a gap be classified as having
+  /// happened out of view.
+  int _missedBeforeSample = 0;
+
+  /// Sign of the last observed horizontal velocity, and whether the ball's
+  /// most recent x-direction *reversal* happened near a detected player (a
+  /// racket contact) rather than in open space (a dead-ball rebound). Used to
+  /// classify each net crossing's origin — see [NetCrossEvent.originNearPlayer].
+  int _lastVxSign = 0;
+  bool? _lastReversalNearPlayer;
+  bool _lastReversalOffFrame = false;
+
+  /// Distance (normalized) within which a reversal counts as near a player.
+  static const double _playerReach = 0.15;
+
+  bool? _classifyReversal(
+    BallSample at,
+    FrameResult frame, {
+    required bool afterGap,
+  }) {
+    final people = frame.people;
+    _lastReversalOffFrame = false;
+    if (afterGap) {
+      // The reversal happened while the ball was out of view. If a player is
+      // also off-frame, this is consistent with an off-frame return; if both
+      // players are visible elsewhere, nobody can have hit it — the reversal
+      // was the dead ball rebounding (floor, barrier, net post).
+      if (people.isEmpty) return null;
+      _lastReversalOffFrame = people.length < 2;
+      return people.length < 2;
+    }
+    if (people.isEmpty) return null;
+    for (final p in people) {
+      final dx = (at.x - at.x.clamp(p.box.left, p.box.left + p.box.width));
+      final dy = (at.y - at.y.clamp(p.box.top, p.box.top + p.box.height));
+      if (dx * dx + dy * dy <= _playerReach * _playerReach) return true;
+    }
+    return false;
   }
 
   /// Whether a detection at ([x], [y], [timestampMs]) is too far from the
@@ -396,7 +479,19 @@ class BallTracker {
     final from = geometry.sideOf(prev.x);
     final to = geometry.sideOf(now.x);
     if (from == to) return null;
-    return NetCrossEvent(now.timestampMs, from, to);
+    // A ball passing the net line *below* the entire table-surface band went
+    // under (or into) the net, not over it — that is not a legal crossing,
+    // so don't report one (the rally then ends via the no-return/loss paths,
+    // which attribute the fault to the hitter correctly).
+    final yAtNet = (prev.y + now.y) / 2;
+    if (geometry.bottom < 1.0 && yAtNet > geometry.bottom) return null;
+    return NetCrossEvent(
+      now.timestampMs,
+      from,
+      to,
+      originNearPlayer: _lastReversalNearPlayer,
+      originOffFrame: _lastReversalOffFrame,
+    );
   }
 
   /// A bounce is the apex of a downward-then-upward arc: the *previous* sample
@@ -428,6 +523,10 @@ class BallTracker {
 
   /// Forget all trajectory state (e.g. between rallies).
   void reset() {
+    _lastVxSign = 0;
+    _lastReversalNearPlayer = null;
+    _lastReversalOffFrame = false;
+    _missedBeforeSample = 0;
     _prev = null;
     _lastVy = null;
     _missedFrames = 0;
