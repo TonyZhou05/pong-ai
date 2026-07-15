@@ -179,6 +179,7 @@ class BallTracker {
     this.maxGapFrames = 6,
     this.maxJump,
     this.netBounceExclusion = 0,
+    this.netCrossHysteresis = 0,
     this.extendedGapFrames,
     this.frameTopExitY = 0.15,
     BallTrajectoryFilter? filter,
@@ -208,6 +209,18 @@ class BallTracker {
   /// stays far below it while a detection latching onto something across the
   /// table does not.
   final double? maxJump;
+
+  /// Minimum normalized distance the ball must travel PAST the net line
+  /// before a side change registers as a crossing. A dead ball dribbling
+  /// along the net oscillates across the line by a pixel or two and, on a
+  /// dense detection track, fires a storm of phantom crossings; real shots
+  /// clear the line by far more. `0` (the default) keeps the raw
+  /// line-crossing behaviour.
+  final double netCrossHysteresis;
+
+  /// The hysteresis-confirmed side of the ball (null until the ball has been
+  /// clearly on one side). Only used when [netCrossHysteresis] > 0.
+  TableSide? _confirmedSide;
 
   /// A more patient ball-loss budget applied when the evidence says play is
   /// probably still live despite the missing ball: the ball was last tracked
@@ -476,8 +489,32 @@ class BallTracker {
   }
 
   NetCrossEvent? _detectNetCross(BallSample prev, BallSample now) {
-    final from = geometry.sideOf(prev.x);
-    final to = geometry.sideOf(now.x);
+    TableSide from;
+    TableSide to;
+    if (netCrossHysteresis > 0) {
+      // Hysteresis: the side only flips once the ball is clearly past the
+      // line, so net-dribble jitter cannot fire crossings.
+      final clear = (now.x - geometry.netX).abs() >= netCrossHysteresis;
+      final side = geometry.sideOf(now.x);
+      if (_confirmedSide == null) {
+        // Seed from the previous sample (the first ever tracked position
+        // never reaches this method on its own), so a crossing on the very
+        // next sample is not silently swallowed as the seed.
+        if ((prev.x - geometry.netX).abs() >= netCrossHysteresis) {
+          _confirmedSide = geometry.sideOf(prev.x);
+        } else {
+          if (clear) _confirmedSide = side;
+          return null;
+        }
+      }
+      if (!clear || side == _confirmedSide) return null;
+      from = _confirmedSide!;
+      to = side;
+      _confirmedSide = side;
+    } else {
+      from = geometry.sideOf(prev.x);
+      to = geometry.sideOf(now.x);
+    }
     if (from == to) return null;
     // A ball passing the net line *below* the entire table-surface band went
     // under (or into) the net, not over it — that is not a legal crossing,
@@ -523,6 +560,7 @@ class BallTracker {
 
   /// Forget all trajectory state (e.g. between rallies).
   void reset() {
+    _confirmedSide = null;
     _lastVxSign = 0;
     _lastReversalNearPlayer = null;
     _lastReversalOffFrame = false;

@@ -40,9 +40,15 @@ void main(List<String> rawArgs) {
       maxJump: maxJump,
       minBounceSpeed: minBounceSpeed,
       netBounceExclusion: 0.03,
+      netCrossHysteresis: 0.03,
       extendedGapFrames: 60,
     ),
-    referee: RallyReferee(leftPlayer: fixture.leftPlayer, requireServe: true),
+    referee: RallyReferee(
+      leftPlayer: fixture.leftPlayer,
+      requireServe: true,
+      doubleBounceGraceMs: 500,
+      staleEventMs: 1200,
+    ),
     engine: ScoringEngine(
       firstServer: fixture.firstServer,
       pointsPerGame: fixture.pointsPerGame,

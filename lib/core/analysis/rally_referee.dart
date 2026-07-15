@@ -79,8 +79,46 @@ class PointDecision {
 /// It returns a [PointDecision] on the event that ends the rally and then
 /// resets itself for the next rally; otherwise it returns null.
 class RallyReferee {
-  RallyReferee({Player leftPlayer = Player.a, this.requireServe = false})
-      : _initialLeftPlayer = leftPlayer;
+  RallyReferee({
+    Player leftPlayer = Player.a,
+    this.requireServe = false,
+    this.doubleBounceGraceMs = 0,
+    this.staleEventMs,
+  }) : _initialLeftPlayer = leftPlayer;
+
+  /// Grace window for a double-bounce call. On dense detection tracks a
+  /// half-volley pickup (the racket taking the ball straight off the bounce)
+  /// — or a double-fired bounce apex — looks like a second same-side bounce.
+  /// A real given-up double bounce is never followed by an immediate return,
+  /// so when > 0 the decision is held pending: a crossing FROM that side
+  /// within the window cancels it (the "bounce" was the return); any other
+  /// event, a ball loss, or the window elapsing confirms it. `0` keeps the
+  /// historical immediate call.
+  final int doubleBounceGraceMs;
+
+  /// When set, a Bounce/NetCross arriving more than this many ms after the
+  /// previous rally event cannot ballistically belong to the same exchange —
+  /// the ball must have died in between (a netted shot dropping, dead-ball
+  /// motion). The armed rally is closed as undetermined at that moment and
+  /// the event is treated as post-rally noise. Null keeps events unchecked.
+  /// (Ball-loss events are exempt: their timestamps are delayed by
+  /// construction.)
+  final int? staleEventMs;
+
+  /// Pending double-bounce decision (see [doubleBounceGraceMs]).
+  PointDecision? _pendingDouble;
+  TableSide? _pendingDoubleSide;
+  int _pendingDoubleT = 0;
+
+  /// Timestamp of the last rally event processed while armed.
+  int? _lastEventT;
+
+  /// Whether the loose rally start (a crossing followed by a landing) is
+  /// still allowed. Only the FIRST rally of a feed may start loose — it
+  /// covers clips whose tracks begin mid-serve; after any decision the next
+  /// rally must show the strict serve signature, so dead-ball motion after a
+  /// point cannot re-arm the gate.
+  bool _looseStartAllowed = true;
 
   /// When true, events do not score (or even count as rally activity) until a
   /// rally has visibly been *initiated*: either the serve signature — a bounce
@@ -165,7 +203,6 @@ class RallyReferee {
   /// that shot demonstrably flew out, instead of assuming dead-ball drift.
   TableSide? _lastCrossTo;
   int _lastCrossT = 0;
-  bool? _lastCrossOriginNearPlayer;
   bool _lastCrossOriginOffFrame = false;
 
   /// The player on a given side of the table.
@@ -175,6 +212,45 @@ class RallyReferee {
   /// Process one rally event; returns a verdict if it ends the rally.
   PointDecision? update(TrackerEvent event) {
     if (requireServe && !_rallyStarted) return _onPreRally(event);
+
+    // Stale continuation: a bounce/crossing this long after the previous
+    // event cannot belong to the same exchange — the ball died unobserved in
+    // between (e.g. a netted shot). Close the rally as undetermined; the
+    // arriving event is post-rally noise (it re-enters via the serve gate).
+    final stale = staleEventMs;
+    if (stale != null &&
+        event is! BallLostEvent &&
+        _lastEventT != null &&
+        event.timestampMs - _lastEventT! > stale) {
+      final decision = _decide(
+        winner: null,
+        reason: PointReason.outOfPlay,
+        timestampMs: event.timestampMs,
+      );
+      update(event); // re-enters pre-rally after the reset; cannot decide
+      return decision;
+    }
+    _lastEventT = event.timestampMs;
+
+    // Pending double bounce: a same-side crossing within the grace window
+    // means the "second bounce" was a half-volley return — cancel and play
+    // on. Anything else confirms the double bounce.
+    final pending = _pendingDouble;
+    if (pending != null) {
+      if (event is NetCrossEvent &&
+          event.from == _pendingDoubleSide &&
+          event.timestampMs - _pendingDoubleT <= doubleBounceGraceMs) {
+        _pendingDouble = null;
+        _pendingDoubleSide = null;
+        return _onNetCross(event);
+      }
+      _pendingDouble = null;
+      _pendingDoubleSide = null;
+      reset();
+      update(event); // post-decision leftovers; re-enters the serve gate
+      return pending;
+    }
+
     return switch (event) {
       NetCrossEvent() => _onNetCross(event),
       BounceEvent() => _onBounce(event),
@@ -186,11 +262,12 @@ class RallyReferee {
   PointDecision? _onPreRally(TrackerEvent event) {
     switch (event) {
       case BounceEvent e:
-        if (_preCrossTo == e.side) {
+        if (_preCrossTo == e.side && _looseStartAllowed) {
           // The ball crossed the net and has now landed on the receiving
           // side: play is live (covers serves whose own-side bounce the
           // track missed).
           _rallyStarted = true;
+          _lastEventT = e.timestampMs;
           _lastBounceSide = e.side;
           _crossedSinceBounce = false;
         } else {
@@ -200,6 +277,7 @@ class RallyReferee {
         if (_preBounceSide == e.from) {
           // The serve signature: a bounce on S then a crossing from S.
           _rallyStarted = true;
+          _lastEventT = e.timestampMs;
           _lastBounceSide = e.from;
           _crossedSinceBounce = true;
           _crossesSinceBounce = 1;
@@ -228,7 +306,6 @@ class RallyReferee {
     _crossedSinceBounce = true;
     _lastCrossTo = event.to;
     _lastCrossT = event.timestampMs;
-    _lastCrossOriginNearPlayer = event.originNearPlayer;
     _lastCrossOriginOffFrame = event.originOffFrame;
     return null;
   }
@@ -237,6 +314,16 @@ class RallyReferee {
     final sameSide = _lastBounceSide == event.side;
     if (sameSide && !_crossedSinceBounce) {
       // Two bounces on one side with no return in between: that side lost.
+      if (doubleBounceGraceMs > 0) {
+        _pendingDouble = PointDecision(
+          winner: playerOn(event.side).other,
+          reason: PointReason.doubleBounce,
+          timestampMs: event.timestampMs,
+        );
+        _pendingDoubleSide = event.side;
+        _pendingDoubleT = event.timestampMs;
+        return null;
+      }
       return _decide(
         winner: playerOn(event.side).other,
         reason: PointReason.doubleBounce,
@@ -251,12 +338,19 @@ class RallyReferee {
     _crossesSinceBounce = 0;
     _firstUnansweredCrossTo = null;
     _lastCrossTo = null;
-    _lastCrossOriginNearPlayer = null;
     _lastCrossOriginOffFrame = false;
     return null;
   }
 
   PointDecision? _onBallLost(BallLostEvent event) {
+    // A pending double bounce that no return answered: it stands.
+    final pending = _pendingDouble;
+    if (pending != null) {
+      _pendingDouble = null;
+      _pendingDoubleSide = null;
+      reset();
+      return pending;
+    }
     // Exit evidence: the ball died past side X's baseline after a final
     // crossing INTO X. Whose fault that is depends on what that crossing was:
     //
@@ -280,7 +374,12 @@ class RallyReferee {
           timestampMs: _lastCrossT,
         );
       }
-      if (_crossesSinceBounce >= 2 && _lastCrossOriginNearPlayer == true) {
+      if (_crossesSinceBounce >= 2) {
+        // The ball recrossed and died past the recross's target. Whether the
+        // recross was a real return (its shot flew out) or dead-ball drift
+        // (the FIRST crossing's shot flew out) is not reliably decidable —
+        // verified footage shows identical signatures with opposite truths
+        // and the near-player classifier fooled in both directions. Prompt.
         return _decide(
           winner: null,
           reason: PointReason.outOfPlay,
@@ -346,6 +445,10 @@ class RallyReferee {
   /// With [requireServe], the gate re-arms: the next rally must again be
   /// visibly initiated before events count.
   void reset() {
+    _looseStartAllowed = false;
+    _lastEventT = null;
+    _pendingDouble = null;
+    _pendingDoubleSide = null;
     _lastBounceSide = null;
     _crossedSinceBounce = false;
     _crossesSinceBounce = 0;
@@ -354,7 +457,6 @@ class RallyReferee {
     _preBounceSide = null;
     _preCrossTo = null;
     _lastCrossTo = null;
-    _lastCrossOriginNearPlayer = null;
     _lastCrossOriginOffFrame = false;
   }
 }

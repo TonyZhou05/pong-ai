@@ -19,6 +19,7 @@ void main(List<String> args) {
     geometry: fixture.geometry,
     maxGapFrames: 30,
     netBounceExclusion: 0.03,
+    netCrossHysteresis: 0.03,
   );
   for (final frame in fixture.frames) {
     for (final event in tracker.update(frame)) {

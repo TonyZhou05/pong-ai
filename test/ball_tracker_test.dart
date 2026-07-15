@@ -374,6 +374,40 @@ void main() {
     });
   });
 
+  group('BallTracker — net-cross hysteresis', () {
+    test('net-dribble jitter around the line fires no crossings', () {
+      final tracker = BallTracker(netCrossHysteresis: 0.03);
+      final events = _run(tracker, [
+        _frame(0, 0.40, 0.5), // clearly left
+        _frame(33, 0.51, 0.5), // a hair past the line…
+        _frame(66, 0.49, 0.5), // …and back: dribbling on the net
+        _frame(99, 0.51, 0.5),
+        _frame(132, 0.49, 0.5),
+      ]);
+      expect(events.whereType<NetCrossEvent>(), isEmpty);
+    });
+
+    test('a real crossing that clears the line still fires', () {
+      final tracker = BallTracker(netCrossHysteresis: 0.03);
+      final events = _run(tracker, [
+        _frame(0, 0.40, 0.5),
+        _frame(33, 0.60, 0.5),
+      ]);
+      final cross = events.whereType<NetCrossEvent>().single;
+      expect(cross.from, TableSide.left);
+      expect(cross.to, TableSide.right);
+    });
+
+    test('off by default: raw line crossings unchanged', () {
+      final tracker = BallTracker();
+      final events = _run(tracker, [
+        _frame(0, 0.49, 0.5),
+        _frame(33, 0.51, 0.5),
+      ]);
+      expect(events.whereType<NetCrossEvent>(), hasLength(1));
+    });
+  });
+
   group('BallTracker — loss patience (extendedGapFrames)', () {
     FrameResult peopleFrame(int t, int people) => FrameResult(
           timestampMs: t,

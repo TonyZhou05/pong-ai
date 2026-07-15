@@ -164,9 +164,19 @@ class _MatchScreenState extends State<MatchScreen> {
           geometry: clip.geometry,
           maxGapFrames: 30,
           netBounceExclusion: 0.03,
+          netCrossHysteresis: 0.03,
           extendedGapFrames: 60,
         ),
-        referee: RallyReferee(leftPlayer: clip.leftPlayer, requireServe: true),
+        referee: RallyReferee(
+          leftPlayer: clip.leftPlayer,
+          requireServe: true,
+          // Dense-track tuning: a half-volley pickup looks like a second
+          // same-side bounce (grace window cancels it on the return
+          // crossing), and a bounce/cross >1.2s after the previous event is
+          // dead-ball motion, not the same exchange.
+          doubleBounceGraceMs: 500,
+          staleEventMs: 1200,
+        ),
         engine: ScoringEngine(
           firstServer: clip.firstServer,
           pointsPerGame: clip.pointsPerGame,

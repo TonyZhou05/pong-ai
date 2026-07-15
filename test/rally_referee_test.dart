@@ -358,22 +358,70 @@ void main() {
       expect(decisions.single.winner, isNull);
     });
 
-    test('a dead-drift recross (reversal in open space) keeps the '
-        'first-crossing attribution', () {
+    test('an on-frame recross that exits past its target is undecidable: '
+        'prompt', () {
+      // Verified footage shows this exact signature with OPPOSITE truths
+      // (a dead ball drifting back vs a real return flying out), and the
+      // near-player classifier has been fooled in both directions — so
+      // regardless of the origin classification, prompt rather than guess.
       final ref = RallyReferee();
       final decisions = _run(ref, [
         _bounce(0, TableSide.right),
-        crossWith(100, TableSide.right, near: true), // the shot that went out
-        crossWith(700, TableSide.left, near: false), // drift back
+        crossWith(100, TableSide.right, near: true),
+        crossWith(700, TableSide.left, near: false), // recross, on-frame
         const BallLostEvent(1500, lostOutside: TableSide.right),
       ]);
+      expect(decisions.single.reason, PointReason.outOfPlay);
+      expect(decisions.single.winner, isNull);
+    });
+  });
+
+  group('RallyReferee — dense-track guards', () {
+    test('a half-volley pickup cancels the pending double bounce', () {
+      final ref = RallyReferee(doubleBounceGraceMs: 500);
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.right),
+        _bounce(200, TableSide.right), // pickup right off the bounce…
+        _cross(350, TableSide.right), // …returned within the grace window
+        _bounce(500, TableSide.left),
+      ]);
+      expect(decisions, isEmpty, reason: 'the rally continues');
+    });
+
+    test('an unanswered pending double bounce stands at ball loss', () {
+      final ref = RallyReferee(doubleBounceGraceMs: 500);
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.right),
+        _bounce(200, TableSide.right),
+        _lost(1500),
+      ]);
       final d = decisions.single;
-      expect(d.reason, PointReason.outOfBounds);
-      expect(
-        d.winner,
-        Player.a,
-        reason: 'first unanswered crossing (into the left) was the fault',
-      );
+      expect(d.reason, PointReason.doubleBounce);
+      expect(d.winner, Player.a);
+      expect(d.timestampMs, 200, reason: 'stamped at the second bounce');
+    });
+
+    test('a stale bounce closes the rally as undetermined', () {
+      final ref = RallyReferee(staleEventMs: 1200);
+      final decisions = _run(ref, [
+        _bounce(0, TableSide.right),
+        _cross(100, TableSide.right),
+        // 1.4 s of silence: the ball died unobserved; this bounce is noise.
+        _bounce(1500, TableSide.left),
+      ]);
+      expect(decisions.single.reason, PointReason.outOfPlay);
+      expect(decisions.single.winner, isNull);
+    });
+
+    test('ball-loss timestamps are exempt from the staleness check', () {
+      final ref = RallyReferee(staleEventMs: 1200);
+      final decisions = _run(ref, [
+        _cross(0, TableSide.right),
+        _bounce(100, TableSide.left),
+        _lost(2500), // losses are delayed by construction
+      ]);
+      expect(decisions.single.reason, PointReason.notReturned);
+      expect(decisions.single.winner, Player.b);
     });
   });
 
