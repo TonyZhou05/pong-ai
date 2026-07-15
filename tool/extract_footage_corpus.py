@@ -51,7 +51,12 @@ SEG_PAD_S = 1.5  # context seconds kept around a cluster in the cut video
 PLAY_PAD_BEFORE_S = 1.0  # detector-ball trust window around the labels
 PLAY_PAD_AFTER_S = 0.5
 
-VIDEOS = ["test_1", "test_2", "test_3", "test_5", "test_6", "test_7"]
+VIDEOS = ["test_1", "test_2", "test_3", "test_5", "test_6", "test_7",
+          "test_4", "game_3", "game_4"]
+
+# Full-game videos hold dozens of labeled rallies; cap how many become
+# corpus clips so the asset bundle and the labeling workload stay sane.
+SEGMENT_CAP = {"game_3": 8, "game_4": 8, "test_4": 10}
 
 # Segments excluded on human review (benchmark/labels/rally_labels.json):
 # warm-up exchanges before the match starts, or rallies whose resolution the
@@ -109,7 +114,7 @@ KNOWN_TRUTH = {
     "test_5_r1": (1, 0, ["a"]),  # user-verified: notReturned
     "test_5_r2": (0, 1, ["b"]),  # user-verified: notReturned
     "test_5_r3": (1, 0, ["a"]),  # user-verified: notReturned
-    "test_5_r4": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_5_r4": (1, 0, ["a"]),  # corrected: B hit out past A (trajectory-verified, user-confirmed)
     "test_5_r5": (1, 0, ["a"]),  # user-verified: serveFault
     "test_5_r6": (0, 1, ["b"]),  # user-verified: outOfBounds
     "test_6_r1": (0, 1, ["b"]),  # user-verified: outOfBounds
@@ -247,6 +252,10 @@ def process_video(name):
     raw_clusters = list(clusters)
     kept = [c for c in clusters if is_rally(c)]
     dropped = len(clusters) - len(kept)
+    seg_cap = SEGMENT_CAP.get(name)
+    if seg_cap is not None and len(kept) > seg_cap:
+        print(f"  ({len(kept) - seg_cap} rallies beyond the cap of {seg_cap} skipped)")
+        kept = kept[:seg_cap]
     clusters = kept
     print(
         f"{name}: netX={net_x:.4f} table={table} -> "

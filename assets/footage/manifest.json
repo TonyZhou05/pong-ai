@@ -1,5 +1,27 @@
 [
  {
+  "id": "game_3_full",
+  "video": "assets/footage/game_3_full.mp4",
+  "fixture": "assets/footage/game_3_full.json",
+  "durationMs": 73400,
+  "bounces": 36,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Game 3 \u2014 Full set (8 rallies)"
+ },
+ {
+  "id": "game_4_full",
+  "video": "assets/footage/game_4_full.mp4",
+  "fixture": "assets/footage/game_4_full.json",
+  "durationMs": 115367,
+  "bounces": 46,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Game 4 \u2014 Full set (8 rallies)"
+ },
+ {
   "id": "test_1_full",
   "video": "assets/footage/test_1_full.mp4",
   "fixture": "assets/footage/test_1_full.json",
@@ -48,19 +70,30 @@
   "title": "Test 3 \u2014 Full set (5 rallies)"
  },
  {
+  "id": "test_4_full",
+  "video": "assets/footage/test_4_full.mp4",
+  "fixture": "assets/footage/test_4_full.json",
+  "durationMs": 82567,
+  "bounces": 40,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Test 4 \u2014 Full set (9 rallies)"
+ },
+ {
   "id": "test_5_full",
   "video": "assets/footage/test_5_full.mp4",
   "fixture": "assets/footage/test_5_full.json",
   "durationMs": 41333,
   "bounces": 19,
   "source": "OpenTTGames",
-  "pointsA": 3,
-  "pointsB": 3,
+  "pointsA": 4,
+  "pointsB": 2,
   "pointWinners": [
    "a",
    "b",
    "a",
-   "b",
+   "a",
    "a",
    "b"
   ],
@@ -104,6 +137,209 @@
    "a"
   ],
   "title": "Test 7 \u2014 Full set (5 rallies)"
+ },
+ {
+  "id": "game_3_r1",
+  "video": "assets/footage/game_3_r1.mp4",
+  "fixture": "assets/footage/game_3_r1.json",
+  "durationMs": 4900,
+  "bounces": 3,
+  "source": "OpenTTGames",
+  "pointsA": 1,
+  "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
+  "title": "Game 3 \u2014 Rally 1"
+ },
+ {
+  "id": "game_3_r2",
+  "video": "assets/footage/game_3_r2.mp4",
+  "fixture": "assets/footage/game_3_r2.json",
+  "durationMs": 8467,
+  "bounces": 5,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Game 3 \u2014 Rally 2"
+ },
+ {
+  "id": "game_3_r3",
+  "video": "assets/footage/game_3_r3.mp4",
+  "fixture": "assets/footage/game_3_r3.json",
+  "durationMs": 6033,
+  "bounces": 5,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
+  "title": "Game 3 \u2014 Rally 3"
+ },
+ {
+  "id": "game_3_r4",
+  "video": "assets/footage/game_3_r4.mp4",
+  "fixture": "assets/footage/game_3_r4.json",
+  "durationMs": 6267,
+  "bounces": 8,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
+  "title": "Game 3 \u2014 Rally 4"
+ },
+ {
+  "id": "game_3_r5",
+  "video": "assets/footage/game_3_r5.mp4",
+  "fixture": "assets/footage/game_3_r5.json",
+  "durationMs": 6467,
+  "bounces": 4,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Game 3 \u2014 Rally 5"
+ },
+ {
+  "id": "game_3_r6",
+  "video": "assets/footage/game_3_r6.mp4",
+  "fixture": "assets/footage/game_3_r6.json",
+  "durationMs": 11000,
+  "bounces": 3,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Game 3 \u2014 Rally 6"
+ },
+ {
+  "id": "game_3_r7",
+  "video": "assets/footage/game_3_r7.mp4",
+  "fixture": "assets/footage/game_3_r7.json",
+  "durationMs": 6000,
+  "bounces": 2,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Game 3 \u2014 Rally 7"
+ },
+ {
+  "id": "game_3_r8",
+  "video": "assets/footage/game_3_r8.mp4",
+  "fixture": "assets/footage/game_3_r8.json",
+  "durationMs": 6533,
+  "bounces": 6,
+  "source": "OpenTTGames",
+  "pointsA": 1,
+  "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
+  "title": "Game 3 \u2014 Rally 8"
+ },
+ {
+  "id": "game_4_r1",
+  "video": "assets/footage/game_4_r1.mp4",
+  "fixture": "assets/footage/game_4_r1.json",
+  "durationMs": 9333,
+  "bounces": 4,
+  "source": "OpenTTGames",
+  "pointsA": 1,
+  "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
+  "title": "Game 4 \u2014 Rally 1"
+ },
+ {
+  "id": "game_4_r2",
+  "video": "assets/footage/game_4_r2.mp4",
+  "fixture": "assets/footage/game_4_r2.json",
+  "durationMs": 4700,
+  "bounces": 4,
+  "source": "OpenTTGames",
+  "pointsA": 1,
+  "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
+  "title": "Game 4 \u2014 Rally 2"
+ },
+ {
+  "id": "game_4_r3",
+  "video": "assets/footage/game_4_r3.mp4",
+  "fixture": "assets/footage/game_4_r3.json",
+  "durationMs": 6833,
+  "bounces": 4,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
+  "title": "Game 4 \u2014 Rally 3"
+ },
+ {
+  "id": "game_4_r4",
+  "video": "assets/footage/game_4_r4.mp4",
+  "fixture": "assets/footage/game_4_r4.json",
+  "durationMs": 13267,
+  "bounces": 3,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Game 4 \u2014 Rally 4"
+ },
+ {
+  "id": "game_4_r5",
+  "video": "assets/footage/game_4_r5.mp4",
+  "fixture": "assets/footage/game_4_r5.json",
+  "durationMs": 8867,
+  "bounces": 7,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
+  "title": "Game 4 \u2014 Rally 5"
+ },
+ {
+  "id": "game_4_r6",
+  "video": "assets/footage/game_4_r6.mp4",
+  "fixture": "assets/footage/game_4_r6.json",
+  "durationMs": 22867,
+  "bounces": 8,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Game 4 \u2014 Rally 6"
+ },
+ {
+  "id": "game_4_r7",
+  "video": "assets/footage/game_4_r7.mp4",
+  "fixture": "assets/footage/game_4_r7.json",
+  "durationMs": 18300,
+  "bounces": 13,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Game 4 \u2014 Rally 7"
+ },
+ {
+  "id": "game_4_r8",
+  "video": "assets/footage/game_4_r8.mp4",
+  "fixture": "assets/footage/game_4_r8.json",
+  "durationMs": 13467,
+  "bounces": 3,
+  "source": "OpenTTGames",
+  "pointsA": 1,
+  "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
+  "title": "Game 4 \u2014 Rally 8"
  },
  {
   "id": "test_1_r1",
@@ -232,6 +468,126 @@
   "title": "Test 3 \u2014 Rally 5"
  },
  {
+  "id": "test_4_r1",
+  "video": "assets/footage/test_4_r1.mp4",
+  "fixture": "assets/footage/test_4_r1.json",
+  "durationMs": 6133,
+  "bounces": 4,
+  "source": "OpenTTGames",
+  "pointsA": 1,
+  "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
+  "title": "Test 4 \u2014 Rally 1"
+ },
+ {
+  "id": "test_4_r2",
+  "video": "assets/footage/test_4_r2.mp4",
+  "fixture": "assets/footage/test_4_r2.json",
+  "durationMs": 4800,
+  "bounces": 4,
+  "source": "OpenTTGames",
+  "pointsA": 1,
+  "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
+  "title": "Test 4 \u2014 Rally 2"
+ },
+ {
+  "id": "test_4_r3",
+  "video": "assets/footage/test_4_r3.mp4",
+  "fixture": "assets/footage/test_4_r3.json",
+  "durationMs": 4900,
+  "bounces": 4,
+  "source": "OpenTTGames",
+  "pointsA": 1,
+  "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
+  "title": "Test 4 \u2014 Rally 3"
+ },
+ {
+  "id": "test_4_r4",
+  "video": "assets/footage/test_4_r4.mp4",
+  "fixture": "assets/footage/test_4_r4.json",
+  "durationMs": 11500,
+  "bounces": 6,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Test 4 \u2014 Rally 4"
+ },
+ {
+  "id": "test_4_r5",
+  "video": "assets/footage/test_4_r5.mp4",
+  "fixture": "assets/footage/test_4_r5.json",
+  "durationMs": 4400,
+  "bounces": 3,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
+  "title": "Test 4 \u2014 Rally 5"
+ },
+ {
+  "id": "test_4_r6",
+  "video": "assets/footage/test_4_r6.mp4",
+  "fixture": "assets/footage/test_4_r6.json",
+  "durationMs": 4000,
+  "bounces": 1,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 0,
+  "title": "Test 4 \u2014 Rally 6"
+ },
+ {
+  "id": "test_4_r7",
+  "video": "assets/footage/test_4_r7.mp4",
+  "fixture": "assets/footage/test_4_r7.json",
+  "durationMs": 12033,
+  "bounces": 9,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
+  "title": "Test 4 \u2014 Rally 7"
+ },
+ {
+  "id": "test_4_r8",
+  "video": "assets/footage/test_4_r8.mp4",
+  "fixture": "assets/footage/test_4_r8.json",
+  "durationMs": 9100,
+  "bounces": 6,
+  "source": "OpenTTGames",
+  "pointsA": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
+  "title": "Test 4 \u2014 Rally 8"
+ },
+ {
+  "id": "test_4_r9",
+  "video": "assets/footage/test_4_r9.mp4",
+  "fixture": "assets/footage/test_4_r9.json",
+  "durationMs": 5433,
+  "bounces": 3,
+  "source": "OpenTTGames",
+  "pointsA": 1,
+  "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
+  "title": "Test 4 \u2014 Rally 9"
+ },
+ {
   "id": "test_5_r1",
   "video": "assets/footage/test_5_r1.mp4",
   "fixture": "assets/footage/test_5_r1.json",
@@ -280,10 +636,10 @@
   "durationMs": 4700,
   "bounces": 2,
   "source": "OpenTTGames",
-  "pointsA": 0,
-  "pointsB": 1,
+  "pointsA": 1,
+  "pointsB": 0,
   "pointWinners": [
-   "b"
+   "a"
   ],
   "title": "Test 5 \u2014 Rally 4"
  },
