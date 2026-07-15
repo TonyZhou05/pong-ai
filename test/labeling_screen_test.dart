@@ -143,6 +143,34 @@ void main() {
     expect(find.byKey(const ValueKey('inlineFootage')), findsNothing);
   });
 
+  testWidgets('a typed end time persists without pressing enter',
+      (tester) async {
+    final store = InMemoryRallyLabelStore();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LabelingScreen(
+          manifestLoader: () async => _corpus(),
+          labelStore: store,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Type into the first rally's end-time field and move on — no submit.
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Ends at (s)').first,
+      '6.2',
+    );
+    await tester.pump();
+
+    final labels = await store.load();
+    expect(
+      labels['test_9_r1']!.endSeconds,
+      6.2,
+      reason: 'typing alone must persist (the reported reset bug)',
+    );
+  });
+
   testWidgets('selecting winner and reason persists the label',
       (tester) async {
     final store = InMemoryRallyLabelStore();

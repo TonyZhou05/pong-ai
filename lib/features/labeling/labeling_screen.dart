@@ -392,7 +392,10 @@ class _RallyLabelCardState extends State<_RallyLabelCard> {
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    onFieldSubmitted: (v) {
+                    // Persist as the user types — a value that was only
+                    // typed (never submitted) must survive moving on to the
+                    // next card.
+                    onChanged: (v) {
                       final s = double.tryParse(v);
                       if (s != null) widget.onEndSeconds(s);
                     },
