@@ -53,18 +53,78 @@ PLAY_PAD_AFTER_S = 0.5
 
 VIDEOS = ["test_1", "test_2", "test_3", "test_5", "test_6", "test_7"]
 
+# Segments excluded on human review (benchmark/labels/rally_labels.json):
+# warm-up exchanges before the match starts, or rallies whose resolution the
+# source video never shows. Keyed by segment id under the current numbering.
+EXCLUDED_SEGMENTS = {"test_5_r7", "test_5_r8"}
+
+# Human-labeled rally end times (seconds, segment-relative). The segment
+# extension probe is capped at label_end + END_LABEL_ROOM_S — generous room
+# so a rally's real ending (dying bounces, ball settling) is never cut,
+# while dead-time tails are.
+END_LABEL_ROOM_S = 1.5
+LABELED_ENDS = {
+    "test_1_r1": 6.7,
+    "test_1_r2": 15.2,
+    "test_2_r1": 10.7,
+    "test_2_r2": 6.8,
+    "test_3_r1": 3.9,
+    "test_3_r2": 2.6,
+    "test_3_r3": 4,
+    "test_3_r4": 9.7,
+    "test_3_r5": 4.8,
+    "test_5_r1": 3.5,
+    "test_5_r2": 3.7,
+    "test_5_r3": 3.6,
+    "test_5_r4": 3.6,
+    "test_5_r5": 3.5,
+    "test_5_r6": 4.2,
+    "test_6_r1": 5.5,
+    "test_6_r2": 4.5,
+    "test_6_r3": 9.5,
+    "test_6_r4": 3.3,
+    "test_6_r5": 2.4,
+    "test_6_r6": 6.4,
+    "test_6_r7": 7.5,
+    "test_6_r8": 3.8,
+    "test_7_r1": 3.4,
+    "test_7_r2": 5.9,
+    "test_7_r3": 4,
+    "test_7_r4": 11.4,
+    "test_7_r5": 3.2,
+}
+
 # Rally outcomes verified by watching the clips (user-confirmed for test_2):
 # segment id -> (pointsA, pointsB, winners). Others are unannotated.
 KNOWN_TRUTH = {
-    "test_2_r1": (0, 1, ["b"]),  # left player off-frame, triple bounce left
-    "test_2_r2": (1, 0, ["a"]),  # right player's hit flies out of bounds
-    "test_3_r1": (0, 1, ["b"]),  # ball dies on left, A never returns
-    "test_3_r2": (1, 0, ["a"]),  # A's shot bounces on B's side, B steps away
-    "test_3_r3": (0, 1, ["b"]),  # A's shot dives past the right edge, no bounce
-    "test_3_r4": (0, 1, ["b"]),  # A nets his return; ball dies on his side
-    "test_3_r5": (0, 1, ["b"]),  # B's return bounces the left edge away; A gives up
-    "test_6_r1": (0, 1, ["b"]),  # A's lob return flies long right; B fetches it
-    "test_6_r2": (1, 0, ["a"]),  # B's off-frame return sails out past the left baseline
+    "test_1_r1": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_1_r2": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_2_r1": (0, 1, ["b"]),  # user-verified: intoNet
+    "test_2_r2": (1, 0, ["a"]),  # user-verified: outOfBounds
+    "test_3_r1": (0, 1, ["b"]),  # user-verified: intoNet
+    "test_3_r2": (1, 0, ["a"]),  # user-verified: intoNet
+    "test_3_r3": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_3_r4": (0, 1, ["b"]),  # user-verified: intoNet
+    "test_3_r5": (0, 1, ["b"]),  # user-verified: notReturned
+    "test_5_r1": (1, 0, ["a"]),  # user-verified: notReturned
+    "test_5_r2": (0, 1, ["b"]),  # user-verified: notReturned
+    "test_5_r3": (1, 0, ["a"]),  # user-verified: notReturned
+    "test_5_r4": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_5_r5": (1, 0, ["a"]),  # user-verified: serveFault
+    "test_5_r6": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_6_r1": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_6_r2": (1, 0, ["a"]),  # user-verified: outOfBounds
+    "test_6_r3": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_6_r4": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_6_r5": (0, 1, ["b"]),  # user-verified: intoNet
+    "test_6_r6": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_6_r7": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_6_r8": (0, 1, ["b"]),  # user-verified: intoNet
+    "test_7_r1": (0, 1, ["b"]),  # user-verified: notReturned
+    "test_7_r2": (1, 0, ["a"]),  # user-verified: intoNet
+    "test_7_r3": (1, 0, ["a"]),  # user-verified: outOfBounds
+    "test_7_r4": (0, 1, ["b"]),  # user-verified: intoNet
+    "test_7_r5": (1, 0, ["a"]),  # user-verified: intoNet
 }
 
 pose_model = YOLO("yolo11n-pose.pt")
@@ -239,8 +299,23 @@ def process_video(name):
 
     for i, cluster in enumerate(clusters, start=1):
         seg_id = f"{name}_r{i}"
+        if seg_id in EXCLUDED_SEGMENTS:
+            print(f"  {seg_id}: excluded (human review)")
+            continue
         c0, c1 = cluster[0], cluster[-1]
         next_c0 = next((s0 for s0 in raw_starts if s0 > c1), None)
+        if seg_id in LABELED_ENDS:
+            # Segment start is c0 - SEG_PAD_S; the labeled end is relative to
+            # that. Cap the extension probe with room to spare.
+            # probe_extension subtracts a 2 s margin from next_c0, so add
+            # it back: the effective cap lands at label_end + room.
+            label_cap = int(
+                c0
+                + (-SEG_PAD_S + LABELED_ENDS[seg_id] + END_LABEL_ROOM_S + 2.0)
+                * SRC_FPS
+            )
+            next_c0 = min(next_c0, label_cap) if next_c0 is not None else label_cap
+            next_c0 = max(next_c0, int(c1 + 2.0 * SRC_FPS))  # never cap before the labels end
         c1_ext = probe_extension(c1, next_c0)
         if c1_ext > c1 + SRC_FPS:  # extended by more than a second
             print(f"  {seg_id}: play continues {(c1_ext - c1) / SRC_FPS:.1f}s "
