@@ -1,15 +1,128 @@
 [
  {
+  "clipId": "game_3_r1",
+  "winner": "unclear",
+  "reason": "other",
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_3_r2",
+  "winner": "a",
+  "reason": "outOfBounds",
+  "endSeconds": 4.5,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_3_r3",
+  "winner": "b",
+  "reason": "outOfBounds",
+  "endSeconds": 5.5,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_3_r4",
+  "winner": "b",
+  "reason": "intoNet",
+  "endSeconds": 4.6,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_3_r5",
+  "winner": "b",
+  "reason": "outOfBounds",
+  "endSeconds": 4.4,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_3_r6",
+  "winner": "a",
+  "reason": "outOfBounds",
+  "endSeconds": 4.4,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_3_r7",
+  "winner": "a",
+  "reason": "outOfBounds",
+  "endSeconds": 2.9,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_3_r8",
+  "winner": "a",
+  "reason": "outOfBounds",
+  "endSeconds": 5.4,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_4_r1",
+  "winner": "b",
+  "reason": "outOfBounds",
+  "endSeconds": 4.6,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_4_r2",
+  "winner": "a",
+  "reason": "intoNet",
+  "endSeconds": 3.7,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_4_r3",
+  "winner": "b",
+  "reason": "intoNet",
+  "endSeconds": 4,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_4_r4",
+  "winner": "b",
+  "reason": "outOfBounds",
+  "endSeconds": 3.8,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_4_r5",
+  "winner": "a",
+  "reason": "outOfBounds",
+  "endSeconds": 7,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_4_r6",
+  "winner": "b",
+  "reason": "notReturned",
+  "endSeconds": 7,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_4_r7",
+  "winner": "a",
+  "reason": "intoNet",
+  "endSeconds": 10.4,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "game_4_r8",
+  "winner": "b",
+  "reason": "outOfBounds",
+  "endSeconds": 3.5,
+  "labeledAt": "2026-07-18"
+ },
+ {
   "clipId": "test_1_r1",
   "winner": "b",
   "reason": "outOfBounds",
-  "endSeconds": 6.7
+  "endSeconds": 6.4,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_1_r2",
-  "winner": "b",
+  "winner": "a",
   "reason": "outOfBounds",
-  "endSeconds": 15.2
+  "endSeconds": 14.8,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_2_r1",
@@ -21,13 +134,15 @@
   "clipId": "test_2_r2",
   "winner": "a",
   "reason": "outOfBounds",
-  "endSeconds": 6.8
+  "endSeconds": 6.8,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_3_r1",
   "winner": "b",
   "reason": "intoNet",
-  "endSeconds": 3.9
+  "endSeconds": 3.7,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_3_r2",
@@ -39,44 +154,111 @@
   "clipId": "test_3_r3",
   "winner": "b",
   "reason": "outOfBounds",
-  "endSeconds": 4
+  "endSeconds": 3.8,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_3_r4",
   "winner": "b",
   "reason": "intoNet",
-  "endSeconds": 9.7
+  "endSeconds": 9.8,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_3_r5",
   "winner": "b",
   "reason": "notReturned",
-  "endSeconds": 4.8
+  "endSeconds": 4.5,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "test_4_r1",
+  "winner": "b",
+  "reason": "outOfBounds",
+  "endSeconds": 5.4,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "test_4_r2",
+  "winner": "a",
+  "reason": "intoNet",
+  "endSeconds": 3.8,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "test_4_r3",
+  "winner": "a",
+  "reason": "outOfBounds",
+  "endSeconds": 3.9,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "test_4_r4",
+  "winner": "a",
+  "reason": "intoNet",
+  "endSeconds": 7.2,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "test_4_r5",
+  "winner": "unclear",
+  "reason": "other",
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "test_4_r6",
+  "winner": "b",
+  "reason": "outOfBounds",
+  "endSeconds": 3,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "test_4_r7",
+  "winner": "b",
+  "reason": "intoNet",
+  "endSeconds": 7.4,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "test_4_r8",
+  "winner": "b",
+  "reason": "intoNet",
+  "endSeconds": 5.2,
+  "labeledAt": "2026-07-18"
+ },
+ {
+  "clipId": "test_4_r9",
+  "winner": "unclear",
+  "reason": "other",
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_5_r1",
   "winner": "a",
-  "reason": "notReturned",
-  "endSeconds": 3.5
+  "reason": "outOfBounds",
+  "endSeconds": 3.9,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_5_r2",
   "winner": "b",
   "reason": "notReturned",
-  "endSeconds": 3.7
+  "endSeconds": 3.9,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_5_r3",
   "winner": "a",
   "reason": "notReturned",
-  "endSeconds": 3.6
+  "endSeconds": 4,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_5_r4",
   "winner": "a",
   "reason": "outOfBounds",
   "endSeconds": 3.6,
-  "note": "corrected 2026-07-15: trajectory-verified, user-confirmed (B hit out past A)"
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_5_r5",
@@ -88,7 +270,8 @@
   "clipId": "test_5_r6",
   "winner": "b",
   "reason": "outOfBounds",
-  "endSeconds": 4.2
+  "endSeconds": 3.9,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_5_r7",
@@ -102,78 +285,91 @@
   "clipId": "test_6_r1",
   "winner": "b",
   "reason": "outOfBounds",
-  "endSeconds": 5.5
+  "endSeconds": 4.2,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_6_r2",
   "winner": "a",
   "reason": "outOfBounds",
-  "endSeconds": 4.5
+  "endSeconds": 4.5,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_6_r3",
   "winner": "b",
   "reason": "outOfBounds",
-  "endSeconds": 9.5
+  "endSeconds": 9.5,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_6_r4",
   "winner": "b",
   "reason": "outOfBounds",
-  "endSeconds": 3.3
+  "endSeconds": 3.2,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_6_r5",
   "winner": "b",
   "reason": "intoNet",
-  "endSeconds": 2.4
+  "endSeconds": 3.2,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_6_r6",
   "winner": "b",
-  "reason": "outOfBounds",
-  "endSeconds": 6.4
+  "reason": "notReturned",
+  "endSeconds": 6.4,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_6_r7",
   "winner": "b",
   "reason": "outOfBounds",
-  "endSeconds": 7.5
+  "endSeconds": 7.5,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_6_r8",
   "winner": "b",
   "reason": "intoNet",
-  "endSeconds": 3.8
+  "endSeconds": 4,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_7_r1",
   "winner": "b",
   "reason": "notReturned",
-  "endSeconds": 3.4
+  "endSeconds": 3.6,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_7_r2",
   "winner": "a",
   "reason": "intoNet",
-  "endSeconds": 5.9
+  "endSeconds": 6,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_7_r3",
   "winner": "a",
   "reason": "outOfBounds",
-  "endSeconds": 4
+  "endSeconds": 4.1,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_7_r4",
   "winner": "b",
   "reason": "intoNet",
-  "endSeconds": 11.4
+  "endSeconds": 12,
+  "labeledAt": "2026-07-18"
  },
  {
   "clipId": "test_7_r5",
   "winner": "a",
   "reason": "intoNet",
-  "endSeconds": 3.2
+  "endSeconds": 3,
+  "labeledAt": "2026-07-18"
  }
 ]

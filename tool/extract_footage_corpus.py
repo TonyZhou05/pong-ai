@@ -69,41 +69,78 @@ EXCLUDED_SEGMENTS = {"test_5_r7", "test_5_r8"}
 # while dead-time tails are.
 END_LABEL_ROOM_S = 1.5
 LABELED_ENDS = {
-    "test_1_r1": 6.7,
-    "test_1_r2": 15.2,
+    "game_3_r2": 4.5,
+    "game_3_r3": 5.5,
+    "game_3_r4": 4.6,
+    "game_3_r5": 4.4,
+    "game_3_r6": 4.4,
+    "game_3_r7": 2.9,
+    "game_3_r8": 5.4,
+    "game_4_r1": 4.6,
+    "game_4_r2": 3.7,
+    "game_4_r3": 4,
+    "game_4_r4": 3.8,
+    "game_4_r5": 7,
+    "game_4_r6": 7,
+    "game_4_r7": 10.4,
+    "game_4_r8": 3.5,
+    "test_1_r1": 6.4,
+    "test_1_r2": 14.8,
     "test_2_r1": 10.7,
     "test_2_r2": 6.8,
-    "test_3_r1": 3.9,
+    "test_3_r1": 3.7,
     "test_3_r2": 2.6,
-    "test_3_r3": 4,
-    "test_3_r4": 9.7,
-    "test_3_r5": 4.8,
-    "test_5_r1": 3.5,
-    "test_5_r2": 3.7,
-    "test_5_r3": 3.6,
+    "test_3_r3": 3.8,
+    "test_3_r4": 9.8,
+    "test_3_r5": 4.5,
+    "test_4_r1": 5.4,
+    "test_4_r2": 3.8,
+    "test_4_r3": 3.9,
+    "test_4_r4": 7.2,
+    "test_4_r6": 3,
+    "test_4_r7": 7.4,
+    "test_4_r8": 5.2,
+    "test_5_r1": 3.9,
+    "test_5_r2": 3.9,
+    "test_5_r3": 4,
     "test_5_r4": 3.6,
     "test_5_r5": 3.5,
-    "test_5_r6": 4.2,
-    "test_6_r1": 5.5,
+    "test_5_r6": 3.9,
+    "test_6_r1": 4.2,
     "test_6_r2": 4.5,
     "test_6_r3": 9.5,
-    "test_6_r4": 3.3,
-    "test_6_r5": 2.4,
+    "test_6_r4": 3.2,
+    "test_6_r5": 3.2,
     "test_6_r6": 6.4,
     "test_6_r7": 7.5,
-    "test_6_r8": 3.8,
-    "test_7_r1": 3.4,
-    "test_7_r2": 5.9,
-    "test_7_r3": 4,
-    "test_7_r4": 11.4,
-    "test_7_r5": 3.2,
+    "test_6_r8": 4,
+    "test_7_r1": 3.6,
+    "test_7_r2": 6,
+    "test_7_r3": 4.1,
+    "test_7_r4": 12,
+    "test_7_r5": 3,
 }
 
 # Rally outcomes verified by watching the clips (user-confirmed for test_2):
 # segment id -> (pointsA, pointsB, winners). Others are unannotated.
 KNOWN_TRUTH = {
+    "game_3_r2": (1, 0, ["a"]),  # user-verified: outOfBounds
+    "game_3_r3": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "game_3_r4": (0, 1, ["b"]),  # user-verified: intoNet
+    "game_3_r5": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "game_3_r6": (1, 0, ["a"]),  # user-verified: outOfBounds
+    "game_3_r7": (1, 0, ["a"]),  # user-verified: outOfBounds
+    "game_3_r8": (1, 0, ["a"]),  # user-verified: outOfBounds
+    "game_4_r1": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "game_4_r2": (1, 0, ["a"]),  # user-verified: intoNet
+    "game_4_r3": (0, 1, ["b"]),  # user-verified: intoNet
+    "game_4_r4": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "game_4_r5": (1, 0, ["a"]),  # user-verified: outOfBounds
+    "game_4_r6": (0, 1, ["b"]),  # user-verified: notReturned
+    "game_4_r7": (1, 0, ["a"]),  # user-verified: intoNet
+    "game_4_r8": (0, 1, ["b"]),  # user-verified: outOfBounds
     "test_1_r1": (0, 1, ["b"]),  # user-verified: outOfBounds
-    "test_1_r2": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_1_r2": (1, 0, ["a"]),  # user-verified: outOfBounds
     "test_2_r1": (0, 1, ["b"]),  # user-verified: intoNet
     "test_2_r2": (1, 0, ["a"]),  # user-verified: outOfBounds
     "test_3_r1": (0, 1, ["b"]),  # user-verified: intoNet
@@ -111,10 +148,17 @@ KNOWN_TRUTH = {
     "test_3_r3": (0, 1, ["b"]),  # user-verified: outOfBounds
     "test_3_r4": (0, 1, ["b"]),  # user-verified: intoNet
     "test_3_r5": (0, 1, ["b"]),  # user-verified: notReturned
-    "test_5_r1": (1, 0, ["a"]),  # user-verified: notReturned
+    "test_4_r1": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_4_r2": (1, 0, ["a"]),  # user-verified: intoNet
+    "test_4_r3": (1, 0, ["a"]),  # user-verified: outOfBounds
+    "test_4_r4": (1, 0, ["a"]),  # user-verified: intoNet
+    "test_4_r6": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_4_r7": (0, 1, ["b"]),  # user-verified: intoNet
+    "test_4_r8": (0, 1, ["b"]),  # user-verified: intoNet
+    "test_5_r1": (1, 0, ["a"]),  # user-verified: outOfBounds
     "test_5_r2": (0, 1, ["b"]),  # user-verified: notReturned
     "test_5_r3": (1, 0, ["a"]),  # user-verified: notReturned
-    "test_5_r4": (1, 0, ["a"]),  # corrected: B hit out past A (trajectory-verified, user-confirmed)
+    "test_5_r4": (1, 0, ["a"]),  # user-verified: outOfBounds
     "test_5_r5": (1, 0, ["a"]),  # user-verified: serveFault
     "test_5_r6": (0, 1, ["b"]),  # user-verified: outOfBounds
     "test_6_r1": (0, 1, ["b"]),  # user-verified: outOfBounds
@@ -122,7 +166,7 @@ KNOWN_TRUTH = {
     "test_6_r3": (0, 1, ["b"]),  # user-verified: outOfBounds
     "test_6_r4": (0, 1, ["b"]),  # user-verified: outOfBounds
     "test_6_r5": (0, 1, ["b"]),  # user-verified: intoNet
-    "test_6_r6": (0, 1, ["b"]),  # user-verified: outOfBounds
+    "test_6_r6": (0, 1, ["b"]),  # user-verified: notReturned
     "test_6_r7": (0, 1, ["b"]),  # user-verified: outOfBounds
     "test_6_r8": (0, 1, ["b"]),  # user-verified: intoNet
     "test_7_r1": (0, 1, ["b"]),  # user-verified: notReturned

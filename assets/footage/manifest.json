@@ -17,8 +17,18 @@
   "durationMs": 115367,
   "bounces": 46,
   "source": "OpenTTGames",
-  "pointsA": 0,
-  "pointsB": 0,
+  "pointsA": 3,
+  "pointsB": 5,
+  "pointWinners": [
+   "b",
+   "a",
+   "b",
+   "b",
+   "a",
+   "b",
+   "a",
+   "b"
+  ],
   "title": "Game 4 \u2014 Full set (8 rallies)"
  },
  {
@@ -28,11 +38,11 @@
   "durationMs": 25433,
   "bounces": 27,
   "source": "OpenTTGames",
-  "pointsA": 0,
-  "pointsB": 2,
+  "pointsA": 1,
+  "pointsB": 1,
   "pointWinners": [
    "b",
-   "b"
+   "a"
   ],
   "title": "Test 1 \u2014 Full set (2 rallies)"
  },
@@ -145,11 +155,8 @@
   "durationMs": 4900,
   "bounces": 3,
   "source": "OpenTTGames",
-  "pointsA": 1,
+  "pointsA": 0,
   "pointsB": 0,
-  "pointWinners": [
-   "a"
-  ],
   "title": "Game 3 \u2014 Rally 1"
  },
  {
@@ -159,8 +166,11 @@
   "durationMs": 8467,
   "bounces": 5,
   "source": "OpenTTGames",
-  "pointsA": 0,
+  "pointsA": 1,
   "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
   "title": "Game 3 \u2014 Rally 2"
  },
  {
@@ -199,7 +209,10 @@
   "bounces": 4,
   "source": "OpenTTGames",
   "pointsA": 0,
-  "pointsB": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
   "title": "Game 3 \u2014 Rally 5"
  },
  {
@@ -209,8 +222,11 @@
   "durationMs": 11000,
   "bounces": 3,
   "source": "OpenTTGames",
-  "pointsA": 0,
+  "pointsA": 1,
   "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
   "title": "Game 3 \u2014 Rally 6"
  },
  {
@@ -220,8 +236,11 @@
   "durationMs": 6000,
   "bounces": 2,
   "source": "OpenTTGames",
-  "pointsA": 0,
+  "pointsA": 1,
   "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
   "title": "Game 3 \u2014 Rally 7"
  },
  {
@@ -245,10 +264,10 @@
   "durationMs": 9333,
   "bounces": 4,
   "source": "OpenTTGames",
-  "pointsA": 1,
-  "pointsB": 0,
+  "pointsA": 0,
+  "pointsB": 1,
   "pointWinners": [
-   "a"
+   "b"
   ],
   "title": "Game 4 \u2014 Rally 1"
  },
@@ -288,7 +307,10 @@
   "bounces": 3,
   "source": "OpenTTGames",
   "pointsA": 0,
-  "pointsB": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
   "title": "Game 4 \u2014 Rally 4"
  },
  {
@@ -298,10 +320,10 @@
   "durationMs": 8867,
   "bounces": 7,
   "source": "OpenTTGames",
-  "pointsA": 0,
-  "pointsB": 1,
+  "pointsA": 1,
+  "pointsB": 0,
   "pointWinners": [
-   "b"
+   "a"
   ],
   "title": "Game 4 \u2014 Rally 5"
  },
@@ -313,7 +335,10 @@
   "bounces": 8,
   "source": "OpenTTGames",
   "pointsA": 0,
-  "pointsB": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
   "title": "Game 4 \u2014 Rally 6"
  },
  {
@@ -323,8 +348,11 @@
   "durationMs": 18300,
   "bounces": 13,
   "source": "OpenTTGames",
-  "pointsA": 0,
+  "pointsA": 1,
   "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
   "title": "Game 4 \u2014 Rally 7"
  },
  {
@@ -334,10 +362,10 @@
   "durationMs": 13467,
   "bounces": 3,
   "source": "OpenTTGames",
-  "pointsA": 1,
-  "pointsB": 0,
+  "pointsA": 0,
+  "pointsB": 1,
   "pointWinners": [
-   "a"
+   "b"
   ],
   "title": "Game 4 \u2014 Rally 8"
  },
@@ -362,10 +390,10 @@
   "durationMs": 15700,
   "bounces": 17,
   "source": "OpenTTGames",
-  "pointsA": 0,
-  "pointsB": 1,
+  "pointsA": 1,
+  "pointsB": 0,
   "pointWinners": [
-   "b"
+   "a"
   ],
   "title": "Test 1 \u2014 Rally 2"
  },
@@ -474,10 +502,10 @@
   "durationMs": 6133,
   "bounces": 4,
   "source": "OpenTTGames",
-  "pointsA": 1,
-  "pointsB": 0,
+  "pointsA": 0,
+  "pointsB": 1,
   "pointWinners": [
-   "a"
+   "b"
   ],
   "title": "Test 4 \u2014 Rally 1"
  },
@@ -516,8 +544,11 @@
   "durationMs": 11500,
   "bounces": 6,
   "source": "OpenTTGames",
-  "pointsA": 0,
+  "pointsA": 1,
   "pointsB": 0,
+  "pointWinners": [
+   "a"
+  ],
   "title": "Test 4 \u2014 Rally 4"
  },
  {
@@ -528,10 +559,7 @@
   "bounces": 3,
   "source": "OpenTTGames",
   "pointsA": 0,
-  "pointsB": 1,
-  "pointWinners": [
-   "b"
-  ],
+  "pointsB": 0,
   "title": "Test 4 \u2014 Rally 5"
  },
  {
@@ -542,7 +570,10 @@
   "bounces": 1,
   "source": "OpenTTGames",
   "pointsA": 0,
-  "pointsB": 0,
+  "pointsB": 1,
+  "pointWinners": [
+   "b"
+  ],
   "title": "Test 4 \u2014 Rally 6"
  },
  {
@@ -580,11 +611,8 @@
   "durationMs": 5433,
   "bounces": 3,
   "source": "OpenTTGames",
-  "pointsA": 1,
+  "pointsA": 0,
   "pointsB": 0,
-  "pointWinners": [
-   "a"
-  ],
   "title": "Test 4 \u2014 Rally 9"
  },
  {
